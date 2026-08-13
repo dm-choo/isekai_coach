@@ -13,6 +13,7 @@
 - engine은 state transition과 구조화된 `CombatEvent` history를 만들고, presentation은 event를 해석해 화면에 재생한다.
 - simulation 진행과 animation 속도는 분리된다. pause, step, 1x, 2x, 4x, instant presentation이 전투 결과를 바꾸지 않는다.
 - 현재 runtime에서 pause는 presentation queue와 tween을 멈추고, step은 `CombatEvent` 하나를 재생하며, instant는 event를 생략하지 않고 zero-duration으로 소진한다. 이 조작 의미는 final UX가 아닌 dev-shell 계약이다.
+- reset, scenario switch와 Scene detach는 현재 presentation을 abort한다. 이전 generation의 tween/timer Promise가 새 전투를 갱신하거나 영구 대기하지 않는다.
 - React와 Phaser는 bridge/event boundary로 통신한다. React가 Scene 내부 state를 직접 변경하지 않는다.
 - 논리 grid 좌표와 화면 좌표는 분리하며 projection은 교체 가능하다.
 
@@ -24,6 +25,7 @@
 - 학생 행동은 AP 비용을 가지며 AP는 턴 시작 단계에서 max AP까지 회복한다. AP가 남으면 주입된 strategy를 다시 평가할 수 있다.
 - Move, Defend, Thrust, Slash는 현재 샌드박스의 실제 action/effect 경로를 사용한다.
 - attack footprint와 damage는 ability/pattern data에서 온다. renderer나 기술명별 특수 분기가 공격 결과를 결정하지 않는다.
+- ability 대상 선택과 effect 적용은 분리되어 Damage, Guard, Knockback을 하나의 effect 배열에서 조합할 수 있다.
 - 실행 불가능한 행동은 state를 망가뜨리지 않고 실패 이유를 표현할 수 있다.
 - Knockback은 경계와 점유를 검사하는 강제 이동 primitive다. 막히면 unit이 겹치거나 grid 밖으로 나가지 않는다.
 
@@ -50,6 +52,7 @@ effect ordering은 engine/resolver에 명시하고 animation callback에 숨기�
 - `BODY` intent는 source의 현재 위치를 origin으로 footprint를 다시 계산한다. source가 밀려도 선언 당시 aim/direction은 그대로다.
 - `GROUND` intent는 선언 당시 origin과 footprint를 유지한다. 모델과 테스트가 이 anchor를 수용하지만 현재 정식 공격 콘텐츠는 아니다.
 - BODY source가 움직여 footprint가 바뀌면 telegraph와 event history도 그 변화를 반영한다.
+- 이동 intent는 `movementPath`, 능력 intent는 `effectCells`를 사용한다. 이동 셀을 공격 threat로 표시하지 않는다.
 - 짧은 Warrior footprint는 source가 한 칸 밀린 뒤 학생을 빗나갈 수 있다.
 - 긴 Spearman footprint는 같은 이동 뒤에도 학생을 포함할 수 있다.
 
@@ -61,7 +64,7 @@ effect ordering은 engine/resolver에 명시하고 animation callback에 숨기�
 - combat resolution에는 명중, 치명타, 무작위 피해가 없다.
 - 같은 initial state와 같은 action sequence는 같은 final state와 같은 event sequence를 만든다.
 - 향후 필요한 RNG는 seed 가능한 `RandomSource` 경계로 주입하며 domain 곳곳에서 `Math.random()`을 직접 사용하지 않는다.
-- 구조화된 event history는 턴, intent, AP 회복/소비, 행동, 이동, 상태, 피해/방어, knockback, 취소와 죽음 등 의미 있는 state transition을 보존한다.
+- 구조화된 event history는 state snapshot과 별도로 턴, intent, AP 회복/소비, 행동, 이동, 상태, 피해/방어, knockback, 취소와 죽음 등 의미 있는 state transition을 보존한다.
 - 죽은 unit은 이후 행동 또는 intent를 실행하지 않는다.
 
 ### Presentation and development surface
@@ -69,9 +72,9 @@ effect ordering은 engine/resolver에 명시하고 animation callback에 숨기�
 - Phaser는 grid, unit, facing, HP/AP, 현재 턴, intent와 telegraph를 placeholder로 표시한다.
 - unit presentation은 `idle`, `move`, `attack`, `defend`, `hit`, `knockback`, `death` 상태를 구별할 수 있다.
 - `CombatEvent -> AnimationDirector -> Phaser` 의존 방향을 지키며 simulation은 asset key나 animation clip 이름을 알지 않는다.
-- asset manifest/visual definition은 논리 sprite/VFX key와 animation state를 실제 asset 또는 generated fallback에 매핑한다.
+- asset manifest/visual definition은 논리 sprite/VFX key와 animation state를 optional image/spritesheet source 또는 generated fallback에 매핑한다. Scene preload와 animation registry가 이 manifest를 직접 소비한다.
 - React sandbox는 reset, start, pause, step, speed와 scenario 선택을 제공하는 dev-only shell이다.
-- Basic 1v1, Warrior Knockback, Spearman Knockback, Kill Cancels Intent, Unblockable Attack 시나리오는 각각 독립적인 scenario data로 규칙을 드러낸다.
+- Basic 1v1, Warrior Knockback, Spearman Knockback, Kill Cancels Intent, Unblockable Attack, Multi-enemy 1v2 시나리오는 각각 독립적인 scenario data로 규칙을 드러낸다.
 
 ## Provisional
 
@@ -86,6 +89,7 @@ effect ordering은 engine/resolver에 명시하고 animation callback에 숨기�
 - 샌드박스의 scenario 배치, turn 수, 버튼 배치와 debug panel 정보량
 - enemy rank 및 stable spawn order를 이용할 수 있는 deterministic tie-break 방식의 구체적 우선순위
 - target selector별 tie-break utility의 구체적인 기준. 하나의 범용 HP/거리 규칙은 만들지 않는다.
+- 다중 대상에 각 effect를 적용하는 현재 순서, 사망한 대상의 후속 effect 생략, 막힌 displacement 뒤 effect를 계속 적용하는 방식
 - placeholder 도형, 색, icon, tween duration, VFX, pseudo-2.5D/grid projection과 카메라 구도
 - HP/AP HUD의 표현 방식과 최종 세그먼트 bar 디자인
 - player-facing 정책, trait, class, dungeon 및 narrative와 연결하기 위한 이름과 얇은 interface
@@ -121,3 +125,9 @@ Provisional 항목을 current contract로 승격하려면 기획 결정, domain 
 - accuracy/critical/random damage. RNG가 필요한 미래 시스템도 seedable interface 설계 전에는 combat resolution에 추가하지 않는다.
 
 Deferred 기능의 가능성을 이유로 사용하지 않는 범용 framework나 빈 abstraction을 미리 추가하지 않는다. 실제 다음 실험에 필요한 가장 작은 경계를 확장한다.
+
+## Verification contract
+
+- Node 기반 domain/controller 테스트는 Phaser renderer 없이 실행한다.
+- GitHub Actions는 pull request와 `main` push에서 `npm ci`, `npm test`, `npm run build`를 실행한다.
+- 실제 sprite/VFX를 추가할 때는 manifest source/frame 등록, fallback 유지, 상태별 animation과 telegraph 시각 smoke test를 함께 수행한다.
