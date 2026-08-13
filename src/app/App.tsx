@@ -28,6 +28,8 @@ export function App() {
   const [debugOpen, setDebugOpen] = useState(true);
   const student = snapshot.state.units.find((unit) => unit.faction === 'STUDENT');
   const enemies = snapshot.state.units.filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0);
+  const debugActionsBlocked =
+    snapshot.status.queuedEventCount > 0 || snapshot.status.mode === 'COMPLETE';
 
   return (
     <main className="app-shell">
@@ -90,21 +92,25 @@ export function App() {
         <div>
           <p className="panel-kicker">PROVISIONAL DEBUG UTILITY</p>
           <h2>Manual action probe</h2>
-          <p>Declares enemy intent first, then applies one domain action. This is not the Gambit UI.</p>
+          <p>
+            Declares enemy intent first, then applies one domain action. This is not the Gambit UI.
+            {debugActionsBlocked && ' Finish queued presentation events before the next action.'}
+          </p>
         </div>
         <div className="button-row button-row--manual">
-          <button type="button" disabled={!student} onClick={() => student && move(controller, student, 'UP')}>Move ↑</button>
-          <button type="button" disabled={!student} onClick={() => student && move(controller, student, 'LEFT')}>Move ←</button>
-          <button type="button" disabled={!student} onClick={() => student && move(controller, student, 'RIGHT')}>Move →</button>
-          <button type="button" disabled={!student} onClick={() => student && move(controller, student, 'DOWN')}>Move ↓</button>
-          <AbilityButton label="Defend" needle="defend" student={student} controller={controller} />
-          <AbilityButton label="Thrust" needle="thrust" student={student} controller={controller} />
-          <AbilityButton label="Slash" needle="slash" student={student} controller={controller} />
+          <button type="button" disabled={!student || debugActionsBlocked} onClick={() => student && move(controller, student, 'UP')}>Move ↑</button>
+          <button type="button" disabled={!student || debugActionsBlocked} onClick={() => student && move(controller, student, 'LEFT')}>Move ←</button>
+          <button type="button" disabled={!student || debugActionsBlocked} onClick={() => student && move(controller, student, 'RIGHT')}>Move →</button>
+          <button type="button" disabled={!student || debugActionsBlocked} onClick={() => student && move(controller, student, 'DOWN')}>Move ↓</button>
+          <AbilityButton label="Defend" needle="defend" student={student} blocked={debugActionsBlocked} controller={controller} />
+          <AbilityButton label="Thrust" needle="thrust" student={student} blocked={debugActionsBlocked} controller={controller} />
+          <AbilityButton label="Slash" needle="slash" student={student} blocked={debugActionsBlocked} controller={controller} />
           <AbilityButton
             label="Push test"
             needle="knockback"
             student={student}
             targetId={enemies[0]?.id}
+            blocked={debugActionsBlocked}
             controller={controller}
           />
         </div>
@@ -156,19 +162,21 @@ function AbilityButton({
   needle,
   student,
   targetId,
+  blocked,
   controller,
 }: {
   readonly label: string;
   readonly needle: string;
   readonly student: Unit | undefined;
   readonly targetId?: string;
+  readonly blocked: boolean;
   readonly controller: SandboxController;
 }) {
   const abilityId = student?.abilities.find((id) => id.toLowerCase().includes(needle));
   return (
     <button
       type="button"
-      disabled={!student || !abilityId || (needle === 'knockback' && !targetId)}
+      disabled={blocked || !student || !abilityId || (needle === 'knockback' && !targetId)}
       onClick={() => {
         if (!student || !abilityId) return;
         controller.performDebugAction({

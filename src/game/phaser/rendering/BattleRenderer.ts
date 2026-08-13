@@ -62,7 +62,7 @@ export class BattleRenderer {
         view = new UnitView(this.scene, unit, this.projector.gridToWorld(unit.position));
         this.unitViews.set(unit.id, view);
       }
-      view.setWorldPosition(this.projector.gridToWorld(unit.position));
+      view.setWorldPosition(this.projector.gridToWorld(unit.position), unit.position.y);
       view.update(unit);
       if (unit.hp <= 0) view.setAnimationState('death');
     }
@@ -104,8 +104,9 @@ export class BattleRenderer {
     const view = this.unitViews.get(id);
     if (!view || signal.aborted) return Promise.resolve();
     const world = this.projector.gridToWorld(to);
+    view.setGridDepth(to.y);
     if (duration <= 0) {
-      view.setWorldPosition(world);
+      view.setWorldPosition(world, to.y);
       return Promise.resolve();
     }
     return new Promise((resolve) => {

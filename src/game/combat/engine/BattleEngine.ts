@@ -111,7 +111,6 @@ export class BattleEngine {
       units: this.units.map(cloneUnit),
       intents: this.intents.map(cloneIntent),
       outcome: this.outcome,
-      eventHistory: this.eventHistory.map(cloneEvent),
     };
   }
 

@@ -280,7 +280,6 @@ export interface BattleState {
   readonly units: readonly Unit[];
   readonly intents: readonly Intent[];
   readonly outcome: BattleOutcome;
-  readonly eventHistory: readonly CombatEvent[];
 }
 
 export interface EnemyIntentPlan {

@@ -98,8 +98,13 @@ export class UnitView {
     }
   }
 
-  public setWorldPosition(world: Readonly<{ x: number; y: number }>): void {
+  public setWorldPosition(world: Readonly<{ x: number; y: number }>, row?: number): void {
     this.container.setPosition(world.x, world.y);
+    if (row !== undefined) this.setGridDepth(row);
+  }
+
+  public setGridDepth(row: number): void {
+    this.container.setDepth(20 + row);
   }
 
   public destroy(): void {
