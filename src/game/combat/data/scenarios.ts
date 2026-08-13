@@ -8,6 +8,7 @@ export const SCENARIO_IDS = {
   SPEARMAN_KNOCKBACK: 'spearman-knockback',
   KILL_CANCELS_INTENT: 'kill-cancels-intent',
   UNBLOCKABLE_ATTACK: 'unblockable-attack',
+  MULTI_ENEMY: 'multi-enemy-1v2',
 } as const;
 
 export type ScenarioId = (typeof SCENARIO_IDS)[keyof typeof SCENARIO_IDS];
@@ -135,12 +136,37 @@ export function createUnblockableAttackScenario(): BattleScenario {
   return { ...result, studentActions: [defendAction('student-01')] };
 }
 
+export function createMultiEnemyScenario(): BattleScenario {
+  const warrior = enemy({ x: 5, y: 1 }, ABILITY_IDS.SHORT_STRIKE);
+  const spearman = enemy(
+    { x: 7, y: 1 },
+    ABILITY_IDS.ENEMY_THRUST,
+    {
+      id: 'enemy-02',
+      spawnOrder: 2,
+      visualKey: 'enemy_sprite_02',
+    },
+  );
+  return {
+    id: SCENARIO_IDS.MULTI_ENEMY,
+    name: 'Multi-enemy 1v2 Test',
+    map: { ...DEFAULT_MAP },
+    units: [student({ x: 4, y: 1 }), warrior, spearman],
+    enemyPlans: {
+      [warrior.id]: [{ abilityId: ABILITY_IDS.SHORT_STRIKE, direction: 'LEFT' }],
+      [spearman.id]: [{ abilityId: ABILITY_IDS.ENEMY_THRUST, direction: 'LEFT' }],
+    },
+    studentActions: [defendAction('student-01')],
+  };
+}
+
 const FACTORIES: Readonly<Record<ScenarioId, () => BattleScenario>> = {
   [SCENARIO_IDS.BASIC]: createBasicScenario,
   [SCENARIO_IDS.WARRIOR_KNOCKBACK]: createWarriorKnockbackScenario,
   [SCENARIO_IDS.SPEARMAN_KNOCKBACK]: createSpearmanKnockbackScenario,
   [SCENARIO_IDS.KILL_CANCELS_INTENT]: createKillCancelsIntentScenario,
   [SCENARIO_IDS.UNBLOCKABLE_ATTACK]: createUnblockableAttackScenario,
+  [SCENARIO_IDS.MULTI_ENEMY]: createMultiEnemyScenario,
 };
 
 export const scenarioFactories = FACTORIES;

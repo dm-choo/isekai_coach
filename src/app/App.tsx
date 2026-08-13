@@ -16,6 +16,7 @@ const SCENARIO_LABELS: Record<string, string> = {
   'spearman-knockback': 'Spearman Knockback Test',
   'kill-cancels-intent': 'Kill Cancels Intent',
   'unblockable-attack': 'Unblockable Attack Test',
+  'multi-enemy-1v2': 'Multi-enemy 1v2 Test',
 };
 
 export function App() {

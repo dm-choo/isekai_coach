@@ -5,6 +5,7 @@ import {
   SCENARIO_IDS,
   createBasicScenario,
   createKillCancelsIntentScenario,
+  createMultiEnemyScenario,
   createScenario,
   createSpearmanKnockbackScenario,
   createUnblockableAttackScenario,
@@ -39,12 +40,36 @@ describe('BattleEngine turn contract', () => {
   });
 
   it('runs named scenario factories through the public scenario registry', () => {
-    expect(Object.values(SCENARIO_IDS)).toHaveLength(5);
+    expect(Object.values(SCENARIO_IDS)).toHaveLength(6);
     for (const id of Object.values(SCENARIO_IDS)) {
       const scenario = createScenario(id);
       expect(scenario.id).toBe(id);
       expect(() => new BattleEngine(scenario).runTurn()).not.toThrow();
     }
+  });
+
+  it('declares and resolves two enemy intents in stable spawn order', () => {
+    const engine = new BattleEngine(createMultiEnemyScenario());
+
+    engine.runTurn();
+
+    const declared = engine.events.filter(
+      (event): event is Extract<(typeof engine.events)[number], { type: 'INTENT_DECLARED' }> =>
+        event.type === 'INTENT_DECLARED',
+    );
+    expect(declared.map((event) => event.sourceId)).toEqual(['enemy-01', 'enemy-02']);
+    expect(student(engine)).toMatchObject({ hp: 4, status: { guard: 0 } });
+    expect(
+      engine.events
+        .filter(
+          (event): event is Extract<(typeof engine.events)[number], { type: 'ABILITY_USED' }> =>
+            event.type === 'ABILITY_USED' && event.sourceId.startsWith('enemy-'),
+        )
+        .map((event) => event.sourceId),
+    ).toEqual(['enemy-01', 'enemy-02']);
+    expect(eventTypes(engine)).toEqual(
+      expect.arrayContaining(['DAMAGE_BLOCKED', 'DAMAGE_DEALT']),
+    );
   });
 
   it('runs the bundled Warrior demonstration with an explicit phase and event order', () => {
