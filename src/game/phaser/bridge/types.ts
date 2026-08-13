@@ -33,5 +33,5 @@ export interface SandboxCommands {
   readonly pause: () => void;
   readonly step: () => void;
   readonly setSpeed: (speed: PlaybackSpeed) => void;
-  readonly performDebugAction: (action: CombatAction) => void;
+  readonly performDebugAction: (action: CombatAction) => boolean;
 }

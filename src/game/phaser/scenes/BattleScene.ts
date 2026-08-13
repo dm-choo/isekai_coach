@@ -47,9 +47,14 @@ class PhaserPresentationPort implements PresentationPort {
     this.director.reset(state);
   }
 
-  public present(event: CombatEvent, _state: BattleState, durationScale: number): Promise<void> {
+  public present(
+    event: CombatEvent,
+    _state: BattleState,
+    durationScale: number,
+    signal: AbortSignal,
+  ): Promise<void> {
     if (this.destroyed) return Promise.resolve();
-    return this.director.present(event, durationScale);
+    return this.director.present(event, durationScale, signal);
   }
 
   public settle(state: BattleState): void {

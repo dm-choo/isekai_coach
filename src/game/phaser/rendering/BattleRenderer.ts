@@ -104,60 +104,109 @@ export class BattleRenderer {
     this.unitViews.get(id)?.setAp(ap, maxAp, true);
   }
 
-  public moveUnit(id: string, to: Readonly<{ x: number; y: number }>, duration: number): Promise<void> {
+  public moveUnit(
+    id: string,
+    to: Readonly<{ x: number; y: number }>,
+    duration: number,
+    signal: AbortSignal,
+  ): Promise<void> {
     const view = this.unitViews.get(id);
-    if (!view) return Promise.resolve();
+    if (!view || signal.aborted) return Promise.resolve();
     const world = this.projector.gridToWorld(to);
     if (duration <= 0) {
       view.setWorldPosition(world);
       return Promise.resolve();
     }
     return new Promise((resolve) => {
-      this.scene.tweens.add({
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        signal.removeEventListener('abort', abort);
+        resolve();
+      };
+      const tween = this.scene.tweens.add({
         targets: view.container,
         x: world.x,
         y: world.y,
         duration,
         ease: 'Cubic.Out',
-        onComplete: () => resolve(),
+        onComplete: finish,
+        onStop: finish,
       });
+      const abort = () => {
+        tween.stop();
+        finish();
+      };
+      signal.addEventListener('abort', abort, { once: true });
     });
   }
 
-  public pulseUnit(id: string, duration: number): Promise<void> {
+  public pulseUnit(id: string, duration: number, signal: AbortSignal): Promise<void> {
     const view = this.unitViews.get(id);
-    if (!view || duration <= 0) return Promise.resolve();
+    if (!view || duration <= 0 || signal.aborted) return Promise.resolve();
     return new Promise((resolve) => {
-      this.scene.tweens.add({
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        signal.removeEventListener('abort', abort);
+        resolve();
+      };
+      const tween = this.scene.tweens.add({
         targets: view.container,
         scaleX: 1.12,
         scaleY: 1.12,
         duration: duration / 2,
         yoyo: true,
         ease: 'Sine.InOut',
-        onComplete: () => resolve(),
+        onComplete: finish,
+        onStop: finish,
       });
+      const abort = () => {
+        tween.stop();
+        finish();
+      };
+      signal.addEventListener('abort', abort, { once: true });
     });
   }
 
-  public flashUnit(id: string, duration: number): Promise<void> {
+  public flashUnit(id: string, duration: number, signal: AbortSignal): Promise<void> {
     const view = this.unitViews.get(id);
-    if (!view || duration <= 0) return Promise.resolve();
+    if (!view || duration <= 0 || signal.aborted) return Promise.resolve();
     return new Promise((resolve) => {
-      this.scene.tweens.add({
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        signal.removeEventListener('abort', abort);
+        resolve();
+      };
+      const tween = this.scene.tweens.add({
         targets: view.container,
         alpha: 0.2,
         duration: Math.max(40, duration / 3),
         yoyo: true,
         repeat: 1,
-        onComplete: () => resolve(),
+        onComplete: finish,
+        onStop: finish,
       });
+      const abort = () => {
+        tween.stop();
+        finish();
+      };
+      signal.addEventListener('abort', abort, { once: true });
     });
   }
 
-  public showVfx(id: string, vfxKey: string, duration: number): Promise<void> {
+  public showVfx(
+    id: string,
+    vfxKey: string,
+    duration: number,
+    signal: AbortSignal,
+  ): Promise<void> {
     const view = this.unitViews.get(id);
-    if (!view) return Promise.resolve();
+    if (!view || signal.aborted) return Promise.resolve();
     const visual = getVfxVisual(vfxKey);
     const ring = this.scene.add
       .ellipse(view.container.x, view.container.y - 4, 26, 26, visual.color, 0.12)
@@ -168,7 +217,15 @@ export class BattleRenderer {
       return Promise.resolve();
     }
     return new Promise((resolve) => {
-      this.scene.tweens.add({
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        signal.removeEventListener('abort', abort);
+        ring.destroy();
+        resolve();
+      };
+      const tween = this.scene.tweens.add({
         targets: ring,
         scaleX: 2.4,
         scaleY: 2.4,
@@ -176,17 +233,26 @@ export class BattleRenderer {
         angle: 35,
         duration: Math.min(duration, visual.durationMs),
         ease: 'Cubic.Out',
-        onComplete: () => {
-          ring.destroy();
-          resolve();
-        },
+        onComplete: finish,
+        onStop: finish,
       });
+      const abort = () => {
+        tween.stop();
+        finish();
+      };
+      signal.addEventListener('abort', abort, { once: true });
     });
   }
 
-  public showDamage(id: string, amount: number, blocked: boolean, duration: number): Promise<void> {
+  public showDamage(
+    id: string,
+    amount: number,
+    blocked: boolean,
+    duration: number,
+    signal: AbortSignal,
+  ): Promise<void> {
     const view = this.unitViews.get(id);
-    if (!view) return Promise.resolve();
+    if (!view || signal.aborted) return Promise.resolve();
     const label = this.scene.add
       .text(view.container.x, view.container.y - 55, blocked ? 'BLOCKED' : `-${amount}`, {
         fontFamily: 'ui-monospace, monospace',
@@ -203,24 +269,47 @@ export class BattleRenderer {
       return Promise.resolve();
     }
     return new Promise((resolve) => {
-      this.scene.tweens.add({
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        signal.removeEventListener('abort', abort);
+        label.destroy();
+        resolve();
+      };
+      const tween = this.scene.tweens.add({
         targets: label,
         y: label.y - 32,
         alpha: 0,
         duration,
         ease: 'Cubic.Out',
-        onComplete: () => {
-          label.destroy();
-          resolve();
-        },
+        onComplete: finish,
+        onStop: finish,
       });
+      const abort = () => {
+        tween.stop();
+        finish();
+      };
+      signal.addEventListener('abort', abort, { once: true });
     });
   }
 
-  public wait(duration: number): Promise<void> {
-    if (duration <= 0) return Promise.resolve();
+  public wait(duration: number, signal: AbortSignal): Promise<void> {
+    if (duration <= 0 || signal.aborted) return Promise.resolve();
     return new Promise((resolve) => {
-      this.scene.time.delayedCall(duration, resolve);
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        signal.removeEventListener('abort', abort);
+        resolve();
+      };
+      const timer = this.scene.time.delayedCall(duration, finish);
+      const abort = () => {
+        timer.remove(false);
+        finish();
+      };
+      signal.addEventListener('abort', abort, { once: true });
     });
   }
 

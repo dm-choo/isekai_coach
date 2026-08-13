@@ -32,6 +32,7 @@ export class SandboxController {
   private generation = 0;
   private pumpingGeneration: number | null = null;
   private stepBudget = 0;
+  private playbackAbortController = new AbortController();
   private snapshot: SandboxSnapshot;
 
   public constructor(initialScenarioId: string = Object.values(SCENARIO_IDS)[0]) {
@@ -48,16 +49,22 @@ export class SandboxController {
   };
 
   public attachPresentation(presentation: PresentationPort): () => void {
+    this.abortPresentation();
     this.presentation = presentation;
     presentation.setSpeed(this.speed === 'INSTANT' ? 1 : this.speed);
     presentation.reset(this.engine.getState());
     if (this.mode === 'PAUSED') presentation.pause();
+    if (this.mode === 'PLAYING' || this.stepBudget > 0) void this.pump();
     return () => {
-      if (this.presentation === presentation) this.presentation = null;
+      if (this.presentation === presentation) {
+        this.abortPresentation();
+        this.presentation = null;
+      }
     };
   }
 
   public reset = (scenarioId: string = this.scenarioId): void => {
+    this.abortPresentation();
     this.generation += 1;
     this.pumpingGeneration = null;
     this.scenarioId = scenarioId;
@@ -107,7 +114,8 @@ export class SandboxController {
     }
   };
 
-  public performDebugAction = (action: CombatAction): void => {
+  public performDebugAction = (action: CombatAction): boolean => {
+    if (this.presentedEventCount < this.engine.getEvents().length) return false;
     if (this.mode === 'PLAYING') this.pause();
     const phase = readPhase(this.engine.getState());
     if (!isStudentActionPhase(phase)) this.engine.beginTurn();
@@ -119,9 +127,11 @@ export class SandboxController {
       this.presentation?.resume();
       void this.pump();
     }
+    return result.executable;
   };
 
   public destroy(): void {
+    this.abortPresentation();
     this.generation += 1;
     this.presentation = null;
     this.listeners.clear();
@@ -136,14 +146,16 @@ export class SandboxController {
       while (runGeneration === this.generation) {
         const stepping = this.mode === 'PAUSED' && this.stepBudget > 0;
         if (this.mode !== 'PLAYING' && !stepping) break;
+        if (!this.presentation) break;
 
         if (!this.ensureNextEvent()) break;
         const events = this.engine.getEvents();
         const event = events[this.presentedEventCount];
         if (!event) break;
 
-        await this.present(event, runGeneration);
-        if (runGeneration !== this.generation) break;
+        const signal = this.playbackAbortController.signal;
+        await this.present(event, runGeneration, signal);
+        if (runGeneration !== this.generation || signal.aborted) break;
         this.presentedEventCount += 1;
         this.publish();
 
@@ -193,11 +205,20 @@ export class SandboxController {
     return this.presentedEventCount < this.engine.getEvents().length;
   }
 
-  private async present(event: CombatEvent, runGeneration: number): Promise<void> {
+  private async present(
+    event: CombatEvent,
+    runGeneration: number,
+    signal: AbortSignal,
+  ): Promise<void> {
     const presentation = this.presentation;
-    if (!presentation || runGeneration !== this.generation) return;
+    if (!presentation || runGeneration !== this.generation || signal.aborted) return;
     const instant = this.speed === 'INSTANT';
-    await presentation.present(event, this.engine.getState(), instant ? 0 : 1);
+    await presentation.present(event, this.engine.getState(), instant ? 0 : 1, signal);
+  }
+
+  private abortPresentation(): void {
+    this.playbackAbortController.abort();
+    this.playbackAbortController = new AbortController();
   }
 
   private publish(): void {

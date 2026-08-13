@@ -45,7 +45,12 @@ export class AnimationDirector {
     this.renderer.sync(state);
   }
 
-  public async present(event: CombatEvent, durationScale: number): Promise<void> {
+  public async present(
+    event: CombatEvent,
+    durationScale: number,
+    signal: AbortSignal,
+  ): Promise<void> {
+    if (signal.aborted) return;
     const record = flattenEvent(event);
     const type = readString(record, 'type') ?? 'UNKNOWN_EVENT';
     const duration = Math.max(0, Math.round((EVENT_DURATION_MS[type] ?? 160) * durationScale));
@@ -55,7 +60,7 @@ export class AnimationDirector {
       case 'TURN_STARTED': {
         const turn = readNumber(record, 'turn');
         if (turn !== undefined) this.renderer.setTurn(turn);
-        await this.renderer.wait(duration);
+        await this.renderer.wait(duration, signal);
         break;
       }
       case 'INTENT_DECLARED': {
@@ -64,7 +69,7 @@ export class AnimationDirector {
           this.intents.set(intent.id ?? intent.sourceId, intent);
           this.renderer.syncTelegraphs([...this.intents.values()]);
         }
-        await this.renderer.wait(duration);
+        await this.renderer.wait(duration, signal);
         break;
       }
       case 'INTENT_AREA_CHANGED': {
@@ -78,7 +83,7 @@ export class AnimationDirector {
           if (previous && cells) this.intents.set(key, { ...previous, telegraphedCells: cells });
         }
         this.renderer.syncTelegraphs([...this.intents.values()]);
-        await this.renderer.wait(duration);
+        await this.renderer.wait(duration, signal);
         break;
       }
       case 'INTENT_CANCELLED':
@@ -91,7 +96,7 @@ export class AnimationDirector {
           }
           this.renderer.syncTelegraphs([...this.intents.values()]);
         }
-        await this.renderer.wait(duration);
+        await this.renderer.wait(duration, signal);
         break;
       }
       case 'AP_REFILLED':
@@ -100,14 +105,14 @@ export class AnimationDirector {
         const ap = readNumber(record, 'to');
         const maxAp = readNumber(record, 'maxAp') ?? Math.max(ap ?? 0, readNumber(record, 'from') ?? 0);
         if (unitId && ap !== undefined) this.renderer.setUnitAp(unitId, ap, maxAp);
-        await this.renderer.wait(duration);
+        await this.renderer.wait(duration, signal);
         break;
       }
       case 'UNIT_MOVED':
-        await this.animateMove(record, 'move', duration);
+        await this.animateMove(record, 'move', duration, signal);
         break;
       case 'UNIT_KNOCKED_BACK':
-        await this.animateMove(record, 'knockback', duration);
+        await this.animateMove(record, 'knockback', duration, signal);
         break;
       case 'ABILITY_USED': {
         const sourceId = readString(record, 'sourceId', 'unitId', 'actorId');
@@ -116,18 +121,18 @@ export class AnimationDirector {
         if (sourceId) this.renderer.getUnit(sourceId)?.setAnimationState(state);
         if (sourceId) {
           await Promise.all([
-            this.renderer.pulseUnit(sourceId, duration),
-            this.renderer.showVfx(sourceId, 'attack_fx_01', duration),
+            this.renderer.pulseUnit(sourceId, duration, signal),
+            this.renderer.showVfx(sourceId, 'attack_fx_01', duration, signal),
           ]);
         }
-        else await this.renderer.wait(duration);
+        else await this.renderer.wait(duration, signal);
         this.renderer.getUnit(sourceId ?? '')?.returnToIdle();
         break;
       }
       case 'STATUS_APPLIED': {
         const unitId = readString(record, 'unitId', 'targetId', 'sourceId');
         if (unitId) this.renderer.getUnit(unitId)?.setAnimationState('defend');
-        await this.renderer.wait(duration);
+        await this.renderer.wait(duration, signal);
         this.renderer.getUnit(unitId ?? '')?.returnToIdle();
         break;
       }
@@ -138,9 +143,15 @@ export class AnimationDirector {
         if (targetId && hpAfter !== undefined) this.renderer.setUnitHp(targetId, hpAfter);
         if (targetId) this.renderer.getUnit(targetId)?.setAnimationState('hit');
         await Promise.all([
-          targetId ? this.renderer.flashUnit(targetId, duration) : this.renderer.wait(duration),
-          targetId ? this.renderer.showDamage(targetId, amount, false, duration) : Promise.resolve(),
-          targetId ? this.renderer.showVfx(targetId, 'hit_fx_01', duration) : Promise.resolve(),
+          targetId
+            ? this.renderer.flashUnit(targetId, duration, signal)
+            : this.renderer.wait(duration, signal),
+          targetId
+            ? this.renderer.showDamage(targetId, amount, false, duration, signal)
+            : Promise.resolve(),
+          targetId
+            ? this.renderer.showVfx(targetId, 'hit_fx_01', duration, signal)
+            : Promise.resolve(),
         ]);
         this.renderer.getUnit(targetId ?? '')?.returnToIdle();
         break;
@@ -148,24 +159,24 @@ export class AnimationDirector {
       case 'DAMAGE_BLOCKED': {
         const targetId = readString(record, 'targetId', 'unitId');
         if (targetId) this.renderer.getUnit(targetId)?.setAnimationState('defend');
-        if (targetId) await this.renderer.showDamage(targetId, 0, true, duration);
-        else await this.renderer.wait(duration);
+        if (targetId) await this.renderer.showDamage(targetId, 0, true, duration, signal);
+        else await this.renderer.wait(duration, signal);
         this.renderer.getUnit(targetId ?? '')?.returnToIdle();
         break;
       }
       case 'UNIT_DIED': {
         const unitId = readString(record, 'unitId', 'targetId');
         if (unitId) this.renderer.getUnit(unitId)?.setAnimationState('death');
-        await this.renderer.wait(duration);
+        await this.renderer.wait(duration, signal);
         break;
       }
       case 'TURN_ENDED':
         this.intents.clear();
         this.renderer.clearTelegraphs();
-        await this.renderer.wait(duration);
+        await this.renderer.wait(duration, signal);
         break;
       default:
-        await this.renderer.wait(duration);
+        await this.renderer.wait(duration, signal);
     }
   }
 
@@ -173,16 +184,17 @@ export class AnimationDirector {
     record: UnknownRecord,
     animation: 'move' | 'knockback',
     duration: number,
+    signal: AbortSignal,
   ): Promise<void> {
     const unitId = readString(record, 'unitId', 'targetId', 'sourceId');
     const to = readPosition(record, 'to', 'position');
     if (!unitId || !to) {
-      await this.renderer.wait(duration);
+      await this.renderer.wait(duration, signal);
       return;
     }
     const view = this.renderer.getUnit(unitId);
     view?.setAnimationState(animation);
-    await this.renderer.moveUnit(unitId, to, duration);
+    await this.renderer.moveUnit(unitId, to, duration, signal);
     view?.returnToIdle();
   }
 }
