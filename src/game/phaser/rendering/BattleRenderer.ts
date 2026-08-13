@@ -3,14 +3,7 @@ import type { BattleState } from '../../combat';
 import { getVfxVisual } from '../../assets/AssetManifest';
 import { GridProjector } from './GridProjector';
 import { TelegraphView, type RenderableIntent } from './TelegraphView';
-import { UnitView, type RenderableUnit } from './UnitView';
-
-interface RenderableBattleState {
-  readonly map: { readonly width: number; readonly height: number };
-  readonly turn: number;
-  readonly units: readonly RenderableUnit[];
-  readonly intents: readonly RenderableIntent[];
-}
+import { UnitView } from './UnitView';
 
 export class BattleRenderer {
   private readonly projector = new GridProjector();
@@ -47,24 +40,22 @@ export class BattleRenderer {
   }
 
   public reset(state: BattleState): void {
-    const renderState = state as unknown as RenderableBattleState;
     this.clearDynamicObjects();
-    this.drawGrid(renderState.map.width, renderState.map.height);
-    this.turnLabel.setText(`TURN ${renderState.turn}`);
+    this.drawGrid(state.map.width, state.map.height);
+    this.turnLabel.setText(`TURN ${state.turn}`);
     this.phaseLabel.setText('READY · INTENT IS LOCKED AFTER DECLARATION');
 
-    for (const unit of renderState.units) {
+    for (const unit of state.units) {
       const world = this.projector.gridToWorld(unit.position);
       this.unitViews.set(unit.id, new UnitView(this.scene, unit, world));
     }
-    this.telegraphs.sync(renderState.intents ?? []);
+    this.telegraphs.sync(state.intents);
   }
 
   public sync(state: BattleState): void {
-    const renderState = state as unknown as RenderableBattleState;
-    this.turnLabel.setText(`TURN ${renderState.turn}`);
+    this.turnLabel.setText(`TURN ${state.turn}`);
     const liveIds = new Set<string>();
-    for (const unit of renderState.units) {
+    for (const unit of state.units) {
       liveIds.add(unit.id);
       let view = this.unitViews.get(unit.id);
       if (!view) {
@@ -81,7 +72,7 @@ export class BattleRenderer {
         this.unitViews.delete(id);
       }
     }
-    this.telegraphs.sync(renderState.intents ?? []);
+    this.telegraphs.sync(state.intents);
   }
 
   public setPhase(label: string): void {

@@ -368,15 +368,13 @@ export class BattleEngine {
           (action.type === 'USE_ABILITY' ? action.groundOrigin : undefined) ??
           source.position
         : source.position;
-    const cells =
-      action.type === 'MOVE'
-        ? inBounds(this.map, action.to)
-          ? [{ ...action.to }]
-          : []
-        : ability?.pattern
-          ? projectPattern(declaredOrigin, direction, ability.pattern, this.map)
-          : [];
-    const aim = cells[0] ?? declaredOrigin;
+    const movementPath =
+      action.type === 'MOVE' && inBounds(this.map, action.to) ? [{ ...action.to }] : [];
+    const effectCells =
+      action.type === 'USE_ABILITY' && ability?.pattern
+        ? projectPattern(declaredOrigin, direction, ability.pattern, this.map)
+        : [];
+    const aim = effectCells[0] ?? movementPath[0] ?? declaredOrigin;
     const threat = ability?.threat ?? 'NORMAL_ATTACK';
     return {
       id: `${this.scenarioId}:turn-${this.turn}:intent-${source.id}`,
@@ -388,7 +386,8 @@ export class BattleEngine {
       declaredOrigin: { ...declaredOrigin },
       direction,
       aim: { ...aim },
-      telegraphedCells: cells.map(clonePosition),
+      movementPath: movementPath.map(clonePosition),
+      effectCells: effectCells.map(clonePosition),
       threat,
       tags: [threat],
     };
@@ -566,18 +565,18 @@ export class BattleEngine {
       (intent) => intent.sourceId === sourceId && intent.anchor === 'BODY',
     )) {
       const nextCells = this.calculateBodyCells(previous, source);
-      if (comparePositionLists(previous.telegraphedCells, nextCells)) continue;
+      if (comparePositionLists(previous.effectCells, nextCells)) continue;
       const next: Intent = {
         ...previous,
         origin: { ...source.position },
-        telegraphedCells: nextCells.map(clonePosition),
+        effectCells: nextCells.map(clonePosition),
       };
       this.intents = this.intents.map((intent) => (intent.id === previous.id ? next : intent));
       this.emit({
         type: 'INTENT_AREA_CHANGED',
         sourceId,
         intentId: previous.id,
-        fromCells: previous.telegraphedCells.map(clonePosition),
+        fromCells: previous.effectCells.map(clonePosition),
         toCells: nextCells.map(clonePosition),
         intent: cloneIntent(next),
       });
@@ -593,7 +592,7 @@ export class BattleEngine {
   }
 
   private effectiveIntentCells(intent: Intent): readonly GridPosition[] {
-    if (intent.anchor === 'GROUND') return intent.telegraphedCells.map(clonePosition);
+    if (intent.anchor === 'GROUND') return intent.effectCells.map(clonePosition);
     const source = this.findUnit(intent.sourceId);
     return source ? this.calculateBodyCells(intent, source) : [];
   }
@@ -743,7 +742,8 @@ function cloneIntent(intent: Intent): Intent {
     origin: clonePosition(intent.origin),
     declaredOrigin: clonePosition(intent.declaredOrigin),
     aim: clonePosition(intent.aim),
-    telegraphedCells: intent.telegraphedCells.map(clonePosition),
+    movementPath: intent.movementPath.map(clonePosition),
+    effectCells: intent.effectCells.map(clonePosition),
     tags: [...intent.tags],
   };
 }

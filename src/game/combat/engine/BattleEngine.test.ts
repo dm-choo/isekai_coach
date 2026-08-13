@@ -82,11 +82,11 @@ describe('BattleEngine turn contract', () => {
     (snapshot.units[0].position as { x: number }).x = 99;
     const declared = events.find((event) => event.type === 'INTENT_DECLARED');
     if (declared?.type === 'INTENT_DECLARED') {
-      (declared.intent.telegraphedCells[0] as { x: number }).x = 99;
+      (declared.intent.effectCells[0] as { x: number }).x = 99;
     }
 
     expect(engine.state.units[0].position.x).not.toBe(99);
-    expect(engine.state.intents[0].telegraphedCells[0].x).not.toBe(99);
+    expect(engine.state.intents[0].effectCells[0].x).not.toBe(99);
     expect(scenario).toEqual(original);
   });
 });
@@ -104,7 +104,7 @@ describe('locked intent geometry', () => {
 
     expect(after.direction).toBe(before.direction);
     expect(after.aim).toEqual(before.aim);
-    expect(after.telegraphedCells).toEqual(before.telegraphedCells);
+    expect(after.effectCells).toEqual(before.effectCells);
     engine.resolveEnemyIntents();
     expect(student(engine).hp).toBe(5);
   });
@@ -123,7 +123,7 @@ describe('locked intent geometry', () => {
     expect(after.direction).toBe('LEFT');
     expect(after.declaredOrigin).toEqual(before.declaredOrigin);
     expect(after.origin).toEqual({ x: 6, y: 1 });
-    expect(after.telegraphedCells).toEqual([{ x: 5, y: 1 }]);
+    expect(after.effectCells).toEqual([{ x: 5, y: 1 }]);
     expect(result.events.map((event) => event.type)).toEqual([
       'AP_SPENT',
       'ABILITY_USED',
@@ -169,11 +169,11 @@ describe('locked intent geometry', () => {
     };
     const engine = new BattleEngine(groundScenario);
     engine.beginTurn();
-    const cells = engine.state.intents[0].telegraphedCells;
+    const cells = engine.state.intents[0].effectCells;
 
     engine.performStudentAction(knockbackAction('student-01', 'enemy-01', 'RIGHT'));
 
-    expect(engine.state.intents[0].telegraphedCells).toEqual(cells);
+    expect(engine.state.intents[0].effectCells).toEqual(cells);
     expect(engine.events.some((event) => event.type === 'INTENT_AREA_CHANGED')).toBe(false);
     engine.resolveEnemyIntents();
     expect(student(engine).hp).toBe(4);
@@ -350,6 +350,14 @@ describe('movement and deterministic ordering', () => {
       enemyStrategies: { normal: mover('normal'), boss: mover('boss') },
     });
     engine.beginTurn();
+    expect(engine.state.intents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          movementPath: [{ x: 2, y: 1 }],
+          effectCells: [],
+        }),
+      ]),
+    );
     engine.resolveEnemyIntents();
 
     expect(unit(engine, 'boss').position).toEqual({ x: 2, y: 1 });

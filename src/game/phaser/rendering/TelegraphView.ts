@@ -7,8 +7,10 @@ export type ThreatVisual = 'NORMAL_ATTACK' | 'UNBLOCKABLE_ATTACK';
 export interface RenderableIntent {
   readonly id?: string;
   readonly sourceId: string;
+  readonly direction: string;
   readonly threat: ThreatVisual;
-  readonly telegraphedCells: readonly LogicalPosition[];
+  readonly movementPath: readonly LogicalPosition[];
+  readonly effectCells: readonly LogicalPosition[];
 }
 
 export class TelegraphView {
@@ -42,7 +44,26 @@ export class TelegraphView {
     const unblockable = intent.threat === 'UNBLOCKABLE_ATTACK';
     const cellSize = this.projector.cellSize;
 
-    for (const cell of intent.telegraphedCells) {
+    for (const [index, cell] of intent.movementPath.entries()) {
+      const world = this.projector.gridToWorld(cell);
+      const destination = this.scene.add
+        .rectangle(world.x, world.y, cellSize.width - 10, cellSize.height - 12, 0x4bc8e8, 0.08)
+        .setStrokeStyle(2, 0x7fe7ff, 0.9)
+        .setDepth(7);
+      const arrow = this.scene.add
+        .text(world.x, world.y, movementArrow(intent.direction), {
+          fontFamily: 'ui-monospace, monospace',
+          fontSize: '22px',
+          color: '#a8f0ff',
+          fontStyle: 'bold',
+        })
+        .setOrigin(0.5)
+        .setAlpha(Math.min(1, 0.65 + index * 0.1))
+        .setDepth(8);
+      result.push(destination, arrow);
+    }
+
+    for (const cell of intent.effectCells) {
       const world = this.projector.gridToWorld(cell);
       const zone = this.scene.add
         .rectangle(
@@ -103,4 +124,8 @@ export class TelegraphView {
     for (const object of this.objects.get(key) ?? []) object.destroy();
     this.objects.delete(key);
   }
+}
+
+function movementArrow(direction: string): string {
+  return ({ UP: '↑', RIGHT: '→', DOWN: '↓', LEFT: '←' } as Record<string, string>)[direction] ?? '◇';
 }

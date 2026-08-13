@@ -129,7 +129,10 @@ export interface Intent {
   /** Direction is locked at declaration and never reads the source's later facing. */
   readonly direction: Direction;
   readonly aim: GridPosition;
-  readonly telegraphedCells: readonly GridPosition[];
+  /** Cells traversed by a movement intent. Never rendered as attack danger. */
+  readonly movementPath: readonly GridPosition[];
+  /** Cells affected by ability resolution. Empty for a pure movement intent. */
+  readonly effectCells: readonly GridPosition[];
   readonly threat: ThreatCategory;
   readonly tags: readonly ThreatCategory[];
 }

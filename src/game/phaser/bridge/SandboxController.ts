@@ -245,11 +245,11 @@ export class SandboxController {
 }
 
 function readPhase(state: BattleState): string {
-  return String((state as unknown as { phase?: string }).phase ?? 'READY');
+  return state.phase;
 }
 
 function readTurn(state: BattleState): number {
-  return Number((state as unknown as { turn?: number }).turn ?? 0);
+  return state.turn;
 }
 
 function isStudentActionPhase(phase: string): boolean {
@@ -257,13 +257,5 @@ function isStudentActionPhase(phase: string): boolean {
 }
 
 function isTerminal(state: BattleState): boolean {
-  const outcome = (state as unknown as { outcome?: unknown }).outcome;
-  if (outcome === undefined || outcome === null || outcome === 'ONGOING' || outcome === 'IN_PROGRESS') {
-    return false;
-  }
-  if (typeof outcome === 'object') {
-    const status = (outcome as { status?: unknown }).status;
-    return status !== undefined && status !== 'ONGOING' && status !== 'IN_PROGRESS';
-  }
-  return true;
+  return state.outcome !== 'ONGOING';
 }
