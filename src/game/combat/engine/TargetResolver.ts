@@ -40,5 +40,10 @@ export function resolveAbilityTargets(context: TargetResolutionContext): readonl
 }
 
 function compareStableUnits(left: Unit, right: Unit): number {
-  return left.spawnOrder - right.spawnOrder || left.id.localeCompare(right.id);
+  return left.spawnOrder - right.spawnOrder || compareIds(left.id, right.id);
+}
+
+function compareIds(left: string, right: string): number {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
 }

@@ -29,8 +29,13 @@ export function App() {
   const [debugOpen, setDebugOpen] = useState(true);
   const student = snapshot.state.units.find((unit) => unit.faction === 'STUDENT');
   const enemies = snapshot.state.units.filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0);
-  const debugActionsBlocked =
-    snapshot.status.queuedEventCount > 0 || snapshot.status.mode === 'COMPLETE';
+  const debugBlockMessage =
+    snapshot.status.mode === 'COMPLETE'
+      ? 'Reset the battle to apply another action.'
+      : snapshot.status.queuedEventCount > 0
+        ? 'Finish queued presentation events before the next action.'
+        : '';
+  const debugActionsBlocked = debugBlockMessage.length > 0;
 
   return (
     <main className="app-shell">
@@ -95,7 +100,7 @@ export function App() {
           <h2>Manual action probe</h2>
           <p>
             Declares enemy intent first, then applies one domain action. This is not the Gambit UI.
-            {debugActionsBlocked && ' Finish queued presentation events before the next action.'}
+            {debugBlockMessage && ` ${debugBlockMessage}`}
           </p>
         </div>
         <div className="button-row button-row--manual">
