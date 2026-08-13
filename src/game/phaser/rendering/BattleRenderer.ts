@@ -199,12 +199,24 @@ export class BattleRenderer {
     const view = this.unitViews.get(id);
     if (!view || signal.aborted) return Promise.resolve();
     const visual = getVfxVisual(vfxKey);
-    const ring = this.scene.add
-      .ellipse(view.container.x, view.container.y - 4, 26, 26, visual.color, 0.12)
-      .setStrokeStyle(4, visual.color, 0.95)
-      .setDepth(70);
+    let effect: Phaser.GameObjects.Sprite | Phaser.GameObjects.Ellipse;
+    if (this.scene.textures.exists(visual.textureKey)) {
+      effect = this.scene.add.sprite(
+        view.container.x,
+        view.container.y - 4,
+        visual.textureKey,
+      );
+      if (visual.animation && this.scene.anims.exists(visual.animation.key)) {
+        effect.play(visual.animation.key);
+      }
+    } else {
+      effect = this.scene.add
+        .ellipse(view.container.x, view.container.y - 4, 26, 26, visual.color, 0.12)
+        .setStrokeStyle(4, visual.color, 0.95);
+    }
+    effect.setDepth(70);
     if (duration <= 0) {
-      ring.destroy();
+      effect.destroy();
       return Promise.resolve();
     }
     return new Promise((resolve) => {
@@ -213,11 +225,11 @@ export class BattleRenderer {
         if (settled) return;
         settled = true;
         signal.removeEventListener('abort', abort);
-        ring.destroy();
+        effect.destroy();
         resolve();
       };
       const tween = this.scene.tweens.add({
-        targets: ring,
+        targets: effect,
         scaleX: 2.4,
         scaleY: 2.4,
         alpha: 0,

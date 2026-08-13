@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import type { BattleState, CombatEvent } from '../../combat';
 import { AnimationDirector } from '../animation/AnimationDirector';
+import { preloadVisualAssets, registerVisualAnimations } from '../assets/VisualAssetLoader';
 import type { PresentationPort } from '../bridge/PresentationPort';
 import { BattleRenderer } from '../rendering/BattleRenderer';
 
@@ -13,7 +14,12 @@ export class BattleScene extends Phaser.Scene {
     super({ key: 'BattleScene' });
   }
 
+  public preload(): void {
+    preloadVisualAssets(this);
+  }
+
   public create(): void {
+    registerVisualAnimations(this);
     this.battleRenderer = new BattleRenderer(this);
     this.director = new AnimationDirector(this.battleRenderer);
     this.port = new PhaserPresentationPort(this, this.director);

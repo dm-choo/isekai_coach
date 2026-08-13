@@ -10,11 +10,37 @@ export type UnitAnimationState =
 export interface CharacterAnimationDefinition {
   readonly key: string;
   readonly durationMs: number;
+  readonly frames?: readonly number[];
+  readonly frameRate?: number;
+  readonly repeat?: number;
+  readonly yoyo?: boolean;
+}
+
+export type VisualAssetSource =
+  | {
+      readonly type: 'IMAGE';
+      readonly url: string;
+    }
+  | {
+      readonly type: 'SPRITESHEET';
+      readonly url: string;
+      readonly frameWidth: number;
+      readonly frameHeight: number;
+      readonly margin?: number;
+      readonly spacing?: number;
+    };
+
+export interface DisplaySize {
+  readonly width: number;
+  readonly height: number;
 }
 
 export interface CharacterVisualConfig {
   readonly spriteKey: string;
+  /** Optional real asset. Omit it to keep the generated-shape fallback. */
+  readonly source?: VisualAssetSource;
   readonly displayName: string;
+  readonly displaySize?: DisplaySize;
   readonly palette: {
     readonly body: number;
     readonly accent: number;
@@ -25,6 +51,9 @@ export interface CharacterVisualConfig {
 
 export interface VfxVisualConfig {
   readonly textureKey: string;
+  /** Optional real asset. Omit it to keep the generated-ellipse fallback. */
+  readonly source?: VisualAssetSource;
+  readonly animation?: CharacterAnimationDefinition;
   readonly durationMs: number;
   readonly color: number;
 }
@@ -40,9 +69,9 @@ const animationSet = (prefix: string): Record<UnitAnimationState, CharacterAnima
 });
 
 /**
- * Asset paths never leak into a Scene or the combat domain. Replace a generated
- * placeholder by loading its spriteKey and animation keys in the preload scene;
- * UnitView will keep consuming the same visual contract.
+ * Asset paths never leak into a Scene or the combat domain. Adding a source and
+ * frame ranges here is enough for the preload/animation registry and UnitView
+ * adapter to replace the generated placeholder.
  */
 export const CHARACTER_VISUALS: Record<string, CharacterVisualConfig> = {
   student_sprite_01: {
