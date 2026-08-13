@@ -34,10 +34,11 @@ import {
   inBounds,
   isOccupied,
   manhattanDistance,
-  positionsEqual,
   projectPattern,
   step,
 } from '../spatial/grid';
+import { applyAbilityEffects } from './EffectResolver';
+import { resolveAbilityTargets } from './TargetResolver';
 
 type EventInput = CombatEvent extends infer Event
   ? Event extends CombatEvent
@@ -301,10 +302,14 @@ export class BattleEngine {
     if (ability.targeting === 'UNIT') {
       const target = action.targetId ? this.findUnit(action.targetId) : undefined;
       if (!target || target.hp <= 0 || target.id === actor.id) return 'INVALID_TARGET';
-      const knockback = ability.effects.find((effect) => effect.type === 'KNOCKBACK');
-      if (knockback?.type === 'KNOCKBACK') {
+      const knockbacks = ability.effects.filter((effect) => effect.type === 'KNOCKBACK');
+      const displacementOnly = knockbacks.length > 0 && knockbacks.length === ability.effects.length;
+      if (displacementOnly) {
         const direction = action.direction ?? directionBetween(actor.position, target.position);
-        if (!direction || !this.canDisplace(target, direction, knockback.distance)) {
+        if (
+          !direction ||
+          knockbacks.some((effect) => !this.canDisplace(target, direction, effect.distance))
+        ) {
           return 'BLOCKED_KNOCKBACK';
         }
       }
@@ -314,7 +319,11 @@ export class BattleEngine {
 
   private executeStudentAbility(action: UseAbilityAction, ability: AbilityDefinition): void {
     const actor = this.requireUnit(action.actorId);
-    const direction = action.direction ?? actor.facing;
+    const selectedTarget = action.targetId ? this.findUnit(action.targetId) : undefined;
+    const direction =
+      action.direction ??
+      (selectedTarget ? directionBetween(actor.position, selectedTarget.position) : undefined) ??
+      actor.facing;
     const apAfter = actor.ap - ability.apCost;
     this.replaceUnit(actor.id, (unit) => ({ ...unit, ap: apAfter }));
     if (ability.apCost > 0) {
@@ -334,46 +343,10 @@ export class BattleEngine {
       targetId: action.targetId,
     });
 
-    if (ability.targeting === 'SELF') {
-      for (const effect of ability.effects) {
-        if (effect.type !== 'GUARD') continue;
-        this.replaceUnit(actor.id, (unit) => ({
-          ...unit,
-          status: { ...unit.status, guard: unit.status.guard + effect.amount },
-        }));
-        this.emit({
-          type: 'STATUS_APPLIED',
-          sourceId: actor.id,
-          targetId: actor.id,
-          status: 'GUARD',
-          amount: effect.amount,
-        });
-      }
-      return;
-    }
-
-    if (ability.targeting === 'UNIT') {
-      const target = action.targetId ? this.requireUnit(action.targetId) : undefined;
-      if (!target) return;
-      for (const effect of ability.effects) {
-        if (effect.type !== 'KNOCKBACK') continue;
-        const displacementDirection = action.direction ?? directionBetween(actor.position, target.position);
-        if (displacementDirection) {
-          this.applyKnockback(actor.id, target.id, displacementDirection, effect.distance);
-        }
-      }
-      return;
-    }
-
-    const cells = ability.pattern
+    const footprint = ability.targeting === 'PATTERN' && ability.pattern
       ? projectPattern(actor.position, direction, ability.pattern, this.map)
       : [];
-    this.applyPatternEffects(
-      actor,
-      ability,
-      cells,
-      ability.threat ?? 'NORMAL_ATTACK',
-    );
+    this.resolveAbilityEffects(actor, ability, action, footprint, direction);
   }
 
   private lockIntent(source: Unit, choice: IntentChoice): Intent | null {
@@ -454,46 +427,58 @@ export class BattleEngine {
       targetId: currentIntent.action.type === 'USE_ABILITY' ? currentIntent.action.targetId : undefined,
     });
     const cells = this.effectiveIntentCells(currentIntent);
-    if (ability.targeting === 'PATTERN') {
-      this.applyPatternEffects(source, ability, cells, currentIntent.threat);
-    } else if (
-      ability.targeting === 'UNIT' &&
-      currentIntent.action.type === 'USE_ABILITY' &&
-      currentIntent.action.targetId
-    ) {
-      const target = this.findUnit(currentIntent.action.targetId);
-      if (target?.hp) {
-        for (const effect of ability.effects) {
-          if (effect.type === 'KNOCKBACK') {
-            this.applyKnockback(source.id, target.id, currentIntent.direction, effect.distance);
-          }
-        }
-      }
+    if (currentIntent.action.type === 'USE_ABILITY') {
+      this.resolveAbilityEffects(
+        source,
+        ability,
+        currentIntent.action,
+        cells,
+        currentIntent.direction,
+        currentIntent.threat,
+      );
     }
   }
 
-  private applyPatternEffects(
+  private resolveAbilityEffects(
     source: Unit,
     ability: AbilityDefinition,
-    cells: readonly GridPosition[],
-    threat: ThreatCategory,
+    action: UseAbilityAction,
+    footprint: readonly GridPosition[],
+    direction: Direction,
+    threat: ThreatCategory = ability.threat ?? 'NORMAL_ATTACK',
   ): void {
-    const targets = this.units
-      .filter(
-        (unit) =>
-          unit.hp > 0 &&
-          unit.faction !== source.faction &&
-          cells.some((cell) => positionsEqual(cell, unit.position)),
-      )
-      .sort(compareStableUnits);
-    for (const effect of ability.effects) {
-      if (effect.type !== 'DAMAGE') continue;
-      for (const target of targets) {
-        if ((this.findUnit(target.id)?.hp ?? 0) > 0) {
-          this.applyDamage(source.id, target.id, effect.amount, threat);
-        }
-      }
-    }
+    const targetIds = resolveAbilityTargets({ source, ability, action, footprint, units: this.units });
+    applyAbilityEffects({
+      sourceId: source.id,
+      targetIds,
+      effects: ability.effects,
+      direction,
+      threat,
+      port: {
+        isAlive: (unitId) => (this.findUnit(unitId)?.hp ?? 0) > 0,
+        applyDamage: (sourceId, targetId, amount, effectThreat) =>
+          this.applyDamage(sourceId, targetId, amount, effectThreat),
+        applyGuard: (sourceId, targetId, amount) => this.applyGuard(sourceId, targetId, amount),
+        applyKnockback: (sourceId, targetId, effectDirection, distance) =>
+          this.applyKnockback(sourceId, targetId, effectDirection, distance),
+      },
+    });
+  }
+
+  private applyGuard(sourceId: string, targetId: string, amount: number): void {
+    const applied = Math.max(0, Math.floor(amount));
+    if (applied <= 0) return;
+    this.replaceUnit(targetId, (unit) => ({
+      ...unit,
+      status: { ...unit.status, guard: unit.status.guard + applied },
+    }));
+    this.emit({
+      type: 'STATUS_APPLIED',
+      sourceId,
+      targetId,
+      status: 'GUARD',
+      amount: applied,
+    });
   }
 
   private applyDamage(

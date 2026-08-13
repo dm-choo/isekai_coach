@@ -5,6 +5,7 @@ export const ABILITY_IDS = {
   THRUST: 'thrust',
   SLASH: 'slash',
   DEBUG_KNOCKBACK: 'debug-knockback',
+  DEBUG_STRIKE_PUSH: 'debug-strike-push',
   SHORT_STRIKE: 'enemy-short-strike',
   ENEMY_THRUST: 'enemy-thrust',
   UNBLOCKABLE_STRIKE: 'enemy-unblockable-strike',
@@ -67,6 +68,19 @@ export const ABILITIES: Readonly<Record<string, AbilityDefinition>> = {
     apCost: 1,
     targeting: 'UNIT',
     effects: [{ type: 'KNOCKBACK', distance: 1 }],
+    provisional: true,
+  },
+  [ABILITY_IDS.DEBUG_STRIKE_PUSH]: {
+    id: ABILITY_IDS.DEBUG_STRIKE_PUSH,
+    name: 'Debug Strike + Push',
+    apCost: 1,
+    targeting: 'PATTERN',
+    pattern: SHORT_STRIKE_PATTERN,
+    effects: [
+      { type: 'DAMAGE', amount: 1 },
+      { type: 'KNOCKBACK', distance: 1 },
+    ],
+    threat: 'NORMAL_ATTACK',
     provisional: true,
   },
   [ABILITY_IDS.SHORT_STRIKE]: {

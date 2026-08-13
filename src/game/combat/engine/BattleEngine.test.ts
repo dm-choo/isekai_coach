@@ -181,6 +181,38 @@ describe('locked intent geometry', () => {
 });
 
 describe('damage, defense, and death', () => {
+  it('applies pattern damage and knockback in declared effect order', () => {
+    const base = createWarriorKnockbackScenario();
+    const scenario: BattleScenario = {
+      ...base,
+      id: 'combined-effect-test',
+      studentActions: undefined,
+      units: base.units.map((unit) =>
+        unit.id === 'student-01'
+          ? { ...unit, abilities: [...unit.abilities, ABILITY_IDS.DEBUG_STRIKE_PUSH] }
+          : unit,
+      ),
+    };
+    const engine = new BattleEngine(scenario);
+    engine.beginTurn();
+
+    const result = engine.performStudentAction({
+      type: 'USE_ABILITY',
+      actorId: 'student-01',
+      abilityId: ABILITY_IDS.DEBUG_STRIKE_PUSH,
+      direction: 'RIGHT',
+    });
+
+    expect(result.events.map((event) => event.type)).toEqual([
+      'AP_SPENT',
+      'ABILITY_USED',
+      'DAMAGE_DEALT',
+      'UNIT_KNOCKED_BACK',
+      'INTENT_AREA_CHANGED',
+    ]);
+    expect(enemy(engine)).toMatchObject({ hp: 4, position: { x: 6, y: 1 } });
+  });
+
   it('cancels a dead source intent before it can execute', () => {
     const engine = new BattleEngine(createKillCancelsIntentScenario());
     engine.runTurn();
