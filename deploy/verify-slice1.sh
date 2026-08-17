@@ -22,6 +22,10 @@ verify_endpoint() {
     echo "${label}: Cache-Control no-transform is missing" >&2
     return 1
   }
+  grep --ignore-case --quiet '^content-security-policy:.*img-src[^;]*blob:' <<<"${headers}" || {
+    echo "${label}: CSP img-src does not allow Phaser blob images" >&2
+    return 1
+  }
 
   for asset_path in $(grep -oE '/slice1/assets/[^" ]+\.(css|js)' <<<"${html}"); do
     curl --fail --silent --show-error --max-time 30 "${base}${asset_path}" >/dev/null

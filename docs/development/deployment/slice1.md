@@ -56,6 +56,7 @@ sudo ./deploy/install-slice1.sh
 - `/slice1/`이 Amazon Barrier Guardian boss-room build의 HTML을 제공한다.
 - HTML이 참조한 JS/CSS bundle이 모두 2xx다.
 - response에 `Cache-Control: public, no-transform`이 있다.
+- Phaser가 runtime SVG를 rasterize할 수 있도록 CSP `img-src`가 self/data/blob만 허용한다.
 - same-origin Pretendard font SHA-256이 pinned value와 같다.
 
 공개 브라우저 smoke는 별도로 다음 production-intent 흐름을 확인한다.

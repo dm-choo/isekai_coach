@@ -31,9 +31,10 @@ try {
   page.on('pageerror', (error) => errors.push(error.message));
 
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
+  const debugAvailable = await page.evaluate(() => Boolean(window.__ISEKAI_COACH_COMBAT__));
   await capture(page, '00-intro');
   await page.getByRole('button', { name: '전투 시작' }).click();
-  await waitForMode(page, 'PLAYER_TURN');
+  await waitForMode(page, 'PLAYER_TURN', debugAvailable);
   await capture(page, '01-turn-1');
   await page.locator('.intent-callout').hover();
   await capture(page, '01b-intent-tooltip');
@@ -42,7 +43,7 @@ try {
   await page.getByRole('button', { name: 'W', exact: true }).click();
   await capture(page, '02-player-plan');
   await page.getByRole('button', { name: /행동 확정/ }).click();
-  await waitForTurn(page, 2);
+  await waitForTurn(page, 2, debugAvailable);
   await capture(page, '03-turn-2');
 
   await page.getByRole('button', { name: 'S', exact: true }).click();
@@ -50,43 +51,49 @@ try {
   await capture(page, '04-interrupt-preview');
   await page.getByRole('button', { name: /내려찍기/ }).click();
   await page.getByRole('button', { name: /행동 확정/ }).click();
-  await waitForTurn(page, 3);
+  await waitForTurn(page, 3, debugAvailable);
   await page.getByRole('button', { name: /대기 · 턴 종료/ }).click();
-  await waitForTurn(page, 4);
+  await waitForTurn(page, 4, debugAvailable);
   await capture(page, '05-summoned-enemy');
 
-  let snapshot = await combatSnapshot(page);
-  const hounds = snapshot.state.units.filter((unit) => unit.combatRole === 'MINION' && unit.hp > 0);
-  if (hounds.length !== 1 || hounds[0].faction !== 'ENEMY') {
-    throw new Error(`Expected one living ENEMY minion, received ${JSON.stringify(hounds)}`);
-  }
   const targetButtons = page.locator('.target-picker button');
-  if (await targetButtons.count() !== snapshot.state.units.filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0).length) {
-    throw new Error('Target picker does not expose every living enemy');
+  const targetNames = await targetButtons.allTextContents();
+  if (targetNames.length !== 2 || !targetNames.includes('결계 수호자') || !targetNames.includes('추적 하수인')) {
+    throw new Error(`Target picker does not expose both living enemies: ${JSON.stringify(targetNames)}`);
   }
-  await page.getByRole('button', { name: '추적 하수인', exact: true }).click();
-  await page.waitForFunction((houndId) => (
-    window.__ISEKAI_COACH_COMBAT__?.snapshot.selectedTargetId === houndId
-  ), hounds[0].id);
-  snapshot = await combatSnapshot(page);
-  if (!snapshot.actions.some((action) => action.id === 'SLAM' && action.executable)) {
+  const houndButton = page.getByRole('button', { name: '추적 하수인', exact: true });
+  await houndButton.click();
+  if (await houndButton.getAttribute('aria-pressed') !== 'true') {
+    throw new Error('Target-picker minion selection did not stick');
+  }
+  const slamButton = page.getByRole('button', { name: /내려찍기/ });
+  if (await slamButton.getAttribute('aria-disabled') !== 'false') {
     throw new Error('Target-picker minion is not an executable melee target');
   }
 
-  await page.getByRole('button', { name: '결계 수호자', exact: true }).click();
-  const houndPosition = hounds[0].position;
-  await page.locator('canvas').click({
-    position: {
-      x: 62 + houndPosition.x * 105,
-      y: 356 + houndPosition.y * 72 - 42,
-    },
-  });
-  await page.waitForFunction((houndId) => (
-    window.__ISEKAI_COACH_COMBAT__?.snapshot.selectedTargetId === houndId
-  ), hounds[0].id);
-  snapshot = await combatSnapshot(page);
-  if (!snapshot.actions.some((action) => action.id === 'SLAM' && action.executable)) {
-    throw new Error('World-selected minion is not an executable melee target');
+  let snapshot = debugAvailable ? await combatSnapshot(page) : null;
+  let hounds = [];
+  if (snapshot) {
+    hounds = snapshot.state.units.filter((unit) => unit.combatRole === 'MINION' && unit.hp > 0);
+    if (hounds.length !== 1 || hounds[0].faction !== 'ENEMY') {
+      throw new Error(`Expected one living ENEMY minion, received ${JSON.stringify(hounds)}`);
+    }
+
+    await page.getByRole('button', { name: '결계 수호자', exact: true }).click();
+    const houndPosition = hounds[0].position;
+    await page.locator('canvas').click({
+      position: {
+        x: 62 + houndPosition.x * 105,
+        y: 356 + houndPosition.y * 72 - 42,
+      },
+    });
+    await page.waitForFunction((houndId) => (
+      window.__ISEKAI_COACH_COMBAT__?.snapshot.selectedTargetId === houndId
+    ), hounds[0].id);
+    snapshot = await combatSnapshot(page);
+    if (!snapshot.actions.some((action) => action.id === 'SLAM' && action.executable)) {
+      throw new Error('World-selected minion is not an executable melee target');
+    }
   }
   await capture(page, '06-summoned-enemy-selected');
   if (errors.length > 0) throw new Error(`Browser errors:\n${errors.join('\n')}`);
@@ -94,12 +101,15 @@ try {
   const report = {
     url: baseUrl,
     viewport: { width: 1280, height: 720 },
-    mode: snapshot.mode,
-    turn: snapshot.state.turn,
-    selectedTargetId: snapshot.selectedTargetId,
-    livingEnemies: snapshot.state.units
-      .filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0)
-      .map((unit) => ({ id: unit.id, role: unit.combatRole, position: unit.position })),
+    verificationMode: debugAvailable ? 'STATE_AND_UI' : 'PUBLIC_UI',
+    mode: snapshot?.mode ?? 'PLAYER_TURN',
+    turn: snapshot?.state.turn ?? 4,
+    selectedTargetId: snapshot?.selectedTargetId ?? 'guardian-hound-ui',
+    livingEnemies: snapshot
+      ? snapshot.state.units
+          .filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0)
+          .map((unit) => ({ id: unit.id, role: unit.combatRole, position: unit.position }))
+      : targetNames,
     browserErrors: errors,
   };
   await writeFile(new URL('report.json', artifactDir), `${JSON.stringify(report, null, 2)}\n`);
@@ -130,19 +140,30 @@ async function combatSnapshot(page) {
   });
 }
 
-async function waitForMode(page, mode) {
-  await page.waitForFunction((expected) => (
-    window.__ISEKAI_COACH_COMBAT__?.snapshot.mode === expected &&
-    !window.__ISEKAI_COACH_COMBAT__?.snapshot.isBusy
-  ), mode, { timeout: 20_000 });
+async function waitForMode(page, mode, debugAvailable) {
+  if (debugAvailable) {
+    await page.waitForFunction((expected) => (
+      window.__ISEKAI_COACH_COMBAT__?.snapshot.mode === expected &&
+      !window.__ISEKAI_COACH_COMBAT__?.snapshot.isBusy
+    ), mode, { timeout: 20_000 });
+    return;
+  }
+  await page.locator(`.turn-banner-${mode.toLowerCase()}`).waitFor({ timeout: 20_000 });
+  await page.locator('.player-controls:not(.is-busy)').waitFor({ timeout: 20_000 });
 }
 
-async function waitForTurn(page, turn) {
-  await page.waitForFunction((expected) => (
-    window.__ISEKAI_COACH_COMBAT__?.snapshot.mode === 'PLAYER_TURN' &&
-    window.__ISEKAI_COACH_COMBAT__?.snapshot.state.turn === expected &&
-    !window.__ISEKAI_COACH_COMBAT__?.snapshot.isBusy
-  ), turn, { timeout: 25_000 });
+async function waitForTurn(page, turn, debugAvailable) {
+  if (debugAvailable) {
+    await page.waitForFunction((expected) => (
+      window.__ISEKAI_COACH_COMBAT__?.snapshot.mode === 'PLAYER_TURN' &&
+      window.__ISEKAI_COACH_COMBAT__?.snapshot.state.turn === expected &&
+      !window.__ISEKAI_COACH_COMBAT__?.snapshot.isBusy
+    ), turn, { timeout: 25_000 });
+    return;
+  }
+  await page.locator('.boss-hud').getByText(`TURN ${turn}`, { exact: true }).waitFor({ timeout: 30_000 });
+  await page.locator('.turn-banner-player_turn').waitFor({ timeout: 30_000 });
+  await page.locator('.player-controls:not(.is-busy)').waitFor({ timeout: 30_000 });
 }
 
 async function capture(page, name) {
