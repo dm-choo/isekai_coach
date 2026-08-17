@@ -1,5 +1,7 @@
 import type { BattleState, CombatEvent, Intent } from '../../combat';
 
+export type IntentIconKind = 'MOVE' | 'ATTACK' | 'SHOOT' | 'STUN' | 'SUMMON' | 'PUSH';
+
 export interface PredictionLayer {
   readonly cells: readonly Readonly<{ x: number; y: number }>[];
   readonly label: string;
@@ -18,6 +20,8 @@ export interface BattlePredictionPresentation {
       readonly id: string;
       readonly label: string;
       readonly glyph: string;
+      readonly icon: IntentIconKind;
+      readonly description: string;
       readonly damage?: number;
       readonly movementPath: readonly Readonly<{ x: number; y: number }>[];
       readonly effectCells: readonly Readonly<{ x: number; y: number }>[];
@@ -41,6 +45,7 @@ export interface PresentationPort {
   resume(): void;
   setSpeed(multiplier: number): void;
   setPrediction?(prediction: BattlePredictionPresentation | null): void;
+  setSelection?(unitId: string | null): void;
   playSealUnlock?(signal: AbortSignal): Promise<void>;
   destroy(): void;
 }

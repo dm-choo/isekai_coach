@@ -5,6 +5,7 @@ import { BattleScene } from '../scenes/BattleScene';
 export function createPhaserGame(
   parent: HTMLElement,
   onReady: (presentation: PresentationPort) => void,
+  onUnitSelected?: (unitId: string) => void,
 ): Phaser.Game {
   return new Phaser.Game({
     type: Phaser.AUTO,
@@ -21,6 +22,6 @@ export function createPhaserGame(
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
-    scene: [new BattleScene(onReady)],
+    scene: [new BattleScene(onReady, onUnitSelected)],
   });
 }

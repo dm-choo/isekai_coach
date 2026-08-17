@@ -41,7 +41,7 @@ related:
 
 ## Current provenance and composition
 
-v2 seed는 ImageGen으로 생성한 원본을 mechanical alpha cleanup(배경 제거·알파 가장자리 정리) 후 atlas composition(정렬된 직사각형 tile 배치)한 결과다. 배경과 `jungle-ground-atlas-v2.png`는 별도 asset/layer로 유지한다. character cutout은 alpha cleanup 뒤 padded crop하고 runtime에서 bottom-center anchor로 투영한다. ground atlas는 1024×128 PNG에 256×128 frame 4개를 수평 배치한다. 원본 prompt와 생성 시점은 작업 handoff에 보존하고, 최종 path·alpha 처리·atlas dimensions·in-engine screenshot/build SHA를 함께 기록한다.
+v2 seed는 ImageGen으로 생성한 원본을 mechanical alpha cleanup한 결과다. `jungle-ground-atlas-v2.png`는 생성 provenance를 위해 보존하지만 현재 public combat view는 이를 개별 cell carpet으로 반복하지 않고 배경 위의 연속 ground plane과 투명 grid overlay를 사용한다. character cutout은 alpha cleanup 뒤 padded crop하고 asset별 normalized `footAnchor`를 logical cell 중심에 투영한다. 원본 prompt와 생성 시점은 작업 handoff에 보존하고, 최종 path·alpha 처리·anchor·in-engine screenshot/build SHA를 함께 기록한다.
 
 ### v2 prompt and path ledger
 
@@ -52,13 +52,13 @@ v2 seed는 ImageGen으로 생성한 원본을 mechanical alpha cleanup(배경 �
 | `public/assets/slice1/barrier-guardian-v2.png` | `about 5.5 heads tall massive Amazon jungle barrier guardian, ritual stone and wood armor, carved mask, root limbs, obsidian and orange cracks, rough three-value rendering, left-facing wind-up silhouette, transparent background` | mechanical alpha cleanup; padded crop; runtime bottom-center anchor |
 | `public/assets/slice1/guardian-hound-v2.png` | `small jungle barrier hound with wood and obsidian mask, roots and vines, amber seams, forward-leaning left-facing charge pose, rough three-value rendering, transparent background` | mechanical alpha cleanup; padded crop; runtime bottom-center anchor |
 | `public/assets/slice1/jungle-background-v2.png` | `Amazon jungle barrier gate room, continuous soil floor and canopy, atmospheric side-view background, rough painted brush, three-tone value grouping, no characters, no text, no UI` | opaque background layer; no atlas composition |
-| `public/assets/slice1/jungle-ground-atlas-v2.png` | `2x2 terrain atlas concept with four edge-to-edge compacted wet-earth variations, no gutter, perspective, grid, characters or text` | four frames recomposed horizontally; 1024×128 atlas, 256×128 per frame; separate ground layer |
+| `public/assets/slice1/jungle-ground-atlas-v2.png` | `2x2 terrain atlas concept with four edge-to-edge compacted wet-earth variations, no gutter, perspective, grid, characters or text` | four frames recomposed horizontally; 1024×128 atlas, 256×128 per frame; provenance retained, not repeated by public renderer |
 
 These are prompt summaries, not a claim that the generated image itself is a production sprite sheet. The exact source request and generation metadata belong in the asset handoff; this ledger keeps the reproducible intent and final repository path in the canonical documentation.
 
 ## Animation contract
 
-- body는 bottom-center anchor와 행 baseline을 공유한다.
+- body는 asset별 `footAnchor`와 runtime shadow 중심을 logical cell 중심에 고정한다. 단순 texture bottom-center는 발 위치 계약으로 사용하지 않는다.
 - 관리자 `밀치기`는 보스 이동과 BODY Intent origin 변경을 함께 보여준다.
 - 궁수 `사격`은 활시위, release, 투사체, 가장 앞 적 hit를 구분한다.
 - `내려찍기`는 wind-up·impact·stun recoil·중단된 `외침`을 구분한다.
@@ -70,7 +70,7 @@ These are prompt summaries, not a claim that the generated image itself is a pro
 
 - 파일명·source 경로
 - 실제 dimensions와 alpha/transparency
-- frame/atlas bounds, crop과 bottom-center anchor
+- frame/atlas bounds, crop과 asset별 normalized `footAnchor`
 - text, watermark, unintended background와 생성 artifact
 
 ### Preview
@@ -89,3 +89,5 @@ These are prompt summaries, not a claim that the generated image itself is a pro
 - console/page/request error 0건, reset/restart 뒤 이전 animation 누수 없음
 
 Screenshot은 미관 참고가 아니라 Canvas/WebGL 결과의 필수 evidence다. 최종 승인 전에는 asset path, prompt와 screenshot/build SHA를 기록한다.
+
+`npm run verify:combat-ux`는 개발 서버를 임시 실행하고 `intro → turn 1 → player plan → interrupt preview → summon → minion world selection`을 재생한다. `artifacts/combat-ux/`에 named screenshot과 `report.json`을 남기며, browser error 0건·소환수 ENEMY faction·world click target selection·선택 후 melee executable을 확인한다. 전체 화면 pixel diff는 animation noise 때문에 gate로 사용하지 않고, 상태 JSON assertion과 짧은 screenshot review를 결합한다.

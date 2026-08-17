@@ -49,22 +49,25 @@ export class TelegraphView {
 
   private draw(intent: RenderableIntent): Phaser.GameObjects.GameObject[] {
     const result: Phaser.GameObjects.GameObject[] = [];
-    for (const cell of intent.movementPath) {
+    intent.movementPath.forEach((cell, index) => {
       const world = this.projector.gridToWorld(cell);
-      const marker = this.scene.add
-        .rectangle(world.x, world.y, this.projector.cellSize.width, this.projector.cellSize.height, 0x6adad3, 0.08)
-        .setStrokeStyle(2, 0xa5fff0, 0.8)
-        .setDepth(8);
       const arrow = this.scene.add.text(world.x, world.y, movementArrow(intent.direction), {
         fontFamily: '"Pretendard Variable", system-ui, sans-serif',
         fontSize: '24px',
-        color: '#c9fff1',
+        color: '#c48aff',
         fontStyle: 'bold',
-        stroke: '#0a241d',
+        stroke: '#24102f',
         strokeThickness: 4,
       }).setOrigin(0.5).setDepth(19);
-      result.push(marker, arrow);
-    }
+      result.push(arrow);
+      if (index === intent.movementPath.length - 1) {
+        const destination = this.scene.add
+          .rectangle(world.x, world.y, this.projector.cellSize.width - 7, this.projector.cellSize.height - 7, 0xd84532, 0.13)
+          .setStrokeStyle(4, 0xff8b6c, 0.96)
+          .setDepth(8);
+        result.push(destination);
+      }
+    });
 
     const wide = intent.abilityId === 'guardian-rupture';
     for (const cell of intent.effectCells) {

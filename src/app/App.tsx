@@ -20,6 +20,13 @@ export function App() {
 
   useEffect(() => () => controller.destroy(), [controller]);
   useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    window.__ISEKAI_COACH_COMBAT__ = { snapshot };
+    return () => {
+      delete window.__ISEKAI_COACH_COMBAT__;
+    };
+  }, [snapshot]);
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.repeat) return;
       const directions: Partial<Record<string, Direction>> = {
@@ -84,14 +91,15 @@ export function App() {
         )}
 
         {intent && snapshot.mode !== 'INTRO' && (
-          <div className={`intent-callout ${intent.abilityId === 'guardian-rupture' ? 'is-wide' : ''}`}>
-            <span className="intent-eye" aria-hidden="true">◉</span>
+          <button type="button" className={`intent-callout ${intent.abilityId === 'guardian-rupture' ? 'is-wide' : ''}`}>
+            <img className="intent-icon" src={`${BASE_URL}${intentIconPath(intent.abilityId)}`} alt="" />
             <div>
               <small>적 행동 고정</small>
               <strong>{intentName(intent.abilityId)}</strong>
             </div>
             <i>{intentDetail(intent.abilityId)}</i>
-          </div>
+            <span className="intent-tooltip" role="tooltip">{intentTooltip(intent.abilityId)}</span>
+          </button>
         )}
 
         {snapshot.mode === 'ALLY_TURN' && (
@@ -223,10 +231,12 @@ function PlayerControls({
   readonly controller: SliceController;
 }) {
   const administrator = snapshot.previewState.units.find((unit) => unit.id === 'administrator-01');
+  const selectedTarget = snapshot.previewState.units.find((unit) => unit.id === snapshot.selectedTargetId);
   return (
     <section className={`player-controls ${snapshot.isBusy ? 'is-busy' : ''}`} aria-label="관리자 조작">
       <div className="plan-strip" aria-label="예정 행동">
         <small>예정 행동</small>
+        {selectedTarget && <strong className="selected-target">대상 · {unitName(selectedTarget)}</strong>}
         <div>
           {snapshot.plannedActions.length === 0
             ? <span className="plan-empty">이동 또는 공격을 선택</span>
@@ -251,8 +261,9 @@ function PlayerControls({
             <button
               key={action.id}
               type="button"
-              className={`skill-button skill-${action.id.toLowerCase()}`}
-              disabled={!action.executable || snapshot.isBusy}
+              className={`skill-button skill-${action.id.toLowerCase()} ${action.executable ? '' : 'is-disabled'}`}
+              disabled={snapshot.isBusy}
+              aria-disabled={!action.executable}
               onClick={() => controller.useAction(action.id)}
               onMouseEnter={() => controller.setActionHover(action.id)}
               onMouseLeave={() => controller.setActionHover()}
@@ -260,10 +271,14 @@ function PlayerControls({
               onBlur={() => controller.setActionHover()}
             >
               <kbd>{index + 1}</kbd>
-              <i aria-hidden="true">{action.glyph}</i>
+              <img src={`${BASE_URL}assets/ui/intent-${action.icon.toLowerCase()}.svg`} alt="" />
               <strong>{action.label}</strong>
               <small>AP {action.apCost}</small>
-              <span className="skill-tooltip">{action.tags.join('  ')}</span>
+              <span className="skill-tooltip">
+                <b>{action.label}</b>{action.description}
+                {!action.executable && <em>{actionFailureCopy(action.failureReason)}</em>}
+                <small>{action.tags.join('  ')}</small>
+              </span>
             </button>
           ))}
         </div>
@@ -278,7 +293,7 @@ function PlayerControls({
             <span>하나 되돌리기</span><kbd>Z</kbd>
           </button>
           <button type="button" className="end-turn-button" disabled={!snapshot.canConfirm} onClick={controller.confirmPlan}>
-            <span>행동 확정</span><kbd>SPACE</kbd>
+            <span>{snapshot.plannedActions.length === 0 ? '대기 · 턴 종료' : '행동 확정'}</span><kbd>SPACE</kbd>
           </button>
         </div>
       </div>
@@ -358,4 +373,40 @@ function intentDetail(abilityId: string | undefined): string {
   if (abilityId === 'guardian-summon') return '원거리 동료 추적';
   if (abilityId === 'minion-charge') return '3×1 · 피해 2';
   return '행동 고정';
+}
+
+function intentIconPath(abilityId: string | undefined): string {
+  if (abilityId === 'guardian-summon') return 'assets/ui/intent-summon.svg';
+  if (abilityId === 'minion-charge') return 'assets/ui/intent-push.svg';
+  return 'assets/ui/intent-attack.svg';
+}
+
+function intentTooltip(abilityId: string | undefined): string {
+  if (abilityId === 'guardian-crush') {
+    return '제압 · 이동 후 공격\n왼쪽으로 2칸 이동한 뒤 전방 1칸에 피해 6을 줍니다. 이 행동은 스턴으로 중단할 수 없습니다.';
+  }
+  if (abilityId === 'guardian-rupture') {
+    return '외침 · 광역 공격\n현재 위치에서 왼쪽 5칸과 3개 행에 피해 2를 줍니다. 내려찍기의 스턴으로 중단할 수 있습니다.';
+  }
+  if (abilityId === 'guardian-summon') {
+    return '하수인 소환\n빈 인접 칸에 원거리 동료를 추적하는 적 하수인을 소환합니다.';
+  }
+  if (abilityId === 'minion-charge') {
+    return '돌진 · 이동 공격\n원거리 동료 방향으로 최대 3칸 이동하며 처음 만난 대상에게 피해 2를 줍니다.';
+  }
+  return '고정된 적 행동입니다.';
+}
+
+function unitName(unit: Unit): string {
+  if (unit.combatRole === 'BOSS') return '결계 수호자';
+  if (unit.combatRole === 'MINION') return '추적 하수인';
+  return unit.faction === 'ENEMY' ? '적' : '아군';
+}
+
+function actionFailureCopy(reason: SliceSnapshot['actions'][number]['failureReason']): string {
+  if (reason === 'INSUFFICIENT_AP') return '현재 AP가 부족합니다.';
+  if (reason === 'INVALID_TARGET') return '선택한 적이 사거리 밖에 있습니다.';
+  if (reason === 'BLOCKED_KNOCKBACK') return '대상 뒤의 칸이 막혀 밀칠 수 없습니다.';
+  if (reason === 'OCCUPIED') return '다른 전투원이 해당 칸을 점유하고 있습니다.';
+  return '현재 계획에서는 실행할 수 없습니다.';
 }

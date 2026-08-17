@@ -92,8 +92,9 @@ button:disabled { cursor: not-allowed; }
 .portrait-data strong { display: block; font-size: 13px; letter-spacing: -.02em; }
 .portrait-data small { display: block; margin-top: 3px; color: #e8dac0; font: 700 10px ui-monospace, monospace; }
 .portrait-data small span { color: #827c6c; }
-.compact-hp { height: 5px; margin-top: 8px; background: #251d17; }
-.compact-hp i { display: block; height: 100%; background: linear-gradient(90deg, #4e9f70, #86d69b); box-shadow: 0 0 9px rgba(109,193,139,.4); }
+.compact-hp { position: relative; height: 7px; margin-top: 8px; border: 1px solid #090b08; background: #251d17; }
+.compact-hp::after { position: absolute; inset: 0; content: ""; background: repeating-linear-gradient(90deg, transparent 0, transparent calc(10% - 1px), rgba(3,5,3,.82) calc(10% - 1px), rgba(3,5,3,.82) 10%); }
+.compact-hp i { display: block; height: 100%; background: linear-gradient(180deg, #83d99b, #39875c); box-shadow: inset 0 1px rgba(255,255,255,.28), 0 0 9px rgba(109,193,139,.4); transition: width .35s ease; }
 .portrait-ally .compact-hp i { background: linear-gradient(90deg, #9f7435, #e2bd5e); }
 
 .boss-hud { justify-self: stretch; text-align: center; }
@@ -154,16 +155,21 @@ button:disabled { cursor: not-allowed; }
   gap: 9px;
   min-width: 184px;
   padding: 8px 10px;
+  border: 0;
   border-left: 3px solid #e56543;
   background: rgba(42, 13, 8, .82);
   box-shadow: 0 8px 22px rgba(0,0,0,.38);
-  pointer-events: none;
+  color: inherit;
+  text-align: left;
+  pointer-events: auto;
 }
 .intent-callout.is-wide { border-color: #ef9b39; animation: intent-pulse 1.4s ease-in-out infinite; }
-.intent-eye { color: #ffc07e; font-size: 18px; }
+.intent-icon { width: 31px; height: 31px; padding: 3px; border: 1px solid rgba(255,154,111,.62); background: #24110d; }
 .intent-callout small { display: block; color: #bf876c; font-size: 8px; letter-spacing: .13em; }
 .intent-callout strong { display: block; margin-top: 1px; font-size: 13px; }
 .intent-callout i { margin-left: auto; color: #ffd28a; font: 700 9px ui-monospace, monospace; font-style: normal; }
+.intent-tooltip { position: absolute; top: calc(100% + 8px); right: 0; display: none; width: 300px; padding: 12px 14px; border: 1px solid #9c5e41; background: rgba(8,9,7,.97); color: #f3e5cb; font-size: 12px; line-height: 1.55; white-space: pre-line; box-shadow: 0 12px 28px rgba(0,0,0,.52); }
+.intent-callout:hover .intent-tooltip, .intent-callout:focus-visible .intent-tooltip { display: block; }
 @keyframes intent-pulse { 50% { box-shadow: 0 0 22px rgba(237,117,43,.34); } }
 
 .combat-notice {
@@ -217,6 +223,7 @@ button:disabled { cursor: not-allowed; }
   box-shadow: 0 8px 24px rgba(0,0,0,.34);
 }
 .plan-strip > small { color: #8f856f; font: 700 9px ui-monospace, monospace; letter-spacing: .08em; }
+.selected-target { padding-right: 10px; border-right: 1px solid rgba(210,188,131,.24); color: #ff9b80; font-size: 10px; }
 .plan-strip > div { display: flex; gap: 6px; }
 .plan-chip, .plan-empty { padding: 4px 8px; color: #f0dfad; background: #262217; font-size: 10px; }
 .plan-chip i { display: inline-grid; width: 16px; height: 16px; margin-right: 5px; place-items: center; border-radius: 50%; background: #aa843f; color: #171208; font: 800 9px ui-monospace, monospace; font-style: normal; }
@@ -250,12 +257,17 @@ button:disabled { cursor: not-allowed; }
   box-shadow: inset 0 0 0 2px #090a07, 0 7px 18px #000;
 }
 .skill-button:hover:not(:disabled) { transform: translateY(-3px); border-color: #e2bd66; filter: brightness(1.13); }
-.skill-button:disabled { opacity: .38; filter: grayscale(.7); }
+.skill-button:disabled, .skill-button.is-disabled { opacity: .48; filter: grayscale(.55); }
+.skill-button.is-disabled:hover, .skill-button.is-disabled:focus-visible { opacity: .72; border-color: #a88555; }
 .skill-button kbd { position: absolute; top: 4px; left: 5px; color: #8f856f; font: 700 9px ui-monospace, monospace; }
-.skill-button > i { color: #f1cf7f; font: 800 31px/1 Georgia, serif; font-style: normal; text-shadow: 0 0 13px rgba(226,184,88,.3); }
+.skill-button > img { width: 34px; height: 34px; filter: drop-shadow(0 0 8px rgba(226,184,88,.26)); }
 .skill-button > strong { font-size: 13px; }
 .skill-button > small { color: #aaa087; font: 700 9px ui-monospace, monospace; }
-.skill-tooltip { position: absolute; bottom: calc(100% + 9px); left: 50%; display: none; width: max-content; max-width: 230px; transform: translateX(-50%); padding: 7px 9px; border: 1px solid #806d48; background: rgba(8,9,6,.96); color: #dfc67f; font-size: 10px; white-space: nowrap; }
+.skill-tooltip { position: absolute; bottom: calc(100% + 9px); left: 50%; display: none; width: 280px; transform: translateX(-50%); padding: 11px 12px; border: 1px solid #806d48; background: rgba(8,9,6,.97); color: #eee1c3; font-size: 11px; line-height: 1.45; text-align: left; white-space: normal; }
+.skill-tooltip b, .skill-tooltip small { display: block; }
+.skill-tooltip b { margin-bottom: 5px; color: #fff0bd; font-size: 13px; }
+.skill-tooltip em { display: block; margin-top: 7px; color: #ff967c; font-size: 10px; font-style: normal; }
+.skill-tooltip small { margin-top: 7px; color: #c79e58; font-size: 9px; }
 .skill-button:hover .skill-tooltip, .skill-button:focus-visible .skill-tooltip { display: block; }
 
 .turn-control { display: flex; align-items: flex-end; justify-content: flex-end; gap: 12px; }

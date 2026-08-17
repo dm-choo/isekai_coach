@@ -13,7 +13,10 @@ export class BattleScene extends Phaser.Scene {
   private director: AnimationDirector | null = null;
   private port: PresentationPort | null = null;
 
-  public constructor(private readonly onReady: (port: PresentationPort) => void) {
+  public constructor(
+    private readonly onReady: (port: PresentationPort) => void,
+    private readonly onUnitSelected?: (unitId: string) => void,
+  ) {
     super({ key: 'BattleScene' });
   }
 
@@ -23,7 +26,7 @@ export class BattleScene extends Phaser.Scene {
 
   public create(): void {
     registerVisualAnimations(this);
-    this.battleRenderer = new BattleRenderer(this);
+    this.battleRenderer = new BattleRenderer(this, this.onUnitSelected);
     this.director = new AnimationDirector(this.battleRenderer);
     this.port = new PhaserPresentationPort(this, this.director);
     this.onReady(this.port);
@@ -90,6 +93,10 @@ class PhaserPresentationPort implements PresentationPort {
 
   public setPrediction(prediction: BattlePredictionPresentation | null): void {
     if (!this.destroyed) this.director.setPrediction(prediction);
+  }
+
+  public setSelection(unitId: string | null): void {
+    if (!this.destroyed) this.director.setSelection(unitId);
   }
 
   public playSealUnlock(signal: AbortSignal): Promise<void> {

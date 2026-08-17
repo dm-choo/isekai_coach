@@ -109,11 +109,11 @@ related:
 
 ## Camera and spatial presentation
 
-- logical map은 `12 x 3`을 유지한다. 현재 public scene은 12개 열과 3개 행의 정렬된 직사각형 atlas tile을 모두 그리되, 카메라와 큰 캐릭터 scale로 개별 전투원의 행동 가독성을 유지한다.
-- 배경 이미지와 ground atlas는 분리한다. 아군 셀은 파랑, 적 셀은 빨강을 기본으로 하되 icon·stroke·pattern을 함께 쓴다.
+- logical map은 `12 x 3`을 유지한다. 현재 public scene은 배경 흙바닥과 하나의 연속된 battlefield plane 위에 저대비 12×3 grid outline을 표시한다.
+- 아군 Intent는 파랑, 적 Intent는 빨강, 이동은 보라를 기본으로 하되 icon·stroke·arrow를 함께 쓴다.
 - 카메라와 projection은 동일한 grid 좌표계를 공유하고 점유자와 relevant Intent를 같은 cell에 정렬한다.
-- 캐릭터는 한 cell보다 클 수 있고 서로 겹칠 수 있다. 한 명 한 명의 행동과 타격을 읽는 것이 전역 cell 개수 노출보다 중요하다.
-- 배경은 원경 jungle bitmap, 바닥은 4-frame atlas의 직사각형 tile layer로 분리한다. tile 사이 margin 없이 이어 붙여 한 장의 정글 흙바닥처럼 보이게 한다.
+- 캐릭터 body는 asset별 `footAnchor`로 한 cell의 중심에 발을 고정한다. sprite 외곽이 아니라 logical footprint가 선택과 피격 판정의 기준이다.
+- 배경은 원경 jungle bitmap과 연속된 흙바닥을 함께 소유하며, public renderer는 ground atlas를 cell마다 반복해 떠 있는 발판처럼 만들지 않는다.
 - 모든 바닥 cell은 낮은 대비로 존재하고, 아군 점유·적 점유·선택·이동 후보·Intent만 색·stroke·pattern으로 강조한다.
 - `외침`은 3개 행의 affected cells를 일시적으로 드러내되, 점유 outline이나 이동 경로와 혼동되지 않는 위험 신호로 표시한다.
 
@@ -138,7 +138,10 @@ Darkest Dungeon의 장면 우선 hierarchy를 기본 참고로 삼고, DNF의 si
 - `STUN` effect, interruptible intent, projectile first-hit targeting과 BODY area change가 domain event 순서로 해결된다.
 - `SliceController`가 관리자 input, 동료 5-slot policy loop, 세 턴 phase와 presentation queue를 조정한다.
 - React는 HUD·action bar·turn banner를, Phaser는 world unit·telegraph·projectile·camera·VFX를 소유한다.
-- generated bitmap background, ground atlas와 네 character cutout을 manifest/preload pipeline으로 소비한다.
+- generated bitmap background와 네 character cutout을 manifest/preload pipeline으로 소비한다. ground atlas는 생성 provenance로 보존하되 public renderer에는 반복 배치하지 않는다.
+- 구체적인 이동·공격·사격·상태 Intent icon, hover/focus tooltip, 최종 위치의 faction-colored ghost가 행동 원인과 결과를 미리 보여준다.
+- 적 world unit을 직접 선택할 수 있고, 소환수도 `ENEMY` HP 색과 공격 대상으로 일관되게 취급한다.
+- HP bar는 faction color, segment tick, delayed-damage layer를 함께 사용한다.
 - 정적 cutout은 idle breathing, move, lunge, bow draw/projectile, hammer slam, hit, knockback와 death transform으로 상태를 구분한다.
 - 수호자 처치 뒤 controller가 presentation port를 통해 seal unlock 연출을 실행한다. 이 environment interaction은 combat damage 규칙을 바꾸지 않는다.
 - reset은 playback을 abort하고 동일 encounter를 새 generation으로 복원한다.
@@ -156,11 +159,11 @@ Darkest Dungeon의 장면 우선 hierarchy를 기본 참고로 삼고, DNF의 si
 
 2026-08-17 로컬 구현 milestone:
 
-- Vitest: 4 files, 35 tests pass.
+- Vitest: 5 files, 38 tests pass.
 - TypeScript: `tsc --noEmit`
 - production build: Vite `/slice1/` base build
-- scripted Chromium flow: intro → turn 1 WASD dodge/confirm → ally positioning/shooting → turn 2 approach/slam interrupt → turn 3 summon → turn 4 hound intent
-- Playwright 1280×720: console/page errors 0건과 turn 1/plan/turn 2 interrupt preview/turn 3 summon intent/turn 4 hound rendered를 확인했다.
+- scripted Chromium flow: intro → turn 1 WASD dodge/confirm → Intent tooltip → ally positioning/shooting → turn 2 approach/slam interrupt → turn 3 summon → turn 4 hound world selection
+- Playwright 1280×720: console/page errors 0건, 각 preview screenshot, 소환수 `ENEMY` faction, world click target selection과 선택 뒤 `내려찍기` 실행 가능 상태를 확인했다.
 - browser console/page errors: 0
 - 한글 webfont load-before-Phaser와 character alpha를 screenshot으로 재검증
 

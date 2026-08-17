@@ -1,10 +1,11 @@
 import * as Phaser from 'phaser';
 import { getAbility, type BattleState, type Unit } from '../../combat';
 import {
+  getCharacterVisual,
   getVfxVisual,
   SLICE_ENVIRONMENT,
-  SLICE_GROUND_ATLAS,
 } from '../../assets/AssetManifest';
+import type { IntentIconKind } from '../bridge/PresentationPort';
 import type { BattlePredictionPresentation } from '../bridge/PresentationPort';
 import { GridProjector } from './GridProjector';
 import { TelegraphView, type RenderableIntent } from './TelegraphView';
@@ -18,10 +19,14 @@ export class BattleRenderer {
   private readonly predictionObjects: Phaser.GameObjects.GameObject[] = [];
   private readonly occupancyObjects: Phaser.GameObjects.GameObject[] = [];
   private readonly ambientObjects: Phaser.GameObjects.GameObject[] = [];
+  private readonly intentGhostObjects: Phaser.GameObjects.GameObject[] = [];
   private readonly previewIntentUnitIds = new Set<string>();
   private currentState: BattleState | null = null;
 
-  public constructor(private readonly scene: Phaser.Scene) {
+  public constructor(
+    private readonly scene: Phaser.Scene,
+    private readonly onUnitSelected?: (unitId: string) => void,
+  ) {
     scene.cameras.main.setBackgroundColor('#071009');
     const background = scene.add.image(640, 360, SLICE_ENVIRONMENT.textureKey)
       .setDisplaySize(1280, 720)
@@ -41,9 +46,10 @@ export class BattleRenderer {
     this.clearDynamicObjects();
     this.drawGroundCues(state);
     for (const unit of state.units) {
-      this.unitViews.set(unit.id, new UnitView(this.scene, unit, this.projector.gridToWorld(unit.position)));
+      this.unitViews.set(unit.id, new UnitView(this.scene, unit, this.projector.gridToWorld(unit.position), this.onUnitSelected));
     }
     this.telegraphs.sync(state.intents);
+    this.syncIntentGhosts(state.intents);
     this.drawOccupancy(state);
     this.syncIntentBadges(state);
   }
@@ -55,7 +61,7 @@ export class BattleRenderer {
       liveIds.add(unit.id);
       let view = this.unitViews.get(unit.id);
       if (!view) {
-        view = new UnitView(this.scene, unit, this.projector.gridToWorld(unit.position));
+        view = new UnitView(this.scene, unit, this.projector.gridToWorld(unit.position), this.onUnitSelected);
         this.unitViews.set(unit.id, view);
       }
       view.setWorldPosition(this.projector.gridToWorld(unit.position), unit.position.y);
@@ -69,6 +75,7 @@ export class BattleRenderer {
       }
     }
     this.telegraphs.sync(state.intents);
+    this.syncIntentGhosts(state.intents);
     this.drawOccupancy(state);
     this.syncIntentBadges(state);
   }
@@ -82,7 +89,9 @@ export class BattleRenderer {
     this.predictionObjects.length = 0;
     for (const unitId of this.previewIntentUnitIds) this.unitViews.get(unitId)?.setIntentPreview([]);
     this.previewIntentUnitIds.clear();
-    this.telegraphs.sync(prediction?.previewIntents ?? this.currentState?.intents ?? []);
+    const previewIntents = prediction?.previewIntents ?? this.currentState?.intents ?? [];
+    this.telegraphs.sync(previewIntents);
+    this.syncIntentGhosts(previewIntents);
     if (!prediction) return;
     for (const layer of [prediction.current, prediction.candidate]) {
       if (!layer) continue;
@@ -105,6 +114,8 @@ export class BattleRenderer {
         fontFamily: 'Georgia, serif', fontSize: '25px', color: '#d7fff7', stroke: '#10241f', strokeThickness: 4,
       }).setOrigin(0.5).setDepth(15);
       this.predictionObjects.push(zone, marker);
+      const unit = this.currentState?.units.find((candidate) => candidate.id === destination.unitId);
+      if (unit) this.predictionObjects.push(this.createGhost(unit, destination.position, 'ALLY', false));
     }
     for (const intent of prediction.intents ?? []) {
       this.previewIntentUnitIds.add(intent.unitId);
@@ -112,27 +123,41 @@ export class BattleRenderer {
       for (const step of intent.steps) {
         for (const cell of step.movementPath) {
           const world = this.projector.gridToWorld(cell);
-          const marker = this.scene.add
-            .rectangle(world.x, world.y, this.projector.cellSize.width - 6, this.projector.cellSize.height - 6, 0x64d8c6, 0.08)
-            .setStrokeStyle(2, 0x9af6e5, 0.72)
-            .setDepth(13);
+          const marker = this.scene.add.text(world.x, world.y, '➜', {
+            fontFamily: 'Arial, sans-serif', fontSize: '27px', color: '#b56cf0',
+            stroke: '#24102f', strokeThickness: 4,
+          }).setOrigin(0.5).setDepth(15);
           this.predictionObjects.push(marker);
         }
         for (const cell of step.effectCells) {
           const world = this.projector.gridToWorld(cell);
           const zone = this.scene.add
-            .rectangle(world.x, world.y, this.projector.cellSize.width - 6, this.projector.cellSize.height - 6, 0xe5bc57, 0.13)
-            .setStrokeStyle(2, 0xffe29a, 0.8)
+            .rectangle(world.x, world.y, this.projector.cellSize.width - 6, this.projector.cellSize.height - 6, 0xd84935, 0.22)
+            .setStrokeStyle(3, 0xffc06b, 0.92)
             .setDepth(13);
           this.predictionObjects.push(zone);
         }
       }
+      const unit = this.currentState?.units.find((candidate) => candidate.id === intent.unitId);
+      const finalMovement = intent.steps.flatMap((step) => step.movementPath).at(-1);
+      if (unit) {
+        this.predictionObjects.push(this.createGhost(
+          unit,
+          finalMovement ?? unit.position,
+          'ALLY',
+          intent.steps.some((step) => step.effectCells.length > 0),
+        ));
+      }
     }
+  }
+
+  public setSelection(unitId: string | null): void {
+    for (const [id, view] of this.unitViews) view.setSelected(id === unitId);
   }
 
   public summonUnit(unit: Unit, duration: number, signal: AbortSignal): Promise<void> {
     if (signal.aborted || this.unitViews.has(unit.id)) return Promise.resolve();
-    const view = new UnitView(this.scene, unit, this.projector.gridToWorld(unit.position));
+    const view = new UnitView(this.scene, unit, this.projector.gridToWorld(unit.position), this.onUnitSelected);
     view.container.setAlpha(0).setScale(0.45);
     this.unitViews.set(unit.id, view);
     if (duration <= 0) {
@@ -347,10 +372,12 @@ export class BattleRenderer {
 
   public syncTelegraphs(intents: readonly RenderableIntent[]): void {
     this.telegraphs.sync(intents);
+    this.syncIntentGhosts(intents);
   }
 
   public clearTelegraphs(): void {
     this.telegraphs.clear();
+    this.clearIntentGhosts();
   }
 
   public async playSealUnlock(signal: AbortSignal): Promise<void> {
@@ -457,27 +484,29 @@ export class BattleRenderer {
   }
 
   private drawGroundCues(state: BattleState): void {
-    const atlasExists = this.scene.textures.exists(SLICE_GROUND_ATLAS.textureKey);
+    const first = this.projector.gridToWorld({ x: 0, y: 0 });
+    const last = this.projector.gridToWorld({ x: state.map.width - 1, y: state.map.height - 1 });
+    const plane = this.scene.add.graphics().setDepth(1);
+    plane.fillGradientStyle(0x382e1b, 0x382e1b, 0x17170f, 0x17170f, 0.34, 0.34, 0.62, 0.62);
+    plane.fillRoundedRect(
+      first.x - this.projector.cellSize.width / 2,
+      first.y - this.projector.cellSize.height / 2,
+      last.x - first.x + this.projector.cellSize.width,
+      last.y - first.y + this.projector.cellSize.height,
+      10,
+    );
+    plane.lineStyle(2, 0xc2a566, 0.18);
+    plane.strokeRoundedRect(
+      first.x - this.projector.cellSize.width / 2,
+      first.y - this.projector.cellSize.height / 2,
+      last.x - first.x + this.projector.cellSize.width,
+      last.y - first.y + this.projector.cellSize.height,
+      10,
+    );
+    this.groundObjects.push(plane);
     for (let x = 0; x < state.map.width; x += 1) {
       for (let y = 0; y < state.map.height; y += 1) {
         const world = this.projector.gridToWorld({ x, y });
-        if (atlasExists) {
-          const tile = this.scene.add.image(world.x, world.y, SLICE_GROUND_ATLAS.textureKey, (x + y * 2) % 4)
-            .setDisplaySize(this.projector.cellSize.width, this.projector.cellSize.height)
-            .setAlpha(0.9)
-            .setDepth(2);
-          this.groundObjects.push(tile);
-        } else {
-          const tile = this.scene.add.rectangle(
-            world.x,
-            world.y,
-            this.projector.cellSize.width,
-            this.projector.cellSize.height,
-            (x + y) % 2 === 0 ? 0x26301b : 0x202919,
-            0.9,
-          ).setDepth(2);
-          this.groundObjects.push(tile);
-        }
         const border = this.scene.add.rectangle(
           world.x,
           world.y,
@@ -485,7 +514,7 @@ export class BattleRenderer {
           this.projector.cellSize.height,
           0x000000,
           0,
-        ).setStrokeStyle(1, 0xb3ba86, 0.14).setDepth(3);
+        ).setStrokeStyle(1, 0xd1bc83, 0.1).setDepth(3);
         this.groundObjects.push(border);
       }
     }
@@ -518,7 +547,13 @@ export class BattleRenderer {
       const ability = intent.abilityId ? getAbility(intent.abilityId) : undefined;
       const steps = [];
       if (intent.movementPath.length > 0) {
-        steps.push({ id: `${intent.id}:move`, label: '이동', glyph: '↝' });
+        steps.push({
+          id: `${intent.id}:move`,
+          label: '이동',
+          glyph: '↝',
+          icon: 'MOVE' as IntentIconKind,
+          description: `${directionLabel(intent.direction)} ${intent.movementPath.length}칸 이동한 뒤 다음 행동을 실행합니다.`,
+        });
       }
       if (ability) {
         const damage = ability.effects.find((effect) => effect.type === 'DAMAGE');
@@ -526,6 +561,8 @@ export class BattleRenderer {
           id: `${intent.id}:ability`,
           label: ability.name,
           glyph: intentGlyph(ability.id),
+          icon: intentIcon(ability.id),
+          description: intentDescription(ability.id, damage?.type === 'DAMAGE' ? damage.amount : undefined),
           damage: damage?.type === 'DAMAGE' ? damage.amount : undefined,
         });
       }
@@ -590,11 +627,51 @@ export class BattleRenderer {
     for (const view of this.unitViews.values()) view.destroy();
     this.unitViews.clear();
     this.telegraphs.clear();
+    this.clearIntentGhosts();
     this.setPrediction(null);
     for (const object of this.groundObjects) object.destroy();
     this.groundObjects.length = 0;
     for (const object of this.occupancyObjects) object.destroy();
     this.occupancyObjects.length = 0;
+  }
+
+  private syncIntentGhosts(intents: readonly RenderableIntent[]): void {
+    this.clearIntentGhosts();
+    if (!this.currentState) return;
+    for (const intent of intents) {
+      if (intent.movementPath.length === 0 && intent.effectCells.length === 0) continue;
+      const unit = this.currentState.units.find((candidate) => candidate.id === intent.sourceId && candidate.hp > 0);
+      if (!unit) continue;
+      const destination = intent.movementPath.at(-1) ?? unit.position;
+      this.intentGhostObjects.push(this.createGhost(unit, destination, 'ENEMY', intent.effectCells.length > 0));
+    }
+  }
+
+  private clearIntentGhosts(): void {
+    for (const object of this.intentGhostObjects) object.destroy();
+    this.intentGhostObjects.length = 0;
+  }
+
+  private createGhost(
+    unit: Unit,
+    position: Readonly<{ x: number; y: number }>,
+    tone: 'ALLY' | 'ENEMY',
+    attacking: boolean,
+  ): Phaser.GameObjects.Image {
+    const visual = getCharacterVisual(unit.visualKey, unit.faction);
+    const world = this.projector.gridToWorld(position);
+    const anchor = visual.footAnchor ?? { x: 0.5, y: 1 };
+    const ghost = this.scene.add.image(world.x, world.y, visual.spriteKey)
+      .setOrigin(anchor.x, anchor.y)
+      .setAlpha(0.24)
+      .setTint(tone === 'ALLY' ? 0x67dbe8 : 0xef5b48)
+      .setDepth(24 + position.y * 10)
+      .setAngle(attacking ? (unit.facing === 'LEFT' ? 4 : -4) : 0);
+    if (visual.displaySize) ghost.setDisplaySize(visual.displaySize.width, visual.displaySize.height);
+    if (unit.facing === 'LEFT' || unit.facing === 'RIGHT') {
+      ghost.setFlipX(unit.facing !== (visual.nativeFacing ?? 'RIGHT'));
+    }
+    return ghost;
   }
 }
 
@@ -605,4 +682,27 @@ function intentGlyph(abilityId: string): string {
   if (abilityId === 'minion-charge' || abilityId === 'push') return '»';
   if (abilityId === 'shoot') return '➶';
   return '◆';
+}
+
+function intentIcon(abilityId: string): IntentIconKind {
+  if (abilityId === 'guardian-summon') return 'SUMMON';
+  if (abilityId === 'shoot') return 'SHOOT';
+  if (abilityId === 'slam') return 'STUN';
+  if (abilityId === 'push' || abilityId === 'minion-charge') return 'PUSH';
+  return 'ATTACK';
+}
+
+function intentDescription(abilityId: string, damage?: number): string {
+  if (abilityId === 'guardian-crush') return `제압: 2칸 이동한 뒤 전방 1칸에 피해 ${damage ?? 6}. 중단할 수 없습니다.`;
+  if (abilityId === 'guardian-rupture') return `외침: 전방 5칸과 3개 행에 피해 ${damage ?? 2}. 스턴으로 중단할 수 있습니다.`;
+  if (abilityId === 'guardian-summon') return '하수인 소환: 빈 인접 칸에 원거리 동료를 추적하는 적 하수인을 소환합니다.';
+  if (abilityId === 'minion-charge') return `돌진: 목표 방향으로 최대 3칸 이동하며 처음 만난 대상에게 피해 ${damage ?? 2}.`;
+  if (abilityId === 'shoot') return `사격: 같은 행 2~5칸 안의 가장 가까운 적에게 피해 ${damage ?? 1}. 관통하지 않습니다.`;
+  if (abilityId === 'push') return `밀치기: 인접한 적에게 피해 ${damage ?? 1}을 주고 1칸 밀어냅니다.`;
+  if (abilityId === 'slam') return `내려찍기: 인접한 적에게 피해 ${damage ?? 1}과 스턴을 적용해 중단 가능한 행동을 취소합니다.`;
+  return `공격: 대상에게 피해 ${damage ?? 0}을 줍니다.`;
+}
+
+function directionLabel(direction: string): string {
+  return ({ UP: '위로', RIGHT: '오른쪽으로', DOWN: '아래로', LEFT: '왼쪽으로' } as Record<string, string>)[direction] ?? '지정 방향으로';
 }

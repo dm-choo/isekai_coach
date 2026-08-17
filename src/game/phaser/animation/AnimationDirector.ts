@@ -46,6 +46,10 @@ export class AnimationDirector {
     this.renderer.setPrediction(prediction);
   }
 
+  public setSelection(unitId: string | null): void {
+    this.renderer.setSelection(unitId);
+  }
+
   public playSealUnlock(signal: AbortSignal): Promise<void> {
     return this.renderer.playSealUnlock(signal);
   }

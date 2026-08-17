@@ -160,6 +160,8 @@ G0~G2가 실패한 상태에서 policy editor, 새 적, 경제와 던전 콘텐�
 - canonical decision made: none / link
 ```
 
+로컬 구현 회귀는 `npm run verify:combat-ux`로 named screenshot과 상태 report를 생성한다. 이 smoke는 플레이테스트를 대체하지 않으며 접지·점유·진영·target·경로·도착·effect area의 빠른 사전 검토에 사용한다.
+
 ## Stop conditions
 
 - G0 실패: HUD 설명을 늘리지 말고 turn banner, focus, 입력 affordance를 먼저 고친다.

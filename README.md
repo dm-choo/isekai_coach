@@ -47,7 +47,7 @@ pure TypeScript BattleState
   → Phaser presentation
 ```
 
-`BattleState`가 전투 규칙의 source of truth다. React는 public shell과 typed bridge를 소유하고 Phaser는 확정된 event를 애니메이션으로 재생한다. logical map은 `12 x 3`으로 유지하지만 camera는 점유·관련 Intent 영역을 중심으로 frame한다. 배경과 정렬된 직사각형 ground atlas tile은 분리하고, 이어진 정글 흙바닥 위에서 아군 셀은 파랑·적 셀은 빨강으로 필요한 순간만 강조한다. 캐릭터는 4.5~5.5등신 세미 데포르메, 일본 애니풍+거친 브러시 3단 명암의 DNF-like side view를 따른다.
+`BattleState`가 전투 규칙의 source of truth다. React는 public shell과 typed bridge를 소유하고 Phaser는 확정된 event를 애니메이션으로 재생한다. logical map은 `12 x 3`으로 유지하지만 camera는 점유·관련 Intent 영역을 중심으로 frame한다. 배경의 흙바닥 위에는 하나의 연속된 battlefield plane을 두고, 저대비 grid와 아군·적 Intent cell만 필요한 순간에 강조한다. 캐릭터는 asset별 발 anchor를 logical cell 중심에 고정한다.
 
 ## Development
 
@@ -58,6 +58,7 @@ npm install
 npm test
 npm run typecheck
 npm run build
+npm run verify:combat-ux
 ```
 
 주요 scripts:
@@ -68,6 +69,7 @@ npm run build
 | `npm test` | domain/controller headless tests |
 | `npm run typecheck` | TypeScript 정적 검사 |
 | `npm run build` | production build |
+| `npm run verify:combat-ux` | 핵심 전투 흐름, Intent tooltip, 소환수 선택을 Chromium screenshot과 상태 assertion으로 검증 |
 | `npm run build:slice` | `/slice1/` base production build |
 | `npm run test:watch` | Vitest watch mode |
 

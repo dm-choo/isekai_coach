@@ -1,8 +1,8 @@
 import * as Phaser from 'phaser';
 import {
   CHARACTER_VISUALS,
+  INTENT_ICON_TEXTURES,
   SLICE_ENVIRONMENT,
-  SLICE_GROUND_ATLAS,
   VFX_VISUALS,
   type CharacterAnimationDefinition,
   type VisualAssetSource,
@@ -11,12 +11,16 @@ import {
 /** Reads optional asset sources from the manifest. Missing sources use renderer fallbacks. */
 export function preloadVisualAssets(scene: Phaser.Scene): void {
   loadSource(scene, SLICE_ENVIRONMENT.textureKey, SLICE_ENVIRONMENT.source);
-  loadSource(scene, SLICE_GROUND_ATLAS.textureKey, SLICE_GROUND_ATLAS.source);
   for (const visual of Object.values(CHARACTER_VISUALS)) {
     loadSource(scene, visual.spriteKey, visual.source);
   }
   for (const visual of Object.values(VFX_VISUALS)) {
     loadSource(scene, visual.textureKey, visual.source);
+  }
+  for (const icon of Object.values(INTENT_ICON_TEXTURES)) {
+    if (!scene.textures.exists(icon.textureKey)) {
+      scene.load.svg(icon.textureKey, resolveAssetUrl(icon.url), { width: 48, height: 48 });
+    }
   }
 }
 

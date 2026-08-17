@@ -31,7 +31,8 @@ class SpriteUnitVisual implements UnitVisualAdapter {
     private readonly scene: Phaser.Scene,
     private readonly visual: CharacterVisualConfig,
   ) {
-    this.sprite = scene.add.sprite(0, 28, visual.spriteKey).setOrigin(0.5, 1);
+    const anchor = visual.footAnchor ?? { x: 0.5, y: 1 };
+    this.sprite = scene.add.sprite(0, 0, visual.spriteKey).setOrigin(anchor.x, anchor.y);
     if (visual.displaySize) {
       this.sprite.setDisplaySize(visual.displaySize.width, visual.displaySize.height);
     }
@@ -44,12 +45,12 @@ class SpriteUnitVisual implements UnitVisualAdapter {
     const definition = this.visual.animations[state];
     if (this.scene.anims.exists(definition.key)) this.sprite.play(definition.key, true);
     this.scene.tweens.killTweensOf(this.sprite);
-    this.sprite.setAlpha(1).setAngle(0).setScale(this.baseScaleX, this.baseScaleY).setX(0);
+    this.sprite.setAlpha(1).setAngle(0).setScale(this.baseScaleX, this.baseScaleY).setPosition(0, 0);
     switch (state) {
       case 'idle':
         this.scene.tweens.add({
           targets: this.sprite,
-          y: 23,
+          y: -3,
           duration: this.visual.silhouette === 'GUARDIAN' ? 1_500 : 1_050,
           yoyo: true,
           repeat: -1,
@@ -76,7 +77,7 @@ class SpriteUnitVisual implements UnitVisualAdapter {
         this.scene.tweens.add({ targets: this.sprite, angle: -8, duration: 140, yoyo: true });
         break;
       case 'death':
-        this.scene.tweens.add({ targets: this.sprite, angle: -12, alpha: 0.28, y: 38, duration: 420 });
+        this.scene.tweens.add({ targets: this.sprite, angle: -12, alpha: 0.28, y: 10, duration: 420 });
         break;
       case 'defend':
         this.scene.tweens.add({

@@ -4,6 +4,7 @@ import type { PresentationPort } from '../game/phaser/bridge/PresentationPort';
 
 interface PresentationController {
   attachPresentation(presentation: PresentationPort): () => void;
+  selectTarget(unitId: string): void;
 }
 
 export function PhaserCanvas({ controller }: { readonly controller: PresentationController }) {
@@ -23,7 +24,7 @@ export function PhaserCanvas({ controller }: { readonly controller: Presentation
           return;
         }
         detach = controller.attachPresentation(presentation);
-      });
+      }, controller.selectTarget);
     });
 
     return () => {

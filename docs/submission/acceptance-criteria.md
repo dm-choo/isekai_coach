@@ -41,7 +41,9 @@ related:
 ## Combat and policy
 
 - 적 Intent와 동료 prediction이 행동 전에 구별되어 보인다.
+- 이동·공격·사격·부가 효과는 구체 icon과 hover/focus tooltip으로 행동 대상·범위·피해를 설명하며, 예정된 최종 위치에는 faction별 ghost가 보인다.
 - Slice 1에서 관리자의 이동·공격과 궁수의 자동 행동이 서로 다른 agency로 보인다.
+- 적 world unit을 직접 선택할 수 있고, 소환수도 적 HP 색과 player action target 규칙을 따른다.
 - 동료는 [최대 5-slot action policy](../gameplay/combat/policy/action-policy.md)를 위에서 아래로 평가하고 실행 가능한 첫 행동을 사용한다.
 - locked aim, BODY/GROUND, source death/stun cancellation이 [전투 계약](../gameplay/combat/turn-and-intent.md)과 일치한다.
 - 같은 initial state와 같은 행동은 같은 결과·전투 기록을 만들며 제출 전투에 확률 판정이 없다.
@@ -59,7 +61,7 @@ related:
 - combat, map, local, operation view가 [UX owner](../ux/index.md)와 [Art owner](../art/index.md)의 정보 우선순위를 유지한다.
 - 16:9와 4:3에서 핵심 조작, grid, HUD와 overlay가 가려지지 않는다.
 - Canvas/WebGL 장면은 두 화면 비율의 browser screenshot으로 검증한다.
-- Slice 1 smoke는 Playwright 1280×720에서 turn 1/plan/turn 2 interrupt preview/turn 3 summon intent/turn 4 hound rendered와 console errors 0건을 확인한다.
+- Slice 1 smoke는 `npm run verify:combat-ux`로 Playwright 1280×720의 turn 1/tooltip/plan/turn 2 interrupt preview/turn 3 summon/turn 4 hound selection, 상태 assertion과 console errors 0건을 확인한다.
 
 ## Out of scope
 

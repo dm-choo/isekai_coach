@@ -15,6 +15,7 @@ import {
   type GridPosition,
 } from '../combat';
 import type { PresentationPort } from '../phaser/bridge/PresentationPort';
+import type { IntentIconKind } from '../phaser/bridge/PresentationPort';
 import {
   DEFAULT_SLICE_POLICY,
   POLICY_COPY,
@@ -50,6 +51,8 @@ export interface IntentPreviewStep {
   readonly id: string;
   readonly label: string;
   readonly glyph: string;
+  readonly icon: IntentIconKind;
+  readonly description: string;
   readonly damage?: number;
   readonly movementPath: readonly GridPosition[];
   readonly effectCells: readonly GridPosition[];
@@ -64,6 +67,8 @@ export interface SliceActionCandidate {
   readonly id: SliceActionId;
   readonly label: string;
   readonly glyph: string;
+  readonly icon: IntentIconKind;
+  readonly description: string;
   readonly tags: readonly string[];
   readonly apCost: number;
   readonly executable: boolean;
@@ -95,6 +100,7 @@ export interface SliceSnapshot {
   readonly plannedActions: readonly PlannedPlayerAction[];
   readonly allyIntent?: UnitIntentPreview;
   readonly hoveredActionId?: SliceActionId;
+  readonly selectedTargetId?: string;
   readonly canUndo: boolean;
   readonly canConfirm: boolean;
 }
@@ -117,6 +123,7 @@ export class SliceController {
   private notice = '결계문 앞을 지키는 존재가 길을 막고 있다.';
   private plannedActions: CombatAction[] = [];
   private hoveredActionId: SliceActionId | undefined;
+  private selectedTargetId: string | undefined = GUARDIAN_ID;
   private snapshot = this.buildSnapshot();
 
   public getSnapshot = (): SliceSnapshot => this.snapshot;
@@ -131,6 +138,7 @@ export class SliceController {
     this.presentation = presentation;
     presentation.setSpeed(1);
     presentation.reset(this.engine.getState());
+    presentation.setSelection?.(this.selectedTargetId ?? null);
     this.presentedEventCount = this.engine.getEvents().length;
     this.publish();
     return () => {
@@ -176,6 +184,18 @@ export class SliceController {
     this.publish();
   };
 
+  public selectTarget = (unitId: string): void => {
+    if (this.mode !== 'PLAYER_TURN' || this.isBusy) return;
+    const target = this.buildPlanProjection().state.units.find(
+      (unit) => unit.id === unitId && unit.faction === 'ENEMY' && unit.hp > 0,
+    );
+    if (!target) return;
+    this.selectedTargetId = target.id;
+    this.hoveredActionId = undefined;
+    this.notice = `${unitDisplayName(target)}을 공격 대상으로 지정했다.`;
+    this.publish();
+  };
+
   public undoLastAction = (): void => {
     if (!this.canAcceptPlayerInput() || this.plannedActions.length === 0) return;
     this.plannedActions = this.plannedActions.slice(0, -1);
@@ -186,9 +206,11 @@ export class SliceController {
 
   public confirmPlan = (): void => {
     if (!this.canAcceptPlayerInput()) return;
+    const waitsWithoutAction = this.plannedActions.length === 0;
     this.isBusy = true;
     this.hoveredActionId = undefined;
     this.presentation?.setPrediction?.(null);
+    if (waitsWithoutAction) this.notice = '대기하고 현재 턴을 종료한다.';
     this.publish();
     for (const action of this.plannedActions) {
       const result = this.engine.performStudentAction(action);
@@ -233,6 +255,7 @@ export class SliceController {
     this.activePolicyStep = undefined;
     this.plannedActions = [];
     this.hoveredActionId = undefined;
+    this.selectedTargetId = GUARDIAN_ID;
     this.attempt += 1;
     this.notice = '결계문 앞을 지키는 존재가 길을 막고 있다.';
     this.presentation?.reset(this.engine.getState());
@@ -451,21 +474,45 @@ export class SliceController {
 
   private actionFor(actionId: SliceActionId, state: BattleState): CombatAction | null {
     const administrator = state.units.find((unit) => unit.id === ADMINISTRATOR_ID);
-    const guardian = state.units.find((unit) => unit.id === GUARDIAN_ID && unit.hp > 0);
-    if (!administrator || !guardian) return null;
-    const direction = directionBetween(administrator.position, guardian.position);
+    const target = this.currentTarget(state, administrator?.position);
+    if (!administrator || !target) return null;
+    const direction = directionBetween(administrator.position, target.position);
     if (!direction) return null;
     return actionId === 'PUSH'
-      ? pushAction(administrator.id, guardian.id, direction)
-      : slamAction(administrator.id, guardian.id, direction);
+      ? pushAction(administrator.id, target.id, direction)
+      : slamAction(administrator.id, target.id, direction);
+  }
+
+  private currentTarget(state: BattleState, origin?: GridPosition) {
+    const selected = state.units.find(
+      (unit) => unit.id === this.selectedTargetId && unit.faction === 'ENEMY' && unit.hp > 0,
+    );
+    if (selected) return selected;
+    return state.units
+      .filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0)
+      .slice()
+      .sort((left, right) => {
+        if (!origin) return left.spawnOrder - right.spawnOrder;
+        const leftDistance = Math.abs(left.position.x - origin.x) + Math.abs(left.position.y - origin.y);
+        const rightDistance = Math.abs(right.position.x - origin.x) + Math.abs(right.position.y - origin.y);
+        return leftDistance - rightDistance || left.spawnOrder - right.spawnOrder;
+      })[0];
   }
 
   private buildActionCandidates(): readonly SliceActionCandidate[] {
-    const definitions: readonly Omit<SliceActionCandidate, 'executable' | 'failureReason'>[] = [
-      { id: 'PUSH', label: '밀치기', glyph: '»', tags: ['#근거리공격', '#넉백'], apCost: 2 },
-      { id: 'SLAM', label: '내려찍기', glyph: '↓', tags: ['#근거리공격', '#스턴'], apCost: 1 },
-    ];
     const plannedState = this.simulateActions(this.plannedActions).state;
+    const target = this.currentTarget(plannedState);
+    const targetName = target ? unitDisplayName(target) : '적';
+    const definitions: readonly Omit<SliceActionCandidate, 'executable' | 'failureReason'>[] = [
+      {
+        id: 'PUSH', label: '밀치기', glyph: '»', icon: 'PUSH', tags: ['#근거리공격', '#넉백'], apCost: 2,
+        description: `인접한 ${targetName}에게 피해 1을 주고 1칸 밀어냅니다.`,
+      },
+      {
+        id: 'SLAM', label: '내려찍기', glyph: '↓', icon: 'STUN', tags: ['#근거리공격', '#스턴'], apCost: 1,
+        description: `인접한 ${targetName}에게 피해 1과 스턴을 적용해 중단 가능한 Intent를 취소합니다.`,
+      },
+    ];
     return definitions.map((definition) => {
       const action = this.actionFor(definition.id, plannedState);
       const result = action ? this.simulateActions([...this.plannedActions, action]) : null;
@@ -506,6 +553,7 @@ export class SliceController {
       })),
       allyIntent: projection.allyIntent,
       hoveredActionId: this.hoveredActionId,
+      selectedTargetId: this.currentTarget(projection.state)?.id,
       canUndo: this.canAcceptPlayerInput() && this.plannedActions.length > 0,
       canConfirm: this.canAcceptPlayerInput(),
     };
@@ -518,6 +566,7 @@ export class SliceController {
   }
 
   private syncPlanningPresentation(): void {
+    this.presentation?.setSelection?.(this.snapshot.selectedTargetId ?? null);
     if (!this.presentation || this.mode !== 'PLAYER_TURN' || this.isBusy) {
       this.presentation?.setPrediction?.(null);
       return;
@@ -542,6 +591,12 @@ export class SliceController {
   }
 }
 
+function unitDisplayName(unit: BattleState['units'][number]): string {
+  if (unit.id === GUARDIAN_ID) return '결계 수호자';
+  if (unit.combatRole === 'MINION') return '추적 하수인';
+  return '적';
+}
+
 function previewStep(
   policyId: SlicePolicyId,
   action: CombatAction,
@@ -553,6 +608,8 @@ function previewStep(
       id: `${policyId}-${action.actorId}-${action.to.x}-${action.to.y}`,
       label: copy.name,
       glyph: '◆',
+      icon: 'MOVE',
+      description: `${copy.name}: ${directionCopy(state.units.find((unit) => unit.id === action.actorId)?.position, action.to)} 1칸 이동합니다.`,
       movementPath: [{ ...action.to }],
       effectCells: [],
     };
@@ -571,10 +628,30 @@ function previewStep(
     id: `${policyId}-${action.actorId}-${action.abilityId}`,
     label: copy.name,
     glyph: policyId === 'SHOOT' ? '➶' : policyId === 'PUSH' ? '»' : '◆',
+    icon: policyId === 'SHOOT' ? 'SHOOT' : policyId === 'PUSH' ? 'PUSH' : 'ATTACK',
+    description: policyDescription(policyId, target ? unitDisplayName(target) : undefined, damage?.type === 'DAMAGE' ? damage.amount : undefined),
     damage: damage?.type === 'DAMAGE' ? damage.amount : undefined,
     movementPath: [],
     effectCells,
   };
+}
+
+function directionCopy(from: GridPosition | undefined, to: GridPosition): string {
+  if (!from) return '인접 칸으로';
+  if (to.y < from.y) return '위로';
+  if (to.y > from.y) return '아래로';
+  if (to.x < from.x) return '왼쪽으로';
+  return '오른쪽으로';
+}
+
+function policyDescription(policyId: SlicePolicyId, targetName?: string, damage?: number): string {
+  if (policyId === 'SHOOT') {
+    return `사격: 같은 행 2~5칸 안의 가장 가까운 ${targetName ?? '적'}에게 피해 ${damage ?? 1}을 줍니다. 관통하지 않습니다.`;
+  }
+  if (policyId === 'PUSH') {
+    return `밀치기: 인접한 ${targetName ?? '적'}에게 피해 ${damage ?? 1}을 주고 1칸 밀어냅니다.`;
+  }
+  return `${POLICY_COPY[policyId].name}을 실행합니다.`;
 }
 
 function actionLabel(action: CombatAction): string {

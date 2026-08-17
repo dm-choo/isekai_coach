@@ -170,6 +170,47 @@ describe('SliceController barrier-guardian encounter', () => {
     });
     expect(controller.getSnapshot().eventHistory).toHaveLength(0);
   });
+
+  it('lets the player select a summoned enemy and plans an attack against that target', async () => {
+    const controller = new SliceController();
+    controller.attachPresentation(new InstantPresentation());
+    controller.startEncounter();
+    await flushPromises();
+
+    controller.move('UP');
+    controller.confirmPlan();
+    await vi.advanceTimersByTimeAsync(6_000);
+    await flushPromises();
+
+    controller.move('DOWN');
+    controller.useAction('SLAM');
+    controller.confirmPlan();
+    await vi.advanceTimersByTimeAsync(6_000);
+    await flushPromises();
+
+    controller.confirmPlan();
+    await vi.advanceTimersByTimeAsync(7_000);
+    await flushPromises();
+
+    const hound = controller.getSnapshot().state.units.find((unit) => unit.combatRole === 'MINION');
+    expect(hound).toBeDefined();
+    controller.selectTarget(hound!.id);
+
+    let snapshot = controller.getSnapshot();
+    expect(snapshot.selectedTargetId).toBe(hound!.id);
+    expect(snapshot.notice).toContain('추적 하수인');
+    expect(snapshot.actions.find((action) => action.id === 'SLAM')?.executable).toBe(true);
+
+    controller.useAction('SLAM');
+    snapshot = controller.getSnapshot();
+    expect(snapshot.plannedActions[0]?.action).toMatchObject({ targetId: hound!.id });
+
+    controller.undoLastAction();
+    expect(controller.getSnapshot().selectedTargetId).toBe(hound!.id);
+
+    controller.restart();
+    expect(controller.getSnapshot().selectedTargetId).toBe('barrier-guardian-01');
+  });
 });
 
 async function flushPromises(): Promise<void> {
