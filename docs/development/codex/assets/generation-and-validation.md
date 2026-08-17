@@ -41,7 +41,7 @@ related:
 
 ## Current provenance and composition
 
-v2 seed는 ImageGen으로 생성한 원본을 mechanical alpha cleanup한 결과다. `jungle-ground-atlas-v2.png`는 생성 provenance를 위해 보존하지만 현재 public combat view는 이를 개별 cell carpet으로 반복하지 않고 배경 위의 연속 ground plane과 투명 grid overlay를 사용한다. character cutout은 alpha cleanup 뒤 padded crop하고 asset별 normalized `footAnchor`를 logical cell 중심에 투영한다. 원본 prompt와 생성 시점은 작업 handoff에 보존하고, 최종 path·alpha 처리·anchor·in-engine screenshot/build SHA를 함께 기록한다.
+v2 seed는 ImageGen으로 생성한 원본을 mechanical alpha cleanup한 결과다. `jungle-ground-atlas-v2.png`는 생성 provenance를 위해 보존하지만 현재 public combat view는 이를 개별 cell carpet으로 반복하지 않는다. 배경의 실제 흙바닥 위에 짧은 grid corner와 점유 ring만 합성한다. character cutout은 alpha cleanup 뒤 padded crop하고 asset별 normalized `footAnchor`를 logical cell 중심에 투영한다. 원본 prompt와 생성 시점은 작업 handoff에 보존하고, 최종 path·alpha 처리·anchor·in-engine screenshot/build SHA를 함께 기록한다.
 
 ### v2 prompt and path ledger
 
@@ -90,4 +90,4 @@ These are prompt summaries, not a claim that the generated image itself is a pro
 
 Screenshot은 미관 참고가 아니라 Canvas/WebGL 결과의 필수 evidence다. 최종 승인 전에는 asset path, prompt와 screenshot/build SHA를 기록한다.
 
-`npm run verify:combat-ux`는 개발 서버를 임시 실행하고 `intro → turn 1 → player plan → interrupt preview → summon → minion world selection`을 재생한다. `artifacts/combat-ux/`에 named screenshot과 `report.json`을 남기며, browser error 0건·소환수 ENEMY faction·world click target selection·선택 후 melee executable을 확인한다. 전체 화면 pixel diff는 animation noise 때문에 gate로 사용하지 않고, 상태 JSON assertion과 짧은 screenshot review를 결합한다.
+`npm run verify:combat-ux`는 개발 서버를 임시 실행하고 `intro → turn 1 → player plan → interrupt preview → summon → minion picker/world selection`을 재생한다. `artifacts/combat-ux/`에 named screenshot과 `report.json`을 남기며, browser error 0건·소환수 ENEMY faction·모든 생존 적 target picker 노출·picker/world click target selection·선택 후 melee executable을 확인한다. 전체 화면 pixel diff는 animation noise 때문에 gate로 사용하지 않고, 상태 JSON assertion과 짧은 screenshot review를 결합한다.

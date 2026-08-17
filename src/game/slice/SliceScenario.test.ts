@@ -103,6 +103,20 @@ describe('vertical slice encounter contract', () => {
     expect(engine.state.units.filter((candidate) => candidate.id.startsWith('guardian-hound-'))).toHaveLength(2);
   });
 
+  it('uses the next authored summon cell when the preferred cell is occupied', () => {
+    const scenario = withDurableParty(createSliceScenario());
+    const engine = new BattleEngine(scenario);
+
+    runEmptyTurn(engine); // guardian ends at 5,1; administrator occupies preferred 4,1
+    runEmptyTurn(engine);
+    runEmptyTurn(engine);
+
+    expect(unit(engine, 'guardian-hound-1').position).toEqual({ x: 4, y: 2 });
+    expect(engine.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'UNIT_SUMMONED', templateId: 'guardian-hound' }),
+    ]));
+  });
+
   it('replays the full 1-2-3 pattern loop deterministically', () => {
     const first = new BattleEngine(withDurableParty(createSliceScenario()));
     const second = new BattleEngine(withDurableParty(createSliceScenario()));

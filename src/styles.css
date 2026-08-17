@@ -223,7 +223,11 @@ button:disabled { cursor: not-allowed; }
   box-shadow: 0 8px 24px rgba(0,0,0,.34);
 }
 .plan-strip > small { color: #8f856f; font: 700 9px ui-monospace, monospace; letter-spacing: .08em; }
-.selected-target { padding-right: 10px; border-right: 1px solid rgba(210,188,131,.24); color: #ff9b80; font-size: 10px; }
+.target-picker { display: flex; align-items: center; gap: 4px; padding-right: 9px; border-right: 1px solid rgba(210,188,131,.24); }
+.target-picker small { margin-right: 2px; color: #8f856f; font: 700 8px ui-monospace, monospace; }
+.target-picker button { padding: 3px 6px; border: 1px solid rgba(207,98,76,.35); background: rgba(48,18,13,.72); color: #c8a99e; font-size: 9px; }
+.target-picker button:hover, .target-picker button:focus-visible { border-color: #ef8b72; color: #ffe0d7; }
+.target-picker button.is-selected { border-color: #ff8f75; background: #6a261d; color: #fff0e8; box-shadow: 0 0 8px rgba(225,83,56,.28); }
 .plan-strip > div { display: flex; gap: 6px; }
 .plan-chip, .plan-empty { padding: 4px 8px; color: #f0dfad; background: #262217; font-size: 10px; }
 .plan-chip i { display: inline-grid; width: 16px; height: 16px; margin-right: 5px; place-items: center; border-radius: 50%; background: #aa843f; color: #171208; font: 800 9px ui-monospace, monospace; font-style: normal; }

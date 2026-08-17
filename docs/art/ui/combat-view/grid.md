@@ -13,7 +13,7 @@ related:
 ## Ground
 
 - 전장은 투명한 유리 발판이 아니라 아마존 정글의 이어진 흙바닥이다.
-- 배경 위에 하나의 연속된 battlefield ground plane을 합성하고, grid는 투명한 정보 layer로만 그린다. 개별 atlas tile을 높은 불투명도로 반복해 별도의 직사각형 카펫처럼 보이게 하지 않는다.
+- 배경의 실제 흙바닥을 전장으로 사용하고 별도의 큰 사각 battlefield plane을 합성하지 않는다. grid는 짧은 셀 모서리와 흙 균열로만 암시한다. 개별 atlas tile이나 상시 점유 사각형을 반복해 유리 발판처럼 보이게 하지 않는다.
 - 행과 점유 관계는 낮은 명도의 baseline, 식생 틈과 얕은 지형 mark로 암시한다. 셀 사이에 큰 margin·padding을 두어 징검다리처럼 보이게 하지 않는다.
 - 일반 캐릭터는 발과 runtime shadow의 중심을 점유 cell 중심에 고정하고 약 2~3개 행 높이 안에서 silhouette를 읽게 한다. PNG 중심이나 투명 여백을 anchor로 사용하지 않는다.
 
@@ -21,7 +21,7 @@ related:
 
 - logical topology는 `12 x 3`을 유지한다. 화면은 항상 12열 전체를 보여주지 않고 아군·적·현재 Intent가 있는 영역을 적당한 여백과 함께 frame한다.
 - `2×2` 보스 footprint와 `20×6` map은 현재 public contract가 아니라 별도 graybox 비교 대상이다. footprint·충돌·공격 origin·사거리·카메라 검증 없이 시각 크기 보정과 함께 확정하지 않는다.
-- 아군 점유/후보 셀은 파랑, 적 점유/위협 셀은 빨강 계열을 기본으로 한다. 색만으로 판독을 요구하지 않고 stroke·pattern·icon·motion을 중복 사용한다.
+- 아군 점유는 파랑, 적 점유는 빨강 계열의 낮은 바닥 ring으로 표시한다. 사각형 면 강조는 실제 공격 effect cell에만 사용한다. 색만으로 판독을 요구하지 않고 stroke·pattern·icon·motion을 중복 사용한다.
 - 카메라는 평상시 보스방 전체 관계를 보여주고, 밀치기·내려찍기·투사체·타격 순간에는 짧게 대상과 원점으로 zoom/pan한다.
 - 화면 projection 수치와 cell pixel size는 art 정본이 아니다. 실제 16:9, 4:3와 390px viewport screenshot으로 scale·depth·겹침을 검증한다.
 

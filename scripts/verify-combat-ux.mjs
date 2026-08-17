@@ -60,6 +60,20 @@ try {
   if (hounds.length !== 1 || hounds[0].faction !== 'ENEMY') {
     throw new Error(`Expected one living ENEMY minion, received ${JSON.stringify(hounds)}`);
   }
+  const targetButtons = page.locator('.target-picker button');
+  if (await targetButtons.count() !== snapshot.state.units.filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0).length) {
+    throw new Error('Target picker does not expose every living enemy');
+  }
+  await page.getByRole('button', { name: '추적 하수인', exact: true }).click();
+  await page.waitForFunction((houndId) => (
+    window.__ISEKAI_COACH_COMBAT__?.snapshot.selectedTargetId === houndId
+  ), hounds[0].id);
+  snapshot = await combatSnapshot(page);
+  if (!snapshot.actions.some((action) => action.id === 'SLAM' && action.executable)) {
+    throw new Error('Target-picker minion is not an executable melee target');
+  }
+
+  await page.getByRole('button', { name: '결계 수호자', exact: true }).click();
   const houndPosition = hounds[0].position;
   await page.locator('canvas').click({
     position: {
@@ -72,7 +86,7 @@ try {
   ), hounds[0].id);
   snapshot = await combatSnapshot(page);
   if (!snapshot.actions.some((action) => action.id === 'SLAM' && action.executable)) {
-    throw new Error('Selected minion is not an executable melee target');
+    throw new Error('World-selected minion is not an executable melee target');
   }
   await capture(page, '06-summoned-enemy-selected');
   if (errors.length > 0) throw new Error(`Browser errors:\n${errors.join('\n')}`);

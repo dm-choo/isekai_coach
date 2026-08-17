@@ -33,7 +33,7 @@ related:
 - `<아군 턴>`에는 궁수의 활시위 당김 → 투사체 → 첫 적 적중을 한 덩어리의 causality로 보여준다.
 - `사격`은 같은 행에서 가장 앞의 적 하나에 멈춘다. 먼 적을 임의로 맞히는 beam이나 다중 적 관통으로 표현하지 않는다.
 - 자동 policy는 항상 상시 dashboard로 펼치지 않는다. 현재 실행 슬롯의 아이콘·이름과 짧은 reason만 궁수 가까이에 잠깐 표시한다.
-- 계획 중에는 궁수의 최종 도착 cell에 청색 반투명 silhouette를 그리고, 이어지는 공격 pose와 effect cells를 함께 표시한다.
+- 계획 중에는 궁수의 최종 도착 cell에 청색 예정 silhouette, 고대비 외곽 silhouette, pulsing ground ring과 `도착`/`공격` label을 함께 표시한다. 반투명 복제 한 장만으로 실제 unit과 구별하게 하지 않으며, 이어지는 공격 pose와 effect cells를 함께 표시한다.
 - `회피`, `포지셔닝`, `사격`, `밀치기`의 tag는 tooltip metadata로만 보조한다. 태그가 전투의 주된 문장이 되지 않는다.
 
 ## Layer priority

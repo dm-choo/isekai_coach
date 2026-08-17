@@ -484,40 +484,45 @@ export class BattleRenderer {
   }
 
   private drawGroundCues(state: BattleState): void {
-    const first = this.projector.gridToWorld({ x: 0, y: 0 });
-    const last = this.projector.gridToWorld({ x: state.map.width - 1, y: state.map.height - 1 });
-    const plane = this.scene.add.graphics().setDepth(1);
-    plane.fillGradientStyle(0x382e1b, 0x382e1b, 0x17170f, 0x17170f, 0.34, 0.34, 0.62, 0.62);
-    plane.fillRoundedRect(
-      first.x - this.projector.cellSize.width / 2,
-      first.y - this.projector.cellSize.height / 2,
-      last.x - first.x + this.projector.cellSize.width,
-      last.y - first.y + this.projector.cellSize.height,
-      10,
-    );
-    plane.lineStyle(2, 0xc2a566, 0.18);
-    plane.strokeRoundedRect(
-      first.x - this.projector.cellSize.width / 2,
-      first.y - this.projector.cellSize.height / 2,
-      last.x - first.x + this.projector.cellSize.width,
-      last.y - first.y + this.projector.cellSize.height,
-      10,
-    );
-    this.groundObjects.push(plane);
+    const markings = this.scene.add.graphics().setDepth(3);
+    const halfWidth = this.projector.cellSize.width / 2;
+    const halfHeight = this.projector.cellSize.height / 2;
+    const corner = 10;
+    markings.lineStyle(1, 0x796c45, 0.22);
     for (let x = 0; x < state.map.width; x += 1) {
       for (let y = 0; y < state.map.height; y += 1) {
         const world = this.projector.gridToWorld({ x, y });
-        const border = this.scene.add.rectangle(
-          world.x,
-          world.y,
-          this.projector.cellSize.width,
-          this.projector.cellSize.height,
-          0x000000,
-          0,
-        ).setStrokeStyle(1, 0xd1bc83, 0.1).setDepth(3);
-        this.groundObjects.push(border);
+        const left = world.x - halfWidth + 3;
+        const right = world.x + halfWidth - 3;
+        const top = world.y - halfHeight + 3;
+        const bottom = world.y + halfHeight - 3;
+        markings.beginPath();
+        markings.moveTo(left, top + corner);
+        markings.lineTo(left, top);
+        markings.lineTo(left + corner, top);
+        markings.moveTo(right - corner, top);
+        markings.lineTo(right, top);
+        markings.lineTo(right, top + corner);
+        markings.moveTo(left, bottom - corner);
+        markings.lineTo(left, bottom);
+        markings.lineTo(left + corner, bottom);
+        markings.moveTo(right - corner, bottom);
+        markings.lineTo(right, bottom);
+        markings.lineTo(right, bottom - corner);
+        markings.strokePath();
+
+        if ((x + y * 2) % 3 === 0) {
+          markings.lineStyle(2, 0x2f2a18, 0.2);
+          markings.beginPath();
+          markings.moveTo(world.x - 18, world.y + 20);
+          markings.lineTo(world.x - 4, world.y + 17);
+          markings.lineTo(world.x + 10, world.y + 21);
+          markings.strokePath();
+          markings.lineStyle(1, 0x796c45, 0.22);
+        }
       }
     }
+    this.groundObjects.push(markings);
   }
 
   private drawOccupancy(state: BattleState): void {
@@ -526,14 +531,14 @@ export class BattleRenderer {
     for (const unit of state.units.filter((candidate) => candidate.hp > 0)) {
       const world = this.projector.gridToWorld(unit.position);
       const ally = unit.faction === 'STUDENT';
-      const outline = this.scene.add.rectangle(
+      const outline = this.scene.add.ellipse(
         world.x,
-        world.y,
-        this.projector.cellSize.width - 4,
-        this.projector.cellSize.height - 4,
+        world.y + 3,
+        84,
+        25,
         ally ? 0x448fd9 : 0xc8473d,
-        0.05,
-      ).setStrokeStyle(3, ally ? 0x78c8ff : 0xff7767, 0.9).setDepth(12);
+        0.04,
+      ).setStrokeStyle(3, ally ? 0x78c8ff : 0xff7767, 0.72).setDepth(12);
       this.occupancyObjects.push(outline);
     }
   }
@@ -657,21 +662,44 @@ export class BattleRenderer {
     position: Readonly<{ x: number; y: number }>,
     tone: 'ALLY' | 'ENEMY',
     attacking: boolean,
-  ): Phaser.GameObjects.Image {
+  ): Phaser.GameObjects.Container {
     const visual = getCharacterVisual(unit.visualKey, unit.faction);
     const world = this.projector.gridToWorld(position);
     const anchor = visual.footAnchor ?? { x: 0.5, y: 1 };
-    const ghost = this.scene.add.image(world.x, world.y, visual.spriteKey)
+    const color = tone === 'ALLY' ? 0x67dbe8 : 0xef5b48;
+    const moved = unit.position.x !== position.x || unit.position.y !== position.y;
+    const lunge = attacking && !moved ? (unit.facing === 'LEFT' ? -18 : 18) : 0;
+    const container = this.scene.add.container(world.x, world.y)
+      .setDepth(24 + position.y * 10);
+    const ring = this.scene.add.ellipse(0, 3, 82, 25, color, 0.14)
+      .setStrokeStyle(4, color, 0.92);
+    const halo = this.scene.add.image(lunge, 0, visual.spriteKey)
       .setOrigin(anchor.x, anchor.y)
-      .setAlpha(0.24)
-      .setTint(tone === 'ALLY' ? 0x67dbe8 : 0xef5b48)
-      .setDepth(24 + position.y * 10)
-      .setAngle(attacking ? (unit.facing === 'LEFT' ? 4 : -4) : 0);
-    if (visual.displaySize) ghost.setDisplaySize(visual.displaySize.width, visual.displaySize.height);
-    if (unit.facing === 'LEFT' || unit.facing === 'RIGHT') {
-      ghost.setFlipX(unit.facing !== (visual.nativeFacing ?? 'RIGHT'));
+      .setAlpha(0.34)
+      .setTint(color)
+      .setTintMode(Phaser.TintModes.FILL)
+      .setAngle(attacking ? (unit.facing === 'LEFT' ? 5 : -5) : 0);
+    const ghost = this.scene.add.image(lunge, 0, visual.spriteKey)
+      .setOrigin(anchor.x, anchor.y)
+      .setAlpha(0.44)
+      .setTint(color)
+      .setAngle(attacking ? (unit.facing === 'LEFT' ? 5 : -5) : 0);
+    const label = this.scene.add.text(0, 17, moved ? '도착' : '공격', {
+      fontFamily: '"Pretendard Variable", system-ui, sans-serif',
+      fontSize: '10px', color: '#fff7e8', backgroundColor: tone === 'ALLY' ? '#174f57dd' : '#6b2018dd',
+    }).setPadding(5, 2).setOrigin(0.5, 0);
+    if (visual.displaySize) {
+      halo.setDisplaySize(visual.displaySize.width + 8, visual.displaySize.height + 8);
+      ghost.setDisplaySize(visual.displaySize.width, visual.displaySize.height);
     }
-    return ghost;
+    if (unit.facing === 'LEFT' || unit.facing === 'RIGHT') {
+      const flip = unit.facing !== (visual.nativeFacing ?? 'RIGHT');
+      halo.setFlipX(flip);
+      ghost.setFlipX(flip);
+    }
+    container.add([ring, halo, ghost, label]);
+    this.scene.tweens.add({ targets: ring, alpha: 0.55, duration: 620, yoyo: true, repeat: -1 });
+    return container;
   }
 }
 

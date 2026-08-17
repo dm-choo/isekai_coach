@@ -43,7 +43,7 @@ related:
 - 적 Intent와 동료 prediction이 행동 전에 구별되어 보인다.
 - 이동·공격·사격·부가 효과는 구체 icon과 hover/focus tooltip으로 행동 대상·범위·피해를 설명하며, 예정된 최종 위치에는 faction별 ghost가 보인다.
 - Slice 1에서 관리자의 이동·공격과 궁수의 자동 행동이 서로 다른 agency로 보인다.
-- 적 world unit을 직접 선택할 수 있고, 소환수도 적 HP 색과 player action target 규칙을 따른다.
+- 모든 생존 적은 compact target picker와 world unit 양쪽에서 직접 선택할 수 있고, 소환수도 적 HP 색과 player action target 규칙을 따른다.
 - 동료는 [최대 5-slot action policy](../gameplay/combat/policy/action-policy.md)를 위에서 아래로 평가하고 실행 가능한 첫 행동을 사용한다.
 - locked aim, BODY/GROUND, source death/stun cancellation이 [전투 계약](../gameplay/combat/turn-and-intent.md)과 일치한다.
 - 같은 initial state와 같은 행동은 같은 결과·전투 기록을 만들며 제출 전투에 확률 판정이 없다.

@@ -109,7 +109,7 @@ related:
 
 ## Camera and spatial presentation
 
-- logical map은 `12 x 3`을 유지한다. 현재 public scene은 배경 흙바닥과 하나의 연속된 battlefield plane 위에 저대비 12×3 grid outline을 표시한다.
+- logical map은 `12 x 3`을 유지한다. 현재 public scene은 배경의 실제 흙바닥 위에 저대비 cell corner와 흙 균열을 표시하며 별도 battlefield plane을 만들지 않는다.
 - 아군 Intent는 파랑, 적 Intent는 빨강, 이동은 보라를 기본으로 하되 icon·stroke·arrow를 함께 쓴다.
 - 카메라와 projection은 동일한 grid 좌표계를 공유하고 점유자와 relevant Intent를 같은 cell에 정렬한다.
 - 캐릭터 body는 asset별 `footAnchor`로 한 cell의 중심에 발을 고정한다. sprite 외곽이 아니라 logical footprint가 선택과 피격 판정의 기준이다.
@@ -159,11 +159,11 @@ Darkest Dungeon의 장면 우선 hierarchy를 기본 참고로 삼고, DNF의 si
 
 2026-08-17 로컬 구현 milestone:
 
-- Vitest: 5 files, 38 tests pass.
+- Vitest: 5 files, 39 tests pass.
 - TypeScript: `tsc --noEmit`
 - production build: Vite `/slice1/` base build
 - scripted Chromium flow: intro → turn 1 WASD dodge/confirm → Intent tooltip → ally positioning/shooting → turn 2 approach/slam interrupt → turn 3 summon → turn 4 hound world selection
-- Playwright 1280×720: console/page errors 0건, 각 preview screenshot, 소환수 `ENEMY` faction, world click target selection과 선택 뒤 `내려찍기` 실행 가능 상태를 확인했다.
+- Playwright 1280×720: console/page errors 0건, 각 preview screenshot, 소환수 `ENEMY` faction, 모든 생존 적 target picker 노출, picker/world click target selection과 선택 뒤 `내려찍기` 실행 가능 상태를 확인했다.
 - browser console/page errors: 0
 - 한글 webfont load-before-Phaser와 character alpha를 screenshot으로 재검증
 

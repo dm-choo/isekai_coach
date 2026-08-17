@@ -47,7 +47,7 @@ pure TypeScript BattleState
   → Phaser presentation
 ```
 
-`BattleState`가 전투 규칙의 source of truth다. React는 public shell과 typed bridge를 소유하고 Phaser는 확정된 event를 애니메이션으로 재생한다. logical map은 `12 x 3`으로 유지하지만 camera는 점유·관련 Intent 영역을 중심으로 frame한다. 배경의 흙바닥 위에는 하나의 연속된 battlefield plane을 두고, 저대비 grid와 아군·적 Intent cell만 필요한 순간에 강조한다. 캐릭터는 asset별 발 anchor를 logical cell 중심에 고정한다.
+`BattleState`가 전투 규칙의 source of truth다. React는 public shell과 typed bridge를 소유하고 Phaser는 확정된 event를 애니메이션으로 재생한다. logical map은 `12 x 3`으로 유지하지만 camera는 점유·관련 Intent 영역을 중심으로 frame한다. 배경의 실제 흙바닥 위에 짧은 grid corner와 점유 ring만 두고, 아군·적 Intent cell은 필요한 순간에만 강조한다. 캐릭터는 asset별 발 anchor를 logical cell 중심에 고정한다.
 
 ## Development
 
