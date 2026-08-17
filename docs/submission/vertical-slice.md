@@ -1,7 +1,7 @@
 ---
 title: Slice 1 — Amazon Barrier Guardian Boss Room
 status: under-validation
-last_updated: 2026-08-17
+last_updated: 2026-08-18
 implementation:
   - src/game/slice/
   - src/app/App.tsx
@@ -109,11 +109,11 @@ related:
 
 ## Camera and spatial presentation
 
-- logical map은 `12 x 3`을 유지한다. 현재 public scene은 배경의 실제 흙바닥 위에 저대비 cell corner와 흙 균열을 표시하며 별도 battlefield plane을 만들지 않는다.
+- logical map은 `12 x 3`을 유지하고 36개 cell을 불투명한 흙 atlas frame의 별도 tilemap으로 그린다. 캐릭터는 이 지형 블럭 위에 선다.
 - 아군 Intent는 파랑, 적 Intent는 빨강, 이동은 보라를 기본으로 하되 icon·stroke·arrow를 함께 쓴다.
 - 카메라와 projection은 동일한 grid 좌표계를 공유하고 점유자와 relevant Intent를 같은 cell에 정렬한다.
 - 캐릭터 body는 asset별 `footAnchor`로 한 cell의 중심에 발을 고정한다. sprite 외곽이 아니라 logical footprint가 선택과 피격 판정의 기준이다.
-- 배경은 원경 jungle bitmap과 연속된 흙바닥을 함께 소유하며, public renderer는 ground atlas를 cell마다 반복해 떠 있는 발판처럼 만들지 않는다.
+- 배경은 tilemap과 경쟁하지 않는 원경 jungle·안개·유적을 소유한다. ground atlas tilemap이 유일한 실제 플레이 평면이며 이동·공격 표시는 그 위의 순간 overlay다.
 - 모든 바닥 cell은 낮은 대비로 존재하고, 아군 점유·적 점유·선택·이동 후보·Intent만 색·stroke·pattern으로 강조한다.
 - `외침`은 3개 행의 affected cells를 일시적으로 드러내되, 점유 outline이나 이동 경로와 혼동되지 않는 위험 신호로 표시한다.
 
@@ -138,7 +138,7 @@ Darkest Dungeon의 장면 우선 hierarchy를 기본 참고로 삼고, DNF의 si
 - `STUN` effect, interruptible intent, projectile first-hit targeting과 BODY area change가 domain event 순서로 해결된다.
 - `SliceController`가 관리자 input, 동료 5-slot policy loop, 세 턴 phase와 presentation queue를 조정한다.
 - React는 HUD·action bar·turn banner를, Phaser는 world unit·telegraph·projectile·camera·VFX를 소유한다.
-- generated bitmap background와 네 character cutout을 manifest/preload pipeline으로 소비한다. ground atlas는 생성 provenance로 보존하되 public renderer에는 반복 배치하지 않는다.
+- tilemap 구도에 맞춰 다시 제작한 generated jungle background, 네 character cutout과 4-frame ground atlas를 manifest/preload pipeline으로 소비한다.
 - 구체적인 이동·공격·사격·상태 Intent icon, hover/focus tooltip, 최종 위치의 faction-colored ghost가 행동 원인과 결과를 미리 보여준다.
 - 적 world unit을 직접 선택할 수 있고, 소환수도 `ENEMY` HP 색과 공격 대상으로 일관되게 취급한다.
 - HP bar는 faction color, segment tick, delayed-damage layer를 함께 사용한다.
@@ -159,7 +159,7 @@ Darkest Dungeon의 장면 우선 hierarchy를 기본 참고로 삼고, DNF의 si
 
 2026-08-17 로컬 구현 milestone:
 
-- Vitest: 5 files, 39 tests pass.
+- Vitest: 5 files, 40 tests pass.
 - TypeScript: `tsc --noEmit`
 - production build: Vite `/slice1/` base build
 - scripted Chromium flow: intro → turn 1 WASD dodge/confirm → Intent tooltip → ally positioning/shooting → turn 2 approach/slam interrupt → turn 3 summon → turn 4 hound world selection

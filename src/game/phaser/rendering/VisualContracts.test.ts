@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { CHARACTER_VISUALS, INTENT_ICON_TEXTURES } from '../../assets/AssetManifest';
+import {
+  CHARACTER_VISUALS,
+  INTENT_ICON_TEXTURES,
+  SLICE_ENVIRONMENT,
+  SLICE_GROUND_ATLAS,
+} from '../../assets/AssetManifest';
 
 describe('combat visual contracts', () => {
   it('gives every Slice 1 cutout an explicit foot anchor and bounded battlefield scale', () => {
@@ -29,5 +34,14 @@ describe('combat visual contracts', () => {
     for (const icon of Object.values(INTENT_ICON_TEXTURES)) {
       expect(icon.url).toMatch(/^assets\/ui\/intent-[a-z-]+\.svg$/);
     }
+  });
+
+  it('uses an opaque dirt atlas as the logical ground and a tilemap-aware background', () => {
+    expect(SLICE_GROUND_ATLAS.source).toMatchObject({
+      type: 'SPRITESHEET',
+      frameWidth: 256,
+      frameHeight: 128,
+    });
+    expect(SLICE_ENVIRONMENT.source.url).toBe('assets/slice1/jungle-background-v3.png');
   });
 });

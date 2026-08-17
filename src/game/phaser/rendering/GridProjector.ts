@@ -44,4 +44,8 @@ export class GridProjector {
   public get cellSize(): Readonly<{ width: number; height: number }> {
     return { width: this.config.cellWidth, height: this.config.cellHeight };
   }
+
+  public get tileSize(): Readonly<{ width: number; height: number }> {
+    return { width: this.config.columnStep, height: this.config.rowStep };
+  }
 }

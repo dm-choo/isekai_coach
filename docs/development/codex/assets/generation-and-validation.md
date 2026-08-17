@@ -1,7 +1,7 @@
 ---
 title: Asset Generation and Validation
 status: accepted
-last_updated: 2026-08-17
+last_updated: 2026-08-18
 implementation:
   - src/game/assets/AssetManifest.ts
   - src/game/phaser/assets/VisualAssetLoader.ts
@@ -41,7 +41,7 @@ related:
 
 ## Current provenance and composition
 
-v2 seed는 ImageGen으로 생성한 원본을 mechanical alpha cleanup한 결과다. `jungle-ground-atlas-v2.png`는 생성 provenance를 위해 보존하지만 현재 public combat view는 이를 개별 cell carpet으로 반복하지 않는다. 배경의 실제 흙바닥 위에 짧은 grid corner와 점유 ring만 합성한다. character cutout은 alpha cleanup 뒤 padded crop하고 asset별 normalized `footAnchor`를 logical cell 중심에 투영한다. 원본 prompt와 생성 시점은 작업 handoff에 보존하고, 최종 path·alpha 처리·anchor·in-engine screenshot/build SHA를 함께 기록한다.
+v2 character seed는 ImageGen으로 생성한 원본을 mechanical alpha cleanup한 결과다. `jungle-ground-atlas-v2.png`의 네 불투명 흙 frame은 `12 x 3` tilemap의 실제 플레이 지형으로 사용한다. `jungle-background-v3.png`는 tilemap 배치 후 다시 제작했으며 중앙 플레이 밴드를 비우고 숲·안개·유적을 원경에 집중한다. character cutout은 alpha cleanup 뒤 padded crop하고 asset별 normalized `footAnchor`를 logical cell 중심에 투영한다. 원본 prompt와 생성 시점은 작업 handoff에 보존하고, 최종 path·alpha 처리·anchor·in-engine screenshot/build SHA를 함께 기록한다.
 
 ### v2 prompt and path ledger
 
@@ -52,7 +52,8 @@ v2 seed는 ImageGen으로 생성한 원본을 mechanical alpha cleanup한 결과
 | `public/assets/slice1/barrier-guardian-v2.png` | `about 5.5 heads tall massive Amazon jungle barrier guardian, ritual stone and wood armor, carved mask, root limbs, obsidian and orange cracks, rough three-value rendering, left-facing wind-up silhouette, transparent background` | mechanical alpha cleanup; padded crop; runtime bottom-center anchor |
 | `public/assets/slice1/guardian-hound-v2.png` | `small jungle barrier hound with wood and obsidian mask, roots and vines, amber seams, forward-leaning left-facing charge pose, rough three-value rendering, transparent background` | mechanical alpha cleanup; padded crop; runtime bottom-center anchor |
 | `public/assets/slice1/jungle-background-v2.png` | `Amazon jungle barrier gate room, continuous soil floor and canopy, atmospheric side-view background, rough painted brush, three-tone value grouping, no characters, no text, no UI` | opaque background layer; no atlas composition |
-| `public/assets/slice1/jungle-ground-atlas-v2.png` | `2x2 terrain atlas concept with four edge-to-edge compacted wet-earth variations, no gutter, perspective, grid, characters or text` | four frames recomposed horizontally; 1024×128 atlas, 256×128 per frame; provenance retained, not repeated by public renderer |
+| `public/assets/slice1/jungle-ground-atlas-v2.png` | `2x2 terrain atlas concept with four edge-to-edge compacted wet-earth variations, no gutter, perspective, grid, characters or text` | four frames recomposed horizontally; 1024×128 atlas, 256×128 per frame; active opaque 12×3 tilemap source |
+| `public/assets/slice1/jungle-background-v3.png` | `Repaint the existing Amazon jungle barrier-room background around a separately rendered opaque 12x3 dirt tilemap; lush layered rainforest, mist, warm shafts of light and a readable ancient ruin gate; calm low-contrast center gameplay band; no characters, UI, grid, tiles, bridge or competing floor` | built-in ImageGen edit of v2; 1672×941 RGB; active background layer behind tilemap |
 
 These are prompt summaries, not a claim that the generated image itself is a production sprite sheet. The exact source request and generation metadata belong in the asset handoff; this ledger keeps the reproducible intent and final repository path in the canonical documentation.
 

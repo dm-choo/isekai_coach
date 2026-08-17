@@ -1,7 +1,7 @@
 ---
 title: Existing Scaffold Contract
 status: accepted
-last_updated: 2026-08-17
+last_updated: 2026-08-18
 implementation:
   - src/game/combat/
   - src/game/slice/
@@ -74,7 +74,7 @@ related:
 
 ## Presentation contract
 
-- 전투 장면은 정글 배경과 이어진 흙바닥을 우선하며, 상시 유리 발판처럼 보이는 grid를 그리지 않는다.
+- 전투 장면의 플레이 평면은 `12 x 3` 불투명 흙 tilemap이 소유한다. 정글 배경은 숲과 유적의 원경만 보조하며, Intent는 tilemap 위의 일시 overlay다.
 - 캐릭터와 보스는 cell보다 크게 보일 수 있고 서로 겹칠 수 있다. depth는 행 위치와 이동에 따라 갱신한다.
 - `<내 턴>`, `<아군 턴>`, `<적 턴>`은 배너·상태 변화·행동 애니메이션으로 명시한다. 텍스트만으로 현재 주체를 추측하게 하지 않는다.
 - `idle`, `move`, `attack`, `hit`, `knockback`, `stun`, `death`와 봉인 해제 연출은 서로 구별되어야 한다. 이동과 공격을 같은 tween으로 축약하지 않는다.

@@ -4,6 +4,7 @@ import {
   getCharacterVisual,
   getVfxVisual,
   SLICE_ENVIRONMENT,
+  SLICE_GROUND_ATLAS,
 } from '../../assets/AssetManifest';
 import type { IntentIconKind } from '../bridge/PresentationPort';
 import type { BattlePredictionPresentation } from '../bridge/PresentationPort';
@@ -484,45 +485,29 @@ export class BattleRenderer {
   }
 
   private drawGroundCues(state: BattleState): void {
-    const markings = this.scene.add.graphics().setDepth(3);
-    const halfWidth = this.projector.cellSize.width / 2;
-    const halfHeight = this.projector.cellSize.height / 2;
-    const corner = 10;
-    markings.lineStyle(1, 0x796c45, 0.22);
+    const atlasExists = this.scene.textures.exists(SLICE_GROUND_ATLAS.textureKey);
+    const tileSize = this.projector.tileSize;
     for (let x = 0; x < state.map.width; x += 1) {
       for (let y = 0; y < state.map.height; y += 1) {
         const world = this.projector.gridToWorld({ x, y });
-        const left = world.x - halfWidth + 3;
-        const right = world.x + halfWidth - 3;
-        const top = world.y - halfHeight + 3;
-        const bottom = world.y + halfHeight - 3;
-        markings.beginPath();
-        markings.moveTo(left, top + corner);
-        markings.lineTo(left, top);
-        markings.lineTo(left + corner, top);
-        markings.moveTo(right - corner, top);
-        markings.lineTo(right, top);
-        markings.lineTo(right, top + corner);
-        markings.moveTo(left, bottom - corner);
-        markings.lineTo(left, bottom);
-        markings.lineTo(left + corner, bottom);
-        markings.moveTo(right - corner, bottom);
-        markings.lineTo(right, bottom);
-        markings.lineTo(right, bottom - corner);
-        markings.strokePath();
-
-        if ((x + y * 2) % 3 === 0) {
-          markings.lineStyle(2, 0x2f2a18, 0.2);
-          markings.beginPath();
-          markings.moveTo(world.x - 18, world.y + 20);
-          markings.lineTo(world.x - 4, world.y + 17);
-          markings.lineTo(world.x + 10, world.y + 21);
-          markings.strokePath();
-          markings.lineStyle(1, 0x796c45, 0.22);
-        }
+        const tile = atlasExists
+          ? this.scene.add.image(world.x, world.y, SLICE_GROUND_ATLAS.textureKey, (x * 3 + y) % 4)
+          : this.scene.add.rectangle(world.x, world.y, tileSize.width, tileSize.height, 0x2b2415, 1);
+        tile
+          .setDisplaySize(tileSize.width + 1, tileSize.height + 1)
+          .setAlpha(1)
+          .setDepth(2);
+        const blockEdge = this.scene.add.rectangle(
+          world.x,
+          world.y,
+          tileSize.width - 1,
+          tileSize.height - 1,
+          0x000000,
+          0,
+        ).setStrokeStyle(2, 0x171109, 0.72).setDepth(3);
+        this.groundObjects.push(tile, blockEdge);
       }
     }
-    this.groundObjects.push(markings);
   }
 
   private drawOccupancy(state: BattleState): void {

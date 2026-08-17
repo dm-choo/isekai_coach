@@ -3,6 +3,7 @@ import {
   CHARACTER_VISUALS,
   INTENT_ICON_TEXTURES,
   SLICE_ENVIRONMENT,
+  SLICE_GROUND_ATLAS,
   VFX_VISUALS,
   type CharacterAnimationDefinition,
   type VisualAssetSource,
@@ -11,6 +12,7 @@ import {
 /** Reads optional asset sources from the manifest. Missing sources use renderer fallbacks. */
 export function preloadVisualAssets(scene: Phaser.Scene): void {
   loadSource(scene, SLICE_ENVIRONMENT.textureKey, SLICE_ENVIRONMENT.source);
+  loadSource(scene, SLICE_GROUND_ATLAS.textureKey, SLICE_GROUND_ATLAS.source);
   for (const visual of Object.values(CHARACTER_VISUALS)) {
     loadSource(scene, visual.spriteKey, visual.source);
   }

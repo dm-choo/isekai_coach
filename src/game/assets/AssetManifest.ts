@@ -171,7 +171,7 @@ export const CHARACTER_VISUALS: Record<string, CharacterVisualConfig> = {
 
 export const SLICE_ENVIRONMENT = {
   textureKey: 'slice1_jungle_barrier_room',
-  source: { type: 'IMAGE', url: 'assets/slice1/jungle-background-v2.png' } as VisualAssetSource,
+  source: { type: 'IMAGE', url: 'assets/slice1/jungle-background-v3.png' } as VisualAssetSource,
 } as const;
 
 export const SLICE_GROUND_ATLAS = {
