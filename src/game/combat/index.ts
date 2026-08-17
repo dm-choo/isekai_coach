@@ -3,6 +3,8 @@ export * from './domain/actions';
 export * from './data/abilities';
 export * from './data/scenarios';
 export * from './engine/BattleEngine';
+export * from './engine/EffectResolver';
+export * from './engine/TargetResolver';
 export * from './policies/strategies';
 export * from './spatial/grid';
 export * from './spatial/selectors';

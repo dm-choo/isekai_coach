@@ -16,10 +16,14 @@ export type Direction = 'UP' | 'RIGHT' | 'DOWN' | 'LEFT';
 export type EnemyRank = 'NORMAL' | 'ELITE' | 'BOSS';
 export type IntentAnchor = 'BODY' | 'GROUND';
 export type ThreatCategory = 'NORMAL_ATTACK' | 'UNBLOCKABLE_ATTACK';
+export type CombatRole = 'FRONTLINE' | 'RANGED' | 'BOSS' | 'MINION';
+export type UnitBehavior = 'RANGED_HUNTER';
 
 export interface UnitStatus {
   /** Remaining mitigation for the next blockable hit. */
   readonly guard: number;
+  /** Remaining turns during which a declared intent is interrupted. */
+  readonly stunned: number;
 }
 
 /** A shared runtime model is used for students and enemies. */
@@ -38,6 +42,8 @@ export interface Unit {
   readonly rank: EnemyRank;
   readonly spawnOrder: number;
   readonly visualKey?: string;
+  readonly combatRole?: CombatRole;
+  readonly behavior?: UnitBehavior;
 }
 
 export interface UnitDefinition {
@@ -54,6 +60,8 @@ export interface UnitDefinition {
   readonly rank?: EnemyRank;
   readonly spawnOrder?: number;
   readonly visualKey?: string;
+  readonly combatRole?: CombatRole;
+  readonly behavior?: UnitBehavior;
 }
 
 /** Relative pattern data is rotated into the locked attack direction. */
@@ -82,7 +90,25 @@ export interface KnockbackEffect {
   readonly distance: number;
 }
 
-export type AbilityEffect = DamageEffect | GuardEffect | KnockbackEffect;
+export interface StunEffect {
+  readonly type: 'STUN';
+  readonly turns: number;
+}
+
+export interface SummonEffect {
+  readonly type: 'SUMMON';
+  readonly templateId: string;
+  /** Deterministic relative spawn candidates, checked in authored order. */
+  readonly cells: readonly PatternCell[];
+}
+
+export interface SourceMovement {
+  readonly type: 'ADVANCE' | 'CHARGE';
+  readonly distance: number;
+}
+
+export type PatternTargetMode = 'ALL' | 'FIRST_IN_PATTERN';
+export type AbilityEffect = DamageEffect | GuardEffect | KnockbackEffect | StunEffect | SummonEffect;
 export type AbilityTargeting = 'SELF' | 'PATTERN' | 'UNIT';
 
 export interface AbilityDefinition {
@@ -94,6 +120,18 @@ export interface AbilityDefinition {
   readonly effects: readonly AbilityEffect[];
   readonly intentAnchor?: IntentAnchor;
   readonly threat?: ThreatCategory;
+  /** Maximum Manhattan distance for UNIT targeting. */
+  readonly range?: number;
+  /** Minimum distance used by ranged abilities and policy positioning. */
+  readonly minimumRange?: number;
+  /** PATTERN attacks default to all occupants; projectiles stop at the first cell hit. */
+  readonly patternTargetMode?: PatternTargetMode;
+  /** Optional movement resolved as part of the same locked enemy pattern. */
+  readonly sourceMovement?: SourceMovement;
+  /** Explicit false means a stun does not cancel the already locked intent. */
+  readonly interruptible?: boolean;
+  /** Agreed design metadata. Tags explain an action; they do not gate execution. */
+  readonly tags?: readonly string[];
   /** Developer scaffolding, not a player-facing combat-design commitment. */
   readonly provisional?: boolean;
 }
@@ -129,7 +167,10 @@ export interface Intent {
   /** Direction is locked at declaration and never reads the source's later facing. */
   readonly direction: Direction;
   readonly aim: GridPosition;
-  readonly telegraphedCells: readonly GridPosition[];
+  /** Cells traversed by a movement intent. Never rendered as attack danger. */
+  readonly movementPath: readonly GridPosition[];
+  /** Cells affected by ability resolution. Empty for a pure movement intent. */
+  readonly effectCells: readonly GridPosition[];
   readonly threat: ThreatCategory;
   readonly tags: readonly ThreatCategory[];
 }
@@ -188,7 +229,14 @@ export interface StatusAppliedEvent extends EventBase {
   readonly type: 'STATUS_APPLIED';
   readonly sourceId: UnitId;
   readonly targetId: UnitId;
-  readonly status: 'GUARD';
+  readonly status: 'GUARD' | 'STUN';
+  readonly amount: number;
+}
+
+export interface StatusConsumedEvent extends EventBase {
+  readonly type: 'STATUS_CONSUMED';
+  readonly targetId: UnitId;
+  readonly status: 'STUN';
   readonly amount: number;
 }
 
@@ -232,7 +280,7 @@ export interface IntentCancelledEvent extends EventBase {
   readonly type: 'INTENT_CANCELLED';
   readonly sourceId: UnitId;
   readonly intentId: string;
-  readonly reason: 'SOURCE_DIED' | 'BATTLE_ENDED';
+  readonly reason: 'SOURCE_DIED' | 'SOURCE_STUNNED' | 'BATTLE_ENDED';
 }
 
 export interface IntentResolvedEvent extends EventBase {
@@ -245,6 +293,13 @@ export interface UnitDiedEvent extends EventBase {
   readonly type: 'UNIT_DIED';
   readonly unitId: UnitId;
   readonly sourceId?: UnitId;
+}
+
+export interface UnitSummonedEvent extends EventBase {
+  readonly type: 'UNIT_SUMMONED';
+  readonly sourceId: UnitId;
+  readonly templateId: string;
+  readonly unit: Unit;
 }
 
 export interface TurnEndedEvent extends EventBase {
@@ -260,6 +315,7 @@ export type CombatEvent =
   | UnitMovedEvent
   | AbilityUsedEvent
   | StatusAppliedEvent
+  | StatusConsumedEvent
   | DamageBlockedEvent
   | DamageDealtEvent
   | UnitKnockedBackEvent
@@ -267,6 +323,7 @@ export type CombatEvent =
   | IntentCancelledEvent
   | IntentResolvedEvent
   | UnitDiedEvent
+  | UnitSummonedEvent
   | TurnEndedEvent;
 
 export interface BattleState {
@@ -277,7 +334,6 @@ export interface BattleState {
   readonly units: readonly Unit[];
   readonly intents: readonly Intent[];
   readonly outcome: BattleOutcome;
-  readonly eventHistory: readonly CombatEvent[];
 }
 
 export interface EnemyIntentPlan {
@@ -296,6 +352,8 @@ export interface BattleScenario {
   readonly units: readonly UnitDefinition[];
   /** Deterministic scenario defaults; a supplied enemy strategy replaces these. */
   readonly enemyPlans?: Readonly<Record<UnitId, readonly EnemyIntentPlan[]>>;
+  /** Templates used by deterministic SUMMON effects. */
+  readonly summonTemplates?: Readonly<Record<string, UnitDefinition>>;
   /** PROVISIONAL: authored sandbox demonstration, not final Gambit data. */
   readonly studentActions?: readonly CombatAction[];
 }
@@ -359,4 +417,10 @@ export interface BattleEngineOptions {
   readonly enemyStrategies?:
     | Readonly<Record<UnitId, EnemyIntentStrategy>>
     | ReadonlyMap<UnitId, EnemyIntentStrategy>;
+}
+
+export interface BattlePreview<T> {
+  readonly value: T;
+  readonly state: BattleState;
+  readonly events: readonly CombatEvent[];
 }

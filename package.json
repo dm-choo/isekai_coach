@@ -9,9 +9,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:slice": "npm run build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "verify:combat-ux": "node scripts/verify-combat-ux.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -23,6 +25,7 @@
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.4",
+    "playwright": "^1.62.1",
     "typescript": "6.0.2",
     "vite": "8.1.5",
     "vitest": "4.1.10"

@@ -1,27 +1,36 @@
 import { useEffect, useRef } from 'react';
 import { createPhaserGame } from '../game/phaser/config/createGame';
-import type { SandboxController } from '../game/phaser/bridge/SandboxController';
+import type { PresentationPort } from '../game/phaser/bridge/PresentationPort';
 
-export function PhaserCanvas({ controller }: { readonly controller: SandboxController }) {
+interface PresentationController {
+  attachPresentation(presentation: PresentationPort): () => void;
+  selectTarget(unitId: string): void;
+}
+
+export function PhaserCanvas({ controller }: { readonly controller: PresentationController }) {
   const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
     let detach: (() => void) | undefined;
+    let game: ReturnType<typeof createPhaserGame> | undefined;
     let disposed = false;
-    const game = createPhaserGame(host, (presentation) => {
-      if (disposed) {
-        presentation.destroy();
-        return;
-      }
-      detach = controller.attachPresentation(presentation);
+    void document.fonts.ready.then(() => {
+      if (disposed) return;
+      game = createPhaserGame(host, (presentation) => {
+        if (disposed) {
+          presentation.destroy();
+          return;
+        }
+        detach = controller.attachPresentation(presentation);
+      }, controller.selectTarget);
     });
 
     return () => {
       disposed = true;
       detach?.();
-      game.destroy(true);
+      game?.destroy(true);
     };
   }, [controller]);
 

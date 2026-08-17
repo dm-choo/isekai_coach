@@ -1,9 +1,10 @@
-import { ABILITIES, MOVE_AP_COST, getAbility } from '../data/abilities';
+import { ABILITIES, ABILITY_IDS, MOVE_AP_COST, getAbility } from '../data/abilities';
 import type {
   AbilityDefinition,
   ActionFailureReason,
   ActionResult,
   BattleEngineOptions,
+  BattlePreview,
   BattleMapConfig,
   BattleOutcome,
   BattlePhase,
@@ -17,6 +18,7 @@ import type {
   GridPosition,
   Intent,
   IntentChoice,
+  PatternCell,
   ThreatCategory,
   Unit,
   UnitDefinition,
@@ -38,6 +40,8 @@ import {
   projectPattern,
   step,
 } from '../spatial/grid';
+import { applyAbilityEffects } from './EffectResolver';
+import { resolveAbilityTargets } from './TargetResolver';
 
 type EventInput = CombatEvent extends infer Event
   ? Event extends CombatEvent
@@ -61,6 +65,8 @@ export class BattleEngine {
   private turn = 0;
   private phase: BattlePhase = 'READY';
   private outcome: BattleOutcome = 'ONGOING';
+  private readonly summonTemplates: Readonly<Record<string, UnitDefinition>>;
+  private summonCounts = new Map<string, number>();
   private readonly studentStrategy;
   private readonly enemyStrategies = new Map<string, EnemyIntentStrategy>();
 
@@ -69,6 +75,7 @@ export class BattleEngine {
     this.scenarioId = scenario.id;
     this.map = { ...scenario.map };
     this.units = scenario.units.map(createUnit);
+    this.summonTemplates = scenario.summonTemplates ?? {};
     this.studentStrategy =
       options.studentStrategy ??
       (scenario.studentActions
@@ -110,12 +117,45 @@ export class BattleEngine {
       units: this.units.map(cloneUnit),
       intents: this.intents.map(cloneIntent),
       outcome: this.outcome,
-      eventHistory: this.eventHistory.map(cloneEvent),
     };
   }
 
   public getEvents(): readonly CombatEvent[] {
     return this.eventHistory.map(cloneEvent);
+  }
+
+  /**
+   * Runs a synchronous what-if branch and restores the exact simulation head.
+   * It is intended for deterministic UI prediction and never exposes mutable
+   * state or lets preview events leak into the authoritative history.
+   */
+  public preview<T>(run: (engine: BattleEngine) => T): BattlePreview<T> {
+    const checkpoint = {
+      units: this.units.map(cloneUnit),
+      intents: this.intents.map(cloneIntent),
+      eventHistory: this.eventHistory.map(cloneEvent),
+      turn: this.turn,
+      phase: this.phase,
+      outcome: this.outcome,
+      summonCounts: new Map(this.summonCounts),
+    };
+    const eventStart = this.eventHistory.length;
+    try {
+      const value = run(this);
+      return {
+        value,
+        state: this.getState(),
+        events: this.eventsSince(eventStart),
+      };
+    } finally {
+      this.units = checkpoint.units;
+      this.intents = checkpoint.intents;
+      this.eventHistory = checkpoint.eventHistory;
+      this.turn = checkpoint.turn;
+      this.phase = checkpoint.phase;
+      this.outcome = checkpoint.outcome;
+      this.summonCounts = checkpoint.summonCounts;
+    }
   }
 
   /** Locks all living enemy intents before refilling student AP. */
@@ -127,11 +167,12 @@ export class BattleEngine {
 
     for (const enemy of this.livingUnits('ENEMY').sort(compareStableUnits)) {
       const strategy = this.enemyStrategies.get(enemy.id);
-      const choice = strategy?.chooseIntent({
+      const context = {
         state: this.getState(),
         enemy: cloneUnit(enemy),
         turn: this.turn,
-      });
+      };
+      const choice = strategy?.chooseIntent(context) ?? this.chooseBuiltInIntent(enemy);
       if (!choice) continue;
       const intent = this.lockIntent(enemy, choice);
       if (!intent) continue;
@@ -242,6 +283,7 @@ export class BattleEngine {
     }
 
     this.recomputeOutcome();
+    this.consumeTurnStatuses();
     this.emit({ type: 'TURN_ENDED', outcome: this.outcome });
     this.phase = this.outcome === 'ONGOING' ? 'READY' : 'BATTLE_ENDED';
     return this.eventsSince(eventStart);
@@ -278,6 +320,32 @@ export class BattleEngine {
     return this.eventsSince(eventStart);
   }
 
+  private chooseBuiltInIntent(enemy: Unit): IntentChoice | null {
+    if (enemy.behavior !== 'RANGED_HUNTER') return null;
+    const targets = this.livingUnits('STUDENT').slice().sort((left, right) => {
+      const rolePriority = Number(right.combatRole === 'RANGED') - Number(left.combatRole === 'RANGED');
+      return rolePriority ||
+        manhattanDistance(enemy.position, left.position) - manhattanDistance(enemy.position, right.position) ||
+        compareStableUnits(left, right);
+    });
+    const target = targets[0];
+    if (!target || !enemy.abilities.includes(ABILITY_IDS.MINION_CHARGE)) return null;
+    const direction: Direction = target.position.y !== enemy.position.y
+      ? target.position.y > enemy.position.y ? 'DOWN' : 'UP'
+      : target.position.x > enemy.position.x ? 'RIGHT' : 'LEFT';
+    return {
+      action: {
+        type: 'USE_ABILITY',
+        actorId: enemy.id,
+        abilityId: ABILITY_IDS.MINION_CHARGE,
+        direction,
+        targetId: target.id,
+      },
+      direction,
+      anchor: 'BODY',
+    };
+  }
+
   private validateStudentAction(action: CombatAction): ActionFailureReason | null {
     if (this.outcome !== 'ONGOING') return 'BATTLE_ENDED';
     if (this.phase !== 'STUDENT_ACTION') return 'WRONG_PHASE';
@@ -301,10 +369,20 @@ export class BattleEngine {
     if (ability.targeting === 'UNIT') {
       const target = action.targetId ? this.findUnit(action.targetId) : undefined;
       if (!target || target.hp <= 0 || target.id === actor.id) return 'INVALID_TARGET';
-      const knockback = ability.effects.find((effect) => effect.type === 'KNOCKBACK');
-      if (knockback?.type === 'KNOCKBACK') {
+      if (
+        ability.range !== undefined &&
+        manhattanDistance(actor.position, target.position) > ability.range
+      ) {
+        return 'INVALID_TARGET';
+      }
+      const knockbacks = ability.effects.filter((effect) => effect.type === 'KNOCKBACK');
+      const displacementOnly = knockbacks.length > 0 && knockbacks.length === ability.effects.length;
+      if (displacementOnly) {
         const direction = action.direction ?? directionBetween(actor.position, target.position);
-        if (!direction || !this.canDisplace(target, direction, knockback.distance)) {
+        if (
+          !direction ||
+          knockbacks.some((effect) => !this.canDisplace(target, direction, effect.distance))
+        ) {
           return 'BLOCKED_KNOCKBACK';
         }
       }
@@ -314,7 +392,11 @@ export class BattleEngine {
 
   private executeStudentAbility(action: UseAbilityAction, ability: AbilityDefinition): void {
     const actor = this.requireUnit(action.actorId);
-    const direction = action.direction ?? actor.facing;
+    const selectedTarget = action.targetId ? this.findUnit(action.targetId) : undefined;
+    const direction =
+      action.direction ??
+      (selectedTarget ? directionBetween(actor.position, selectedTarget.position) : undefined) ??
+      actor.facing;
     const apAfter = actor.ap - ability.apCost;
     this.replaceUnit(actor.id, (unit) => ({ ...unit, ap: apAfter }));
     if (ability.apCost > 0) {
@@ -334,46 +416,10 @@ export class BattleEngine {
       targetId: action.targetId,
     });
 
-    if (ability.targeting === 'SELF') {
-      for (const effect of ability.effects) {
-        if (effect.type !== 'GUARD') continue;
-        this.replaceUnit(actor.id, (unit) => ({
-          ...unit,
-          status: { ...unit.status, guard: unit.status.guard + effect.amount },
-        }));
-        this.emit({
-          type: 'STATUS_APPLIED',
-          sourceId: actor.id,
-          targetId: actor.id,
-          status: 'GUARD',
-          amount: effect.amount,
-        });
-      }
-      return;
-    }
-
-    if (ability.targeting === 'UNIT') {
-      const target = action.targetId ? this.requireUnit(action.targetId) : undefined;
-      if (!target) return;
-      for (const effect of ability.effects) {
-        if (effect.type !== 'KNOCKBACK') continue;
-        const displacementDirection = action.direction ?? directionBetween(actor.position, target.position);
-        if (displacementDirection) {
-          this.applyKnockback(actor.id, target.id, displacementDirection, effect.distance);
-        }
-      }
-      return;
-    }
-
-    const cells = ability.pattern
+    const footprint = ability.targeting === 'PATTERN' && ability.pattern
       ? projectPattern(actor.position, direction, ability.pattern, this.map)
       : [];
-    this.applyPatternEffects(
-      actor,
-      ability,
-      cells,
-      ability.threat ?? 'NORMAL_ATTACK',
-    );
+    this.resolveAbilityEffects(actor, ability, action, footprint, direction);
   }
 
   private lockIntent(source: Unit, choice: IntentChoice): Intent | null {
@@ -395,15 +441,19 @@ export class BattleEngine {
           (action.type === 'USE_ABILITY' ? action.groundOrigin : undefined) ??
           source.position
         : source.position;
-    const cells =
-      action.type === 'MOVE'
-        ? inBounds(this.map, action.to)
-          ? [{ ...action.to }]
-          : []
-        : ability?.pattern
-          ? projectPattern(declaredOrigin, direction, ability.pattern, this.map)
-          : [];
-    const aim = cells[0] ?? declaredOrigin;
+    const movementPath = action.type === 'MOVE'
+      ? inBounds(this.map, action.to) ? [{ ...action.to }] : []
+      : ability?.sourceMovement
+        ? projectMovementPath(declaredOrigin, direction, ability.sourceMovement.distance, this.map)
+        : [];
+    const effectOrigin = ability?.sourceMovement?.type === 'ADVANCE'
+      ? movementPath.at(-1) ?? declaredOrigin
+      : declaredOrigin;
+    const effectCells =
+      action.type === 'USE_ABILITY' && ability?.pattern
+        ? projectPattern(effectOrigin, direction, ability.pattern, this.map)
+        : [];
+    const aim = effectCells[0] ?? movementPath[0] ?? declaredOrigin;
     const threat = ability?.threat ?? 'NORMAL_ATTACK';
     return {
       id: `${this.scenarioId}:turn-${this.turn}:intent-${source.id}`,
@@ -415,7 +465,8 @@ export class BattleEngine {
       declaredOrigin: { ...declaredOrigin },
       direction,
       aim: { ...aim },
-      telegraphedCells: cells.map(clonePosition),
+      movementPath: movementPath.map(clonePosition),
+      effectCells: effectCells.map(clonePosition),
       threat,
       tags: [threat],
     };
@@ -453,46 +504,154 @@ export class BattleEngine {
       direction: currentIntent.direction,
       targetId: currentIntent.action.type === 'USE_ABILITY' ? currentIntent.action.targetId : undefined,
     });
-    const cells = this.effectiveIntentCells(currentIntent);
-    if (ability.targeting === 'PATTERN') {
-      this.applyPatternEffects(source, ability, cells, currentIntent.threat);
-    } else if (
-      ability.targeting === 'UNIT' &&
-      currentIntent.action.type === 'USE_ABILITY' &&
-      currentIntent.action.targetId
-    ) {
-      const target = this.findUnit(currentIntent.action.targetId);
-      if (target?.hp) {
-        for (const effect of ability.effects) {
-          if (effect.type === 'KNOCKBACK') {
-            this.applyKnockback(source.id, target.id, currentIntent.direction, effect.distance);
-          }
+    if (currentIntent.action.type === 'USE_ABILITY') {
+      let currentSource = this.requireUnit(source.id);
+      let cells = this.effectiveIntentCells(currentIntent);
+      if (ability.sourceMovement?.type === 'ADVANCE') {
+        const destination = this.resolveAdvanceDestination(currentSource, currentIntent.movementPath);
+        if (!positionsEqual(currentSource.position, destination)) {
+          const from = { ...currentSource.position };
+          this.replaceUnit(currentSource.id, (unit) => ({ ...unit, position: { ...destination } }));
+          this.emit({ type: 'UNIT_MOVED', unitId: currentSource.id, from, to: { ...destination } });
+          currentSource = this.requireUnit(currentSource.id);
+        }
+        cells = ability.pattern
+          ? projectPattern(currentSource.position, currentIntent.direction, ability.pattern, this.map)
+          : [];
+      }
+      const chargeDestination = ability.sourceMovement?.type === 'CHARGE'
+        ? this.resolveChargeDestination(currentSource, currentIntent.movementPath)
+        : null;
+      this.resolveAbilityEffects(
+        currentSource,
+        ability,
+        currentIntent.action,
+        cells,
+        currentIntent.direction,
+        currentIntent.threat,
+      );
+      if (chargeDestination) {
+        if (!positionsEqual(currentSource.position, chargeDestination)) {
+          const from = { ...currentSource.position };
+          this.replaceUnit(currentSource.id, (unit) => ({ ...unit, position: { ...chargeDestination } }));
+          this.emit({ type: 'UNIT_MOVED', unitId: currentSource.id, from, to: { ...chargeDestination } });
         }
       }
     }
   }
 
-  private applyPatternEffects(
+  private resolveAbilityEffects(
     source: Unit,
     ability: AbilityDefinition,
-    cells: readonly GridPosition[],
-    threat: ThreatCategory,
+    action: UseAbilityAction,
+    footprint: readonly GridPosition[],
+    direction: Direction,
+    threat: ThreatCategory = ability.threat ?? 'NORMAL_ATTACK',
   ): void {
-    const targets = this.units
-      .filter(
-        (unit) =>
-          unit.hp > 0 &&
-          unit.faction !== source.faction &&
-          cells.some((cell) => positionsEqual(cell, unit.position)),
-      )
-      .sort(compareStableUnits);
-    for (const effect of ability.effects) {
-      if (effect.type !== 'DAMAGE') continue;
-      for (const target of targets) {
-        if ((this.findUnit(target.id)?.hp ?? 0) > 0) {
-          this.applyDamage(source.id, target.id, effect.amount, threat);
-        }
-      }
+    const targetIds = resolveAbilityTargets({ source, ability, action, footprint, units: this.units });
+    applyAbilityEffects({
+      sourceId: source.id,
+      targetIds,
+      effects: ability.effects,
+      direction,
+      threat,
+      port: {
+        isAlive: (unitId) => (this.findUnit(unitId)?.hp ?? 0) > 0,
+        applyDamage: (sourceId, targetId, amount, effectThreat) =>
+          this.applyDamage(sourceId, targetId, amount, effectThreat),
+        applyGuard: (sourceId, targetId, amount) => this.applyGuard(sourceId, targetId, amount),
+        applyKnockback: (sourceId, targetId, effectDirection, distance) =>
+          this.applyKnockback(sourceId, targetId, effectDirection, distance),
+        applyStun: (sourceId, targetId, turns) => this.applyStun(sourceId, targetId, turns),
+        applySummon: (sourceId, templateId, cells) => this.applySummon(sourceId, templateId, cells),
+      },
+    });
+  }
+
+  private resolveAdvanceDestination(source: Unit, path: readonly GridPosition[]): GridPosition {
+    let destination = source.position;
+    for (const cell of path) {
+      if (!inBounds(this.map, cell) || isOccupied(this.units, cell, source.id)) break;
+      destination = cell;
+    }
+    return { ...destination };
+  }
+
+  private resolveChargeDestination(source: Unit, path: readonly GridPosition[]): GridPosition {
+    return this.resolveAdvanceDestination(source, path);
+  }
+
+  private applySummon(sourceId: string, templateId: string, cells: readonly PatternCell[]): void {
+    const source = this.findUnit(sourceId);
+    const template = this.summonTemplates[templateId];
+    if (!source || source.hp <= 0 || !template) return;
+    const spawnPattern = { id: `summon-${templateId}`, cells };
+    const position = projectPattern(source.position, source.facing, spawnPattern, this.map)
+      .find((candidate) => !isOccupied(this.units, candidate));
+    if (!position) return;
+    const count = (this.summonCounts.get(templateId) ?? 0) + 1;
+    this.summonCounts.set(templateId, count);
+    const unit = createUnit({
+      ...template,
+      id: `${template.id}-${count}`,
+      position,
+      spawnOrder: Math.max(-1, ...this.units.map((candidate) => candidate.spawnOrder)) + 1,
+    }, this.units.length);
+    this.units = [...this.units, unit];
+    this.emit({
+      type: 'UNIT_SUMMONED',
+      sourceId,
+      templateId,
+      unit: cloneUnit(unit),
+    });
+  }
+
+  private applyGuard(sourceId: string, targetId: string, amount: number): void {
+    const applied = Math.max(0, Math.floor(amount));
+    if (applied <= 0) return;
+    this.replaceUnit(targetId, (unit) => ({
+      ...unit,
+      status: { ...unit.status, guard: unit.status.guard + applied },
+    }));
+    this.emit({
+      type: 'STATUS_APPLIED',
+      sourceId,
+      targetId,
+      status: 'GUARD',
+      amount: applied,
+    });
+  }
+
+  private applyStun(sourceId: string, targetId: string, turns: number): void {
+    const applied = Math.max(0, Math.floor(turns));
+    const target = this.findUnit(targetId);
+    if (!target || target.hp <= 0 || applied <= 0) return;
+    this.replaceUnit(targetId, (unit) => ({
+      ...unit,
+      status: { ...unit.status, stunned: Math.max(unit.status.stunned, applied) },
+    }));
+    this.emit({ type: 'STATUS_APPLIED', sourceId, targetId, status: 'STUN', amount: applied });
+    const intent = this.intents.find((candidate) => candidate.sourceId === targetId);
+    const intentAbility = intent?.abilityId ? getAbility(intent.abilityId) : undefined;
+    if (intent && intentAbility?.interruptible !== false) {
+      this.cancelIntent(intent.id, 'SOURCE_STUNNED');
+    }
+  }
+
+  private consumeTurnStatuses(): void {
+    for (const unit of this.units) {
+      if (unit.status.stunned <= 0) continue;
+      const consumed = unit.status.stunned;
+      this.replaceUnit(unit.id, (current) => ({
+        ...current,
+        status: { ...current.status, stunned: 0 },
+      }));
+      this.emit({
+        type: 'STATUS_CONSUMED',
+        targetId: unit.id,
+        status: 'STUN',
+        amount: consumed,
+      });
     }
   }
 
@@ -580,40 +739,59 @@ export class BattleEngine {
     for (const previous of this.intents.filter(
       (intent) => intent.sourceId === sourceId && intent.anchor === 'BODY',
     )) {
-      const nextCells = this.calculateBodyCells(previous, source);
-      if (comparePositionLists(previous.telegraphedCells, nextCells)) continue;
+      const projection = this.calculateBodyProjection(previous, source);
+      if (
+        comparePositionLists(previous.effectCells, projection.effectCells) &&
+        comparePositionLists(previous.movementPath, projection.movementPath)
+      ) continue;
       const next: Intent = {
         ...previous,
         origin: { ...source.position },
-        telegraphedCells: nextCells.map(clonePosition),
+        movementPath: projection.movementPath.map(clonePosition),
+        effectCells: projection.effectCells.map(clonePosition),
       };
       this.intents = this.intents.map((intent) => (intent.id === previous.id ? next : intent));
       this.emit({
         type: 'INTENT_AREA_CHANGED',
         sourceId,
         intentId: previous.id,
-        fromCells: previous.telegraphedCells.map(clonePosition),
-        toCells: nextCells.map(clonePosition),
+        fromCells: previous.effectCells.map(clonePosition),
+        toCells: projection.effectCells.map(clonePosition),
         intent: cloneIntent(next),
       });
     }
   }
 
-  private calculateBodyCells(intent: Intent, source: Unit): GridPosition[] {
-    if (intent.action.type === 'MOVE') return [{ ...intent.action.to }];
+  private calculateBodyProjection(
+    intent: Intent,
+    source: Unit,
+  ): { movementPath: GridPosition[]; effectCells: GridPosition[] } {
+    if (intent.action.type === 'MOVE') {
+      return { movementPath: [{ ...intent.action.to }], effectCells: [] };
+    }
     const ability = getAbility(intent.action.abilityId);
-    return ability?.pattern
-      ? projectPattern(source.position, intent.direction, ability.pattern, this.map)
+    const movementPath = ability?.sourceMovement
+      ? projectMovementPath(source.position, intent.direction, ability.sourceMovement.distance, this.map)
       : [];
+    const effectOrigin = ability?.sourceMovement?.type === 'ADVANCE'
+      ? movementPath.at(-1) ?? source.position
+      : source.position;
+    const effectCells = ability?.pattern
+      ? projectPattern(effectOrigin, intent.direction, ability.pattern, this.map)
+      : [];
+    return { movementPath, effectCells };
   }
 
   private effectiveIntentCells(intent: Intent): readonly GridPosition[] {
-    if (intent.anchor === 'GROUND') return intent.telegraphedCells.map(clonePosition);
+    if (intent.anchor === 'GROUND') return intent.effectCells.map(clonePosition);
     const source = this.findUnit(intent.sourceId);
-    return source ? this.calculateBodyCells(intent, source) : [];
+    return source ? this.calculateBodyProjection(intent, source).effectCells : [];
   }
 
-  private cancelIntent(intentId: string, reason: 'SOURCE_DIED' | 'BATTLE_ENDED'): void {
+  private cancelIntent(
+    intentId: string,
+    reason: 'SOURCE_DIED' | 'SOURCE_STUNNED' | 'BATTLE_ENDED',
+  ): void {
     const intent = this.intents.find((candidate) => candidate.id === intentId);
     if (!intent) return;
     this.removeIntent(intentId);
@@ -704,6 +882,12 @@ function validateScenario(scenario: BattleScenario): void {
       if (!getAbility(abilityId)) throw new Error(`Unknown ability ${abilityId} on ${definition.id}`);
     }
   });
+  for (const [templateId, definition] of Object.entries(scenario.summonTemplates ?? {})) {
+    if (!templateId || !definition.id) throw new Error('Summon templates require stable ids');
+    for (const abilityId of definition.abilities) {
+      if (!getAbility(abilityId)) throw new Error(`Unknown ability ${abilityId} on summon template ${templateId}`);
+    }
+  }
 }
 
 function createUnit(definition: UnitDefinition, index: number): Unit {
@@ -718,11 +902,16 @@ function createUnit(definition: UnitDefinition, index: number): Unit {
     maxHp,
     ap: Math.max(0, Math.min(maxAp, Math.floor(definition.ap ?? 0))),
     maxAp,
-    status: { guard: Math.max(0, Math.floor(definition.status?.guard ?? 0)) },
+    status: {
+      guard: Math.max(0, Math.floor(definition.status?.guard ?? 0)),
+      stunned: Math.max(0, Math.floor(definition.status?.stunned ?? 0)),
+    },
     abilities: [...definition.abilities],
     rank: definition.rank ?? 'NORMAL',
     spawnOrder: definition.spawnOrder ?? index,
     visualKey: definition.visualKey,
+    combatRole: definition.combatRole,
+    behavior: definition.behavior,
   };
 }
 
@@ -758,7 +947,8 @@ function cloneIntent(intent: Intent): Intent {
     origin: clonePosition(intent.origin),
     declaredOrigin: clonePosition(intent.declaredOrigin),
     aim: clonePosition(intent.aim),
-    telegraphedCells: intent.telegraphedCells.map(clonePosition),
+    movementPath: intent.movementPath.map(clonePosition),
+    effectCells: intent.effectCells.map(clonePosition),
     tags: [...intent.tags],
   };
 }
@@ -777,6 +967,8 @@ function cloneEvent(event: CombatEvent): CombatEvent {
         toCells: event.toCells.map(clonePosition),
         intent: cloneIntent(event.intent),
       };
+    case 'UNIT_SUMMONED':
+      return { ...event, unit: cloneUnit(event.unit) };
     default:
       return { ...event };
   }
@@ -826,6 +1018,22 @@ function chooseContestedMoveWinners(
 
 function positionKey(position: GridPosition): string {
   return `${position.x},${position.y}`;
+}
+
+function projectMovementPath(
+  origin: GridPosition,
+  direction: Direction,
+  distance: number,
+  map: BattleMapConfig,
+): GridPosition[] {
+  const path: GridPosition[] = [];
+  let current = origin;
+  for (let index = 0; index < Math.max(0, Math.floor(distance)); index += 1) {
+    current = step(current, direction);
+    if (!inBounds(map, current)) break;
+    path.push({ ...current });
+  }
+  return path;
 }
 
 function compareIds(left: string, right: string): number {

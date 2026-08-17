@@ -24,6 +24,45 @@ export function slashAction(actorId: UnitId, direction?: Direction): UseAbilityA
   return { type: 'USE_ABILITY', actorId, abilityId: ABILITY_IDS.SLASH, direction };
 }
 
+export function pushAction(
+  actorId: UnitId,
+  targetId: UnitId,
+  direction?: Direction,
+): UseAbilityAction {
+  return {
+    type: 'USE_ABILITY',
+    actorId,
+    abilityId: ABILITY_IDS.PUSH,
+    targetId,
+    direction,
+  };
+}
+
+export function slamAction(
+  actorId: UnitId,
+  targetId: UnitId,
+  direction?: Direction,
+): UseAbilityAction {
+  return { type: 'USE_ABILITY', actorId, abilityId: ABILITY_IDS.SLAM, targetId, direction };
+}
+
+export function shootAction(
+  actorId: UnitId,
+  direction: Direction,
+  targetId?: UnitId,
+): UseAbilityAction {
+  return { type: 'USE_ABILITY', actorId, abilityId: ABILITY_IDS.SHOOT, direction, targetId };
+}
+
+export function signalThrustAction(actorId: UnitId, direction?: Direction): UseAbilityAction {
+  return {
+    type: 'USE_ABILITY',
+    actorId,
+    abilityId: ABILITY_IDS.SIGNAL_THRUST,
+    direction,
+  };
+}
+
 /**
  * PROVISIONAL: developer-only primitive used to exercise forced movement.
  * It is deliberately not a commitment to a player-facing skill.

@@ -1,7 +1,11 @@
 import * as Phaser from 'phaser';
 import type { BattleState, CombatEvent } from '../../combat';
 import { AnimationDirector } from '../animation/AnimationDirector';
-import type { PresentationPort } from '../bridge/PresentationPort';
+import { preloadVisualAssets, registerVisualAnimations } from '../assets/VisualAssetLoader';
+import type {
+  BattlePredictionPresentation,
+  PresentationPort,
+} from '../bridge/PresentationPort';
 import { BattleRenderer } from '../rendering/BattleRenderer';
 
 export class BattleScene extends Phaser.Scene {
@@ -9,12 +13,20 @@ export class BattleScene extends Phaser.Scene {
   private director: AnimationDirector | null = null;
   private port: PresentationPort | null = null;
 
-  public constructor(private readonly onReady: (port: PresentationPort) => void) {
+  public constructor(
+    private readonly onReady: (port: PresentationPort) => void,
+    private readonly onUnitSelected?: (unitId: string) => void,
+  ) {
     super({ key: 'BattleScene' });
   }
 
+  public preload(): void {
+    preloadVisualAssets(this);
+  }
+
   public create(): void {
-    this.battleRenderer = new BattleRenderer(this);
+    registerVisualAnimations(this);
+    this.battleRenderer = new BattleRenderer(this, this.onUnitSelected);
     this.director = new AnimationDirector(this.battleRenderer);
     this.port = new PhaserPresentationPort(this, this.director);
     this.onReady(this.port);
@@ -47,9 +59,14 @@ class PhaserPresentationPort implements PresentationPort {
     this.director.reset(state);
   }
 
-  public present(event: CombatEvent, _state: BattleState, durationScale: number): Promise<void> {
+  public present(
+    event: CombatEvent,
+    _state: BattleState,
+    durationScale: number,
+    signal: AbortSignal,
+  ): Promise<void> {
     if (this.destroyed) return Promise.resolve();
-    return this.director.present(event, durationScale);
+    return this.director.present(event, durationScale, signal);
   }
 
   public settle(state: BattleState): void {
@@ -72,6 +89,19 @@ class PhaserPresentationPort implements PresentationPort {
     if (this.destroyed) return;
     this.scene.tweens.timeScale = multiplier;
     this.scene.time.timeScale = multiplier;
+  }
+
+  public setPrediction(prediction: BattlePredictionPresentation | null): void {
+    if (!this.destroyed) this.director.setPrediction(prediction);
+  }
+
+  public setSelection(unitId: string | null): void {
+    if (!this.destroyed) this.director.setSelection(unitId);
+  }
+
+  public playSealUnlock(signal: AbortSignal): Promise<void> {
+    if (this.destroyed) return Promise.resolve();
+    return this.director.playSealUnlock(signal);
   }
 
   public destroy(): void {

@@ -5,6 +5,7 @@ import {
   SCENARIO_IDS,
   createBasicScenario,
   createKillCancelsIntentScenario,
+  createMultiEnemyScenario,
   createScenario,
   createSpearmanKnockbackScenario,
   createUnblockableAttackScenario,
@@ -21,6 +22,23 @@ import {
 } from '..';
 
 describe('BattleEngine turn contract', () => {
+  it('restores the exact simulation head after a what-if preview', () => {
+    const engine = new BattleEngine(createWarriorKnockbackScenario());
+    engine.beginTurn();
+    const stateBefore = engine.state;
+    const eventsBefore = engine.events;
+
+    const branch = engine.preview((preview) =>
+      preview.performStudentAction(knockbackAction('student-01', 'enemy-01', 'RIGHT')),
+    );
+
+    expect(branch.value.executable).toBe(true);
+    expect(branch.state).not.toEqual(stateBefore);
+    expect(branch.events.some((event) => event.type === 'UNIT_KNOCKED_BACK')).toBe(true);
+    expect(engine.state).toEqual(stateBefore);
+    expect(engine.events).toEqual(eventsBefore);
+  });
+
   it('declares locked intents before AP refill and rejects duplicate phase calls', () => {
     const engine = new BattleEngine(createWarriorKnockbackScenario());
 
@@ -39,12 +57,36 @@ describe('BattleEngine turn contract', () => {
   });
 
   it('runs named scenario factories through the public scenario registry', () => {
-    expect(Object.values(SCENARIO_IDS)).toHaveLength(5);
+    expect(Object.values(SCENARIO_IDS)).toHaveLength(6);
     for (const id of Object.values(SCENARIO_IDS)) {
       const scenario = createScenario(id);
       expect(scenario.id).toBe(id);
       expect(() => new BattleEngine(scenario).runTurn()).not.toThrow();
     }
+  });
+
+  it('declares and resolves two enemy intents in stable spawn order', () => {
+    const engine = new BattleEngine(createMultiEnemyScenario());
+
+    engine.runTurn();
+
+    const declared = engine.events.filter(
+      (event): event is Extract<(typeof engine.events)[number], { type: 'INTENT_DECLARED' }> =>
+        event.type === 'INTENT_DECLARED',
+    );
+    expect(declared.map((event) => event.sourceId)).toEqual(['enemy-01', 'enemy-02']);
+    expect(student(engine)).toMatchObject({ hp: 4, status: { guard: 0 } });
+    expect(
+      engine.events
+        .filter(
+          (event): event is Extract<(typeof engine.events)[number], { type: 'ABILITY_USED' }> =>
+            event.type === 'ABILITY_USED' && event.sourceId.startsWith('enemy-'),
+        )
+        .map((event) => event.sourceId),
+    ).toEqual(['enemy-01', 'enemy-02']);
+    expect(eventTypes(engine)).toEqual(
+      expect.arrayContaining(['DAMAGE_BLOCKED', 'DAMAGE_DEALT']),
+    );
   });
 
   it('runs the bundled Warrior demonstration with an explicit phase and event order', () => {
@@ -82,11 +124,11 @@ describe('BattleEngine turn contract', () => {
     (snapshot.units[0].position as { x: number }).x = 99;
     const declared = events.find((event) => event.type === 'INTENT_DECLARED');
     if (declared?.type === 'INTENT_DECLARED') {
-      (declared.intent.telegraphedCells[0] as { x: number }).x = 99;
+      (declared.intent.effectCells[0] as { x: number }).x = 99;
     }
 
     expect(engine.state.units[0].position.x).not.toBe(99);
-    expect(engine.state.intents[0].telegraphedCells[0].x).not.toBe(99);
+    expect(engine.state.intents[0].effectCells[0].x).not.toBe(99);
     expect(scenario).toEqual(original);
   });
 });
@@ -104,7 +146,7 @@ describe('locked intent geometry', () => {
 
     expect(after.direction).toBe(before.direction);
     expect(after.aim).toEqual(before.aim);
-    expect(after.telegraphedCells).toEqual(before.telegraphedCells);
+    expect(after.effectCells).toEqual(before.effectCells);
     engine.resolveEnemyIntents();
     expect(student(engine).hp).toBe(5);
   });
@@ -123,7 +165,7 @@ describe('locked intent geometry', () => {
     expect(after.direction).toBe('LEFT');
     expect(after.declaredOrigin).toEqual(before.declaredOrigin);
     expect(after.origin).toEqual({ x: 6, y: 1 });
-    expect(after.telegraphedCells).toEqual([{ x: 5, y: 1 }]);
+    expect(after.effectCells).toEqual([{ x: 5, y: 1 }]);
     expect(result.events.map((event) => event.type)).toEqual([
       'AP_SPENT',
       'ABILITY_USED',
@@ -169,11 +211,11 @@ describe('locked intent geometry', () => {
     };
     const engine = new BattleEngine(groundScenario);
     engine.beginTurn();
-    const cells = engine.state.intents[0].telegraphedCells;
+    const cells = engine.state.intents[0].effectCells;
 
     engine.performStudentAction(knockbackAction('student-01', 'enemy-01', 'RIGHT'));
 
-    expect(engine.state.intents[0].telegraphedCells).toEqual(cells);
+    expect(engine.state.intents[0].effectCells).toEqual(cells);
     expect(engine.events.some((event) => event.type === 'INTENT_AREA_CHANGED')).toBe(false);
     engine.resolveEnemyIntents();
     expect(student(engine).hp).toBe(4);
@@ -181,6 +223,38 @@ describe('locked intent geometry', () => {
 });
 
 describe('damage, defense, and death', () => {
+  it('applies pattern damage and knockback in declared effect order', () => {
+    const base = createWarriorKnockbackScenario();
+    const scenario: BattleScenario = {
+      ...base,
+      id: 'combined-effect-test',
+      studentActions: undefined,
+      units: base.units.map((unit) =>
+        unit.id === 'student-01'
+          ? { ...unit, abilities: [...unit.abilities, ABILITY_IDS.DEBUG_STRIKE_PUSH] }
+          : unit,
+      ),
+    };
+    const engine = new BattleEngine(scenario);
+    engine.beginTurn();
+
+    const result = engine.performStudentAction({
+      type: 'USE_ABILITY',
+      actorId: 'student-01',
+      abilityId: ABILITY_IDS.DEBUG_STRIKE_PUSH,
+      direction: 'RIGHT',
+    });
+
+    expect(result.events.map((event) => event.type)).toEqual([
+      'AP_SPENT',
+      'ABILITY_USED',
+      'DAMAGE_DEALT',
+      'UNIT_KNOCKED_BACK',
+      'INTENT_AREA_CHANGED',
+    ]);
+    expect(enemy(engine)).toMatchObject({ hp: 4, position: { x: 6, y: 1 } });
+  });
+
   it('cancels a dead source intent before it can execute', () => {
     const engine = new BattleEngine(createKillCancelsIntentScenario());
     engine.runTurn();
@@ -318,6 +392,14 @@ describe('movement and deterministic ordering', () => {
       enemyStrategies: { normal: mover('normal'), boss: mover('boss') },
     });
     engine.beginTurn();
+    expect(engine.state.intents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          movementPath: [{ x: 2, y: 1 }],
+          effectCells: [],
+        }),
+      ]),
+    );
     engine.resolveEnemyIntents();
 
     expect(unit(engine, 'boss').position).toEqual({ x: 2, y: 1 });
@@ -397,7 +479,7 @@ function fakeUnit(
     maxHp: 5,
     ap: 0,
     maxAp: 2,
-    status: { guard: 0 },
+    status: { guard: 0, stunned: 0 },
     abilities: [],
     rank: 'NORMAL',
     spawnOrder,

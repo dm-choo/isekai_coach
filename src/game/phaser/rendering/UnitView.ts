@@ -1,12 +1,19 @@
 import * as Phaser from 'phaser';
-import { getCharacterVisual, type UnitAnimationState } from '../../assets/AssetManifest';
+import {
+  getCharacterVisual,
+  INTENT_ICON_TEXTURES,
+  type UnitAnimationState,
+} from '../../assets/AssetManifest';
+import type { Direction } from '../../combat';
+import type { IntentIconKind } from '../bridge/PresentationPort';
 import type { LogicalPosition } from './GridProjector';
+import { createUnitVisual, type UnitVisualAdapter } from './UnitVisual';
 
 export interface RenderableUnit {
   readonly id: string;
   readonly faction: 'STUDENT' | 'ENEMY';
   readonly position: LogicalPosition;
-  readonly facing: string;
+  readonly facing: Direction;
   readonly hp: number;
   readonly maxHp: number;
   readonly ap: number;
@@ -14,109 +21,145 @@ export interface RenderableUnit {
   readonly visualKey?: string;
 }
 
+export interface RenderableIntentStep {
+  readonly id: string;
+  readonly label: string;
+  readonly glyph: string;
+  readonly icon: IntentIconKind;
+  readonly description: string;
+  readonly damage?: number;
+}
+
 export class UnitView {
   public readonly container: Phaser.GameObjects.Container;
-  private readonly body: Phaser.GameObjects.Rectangle;
-  private readonly accent: Phaser.GameObjects.Triangle;
-  private readonly stateLabel: Phaser.GameObjects.Text;
+  private readonly unitVisual: UnitVisualAdapter;
   private readonly nameLabel: Phaser.GameObjects.Text;
   private readonly hpBackground: Phaser.GameObjects.Rectangle;
+  private readonly hpLagFill: Phaser.GameObjects.Rectangle;
   private readonly hpFill: Phaser.GameObjects.Rectangle;
+  private readonly hpTicks: Phaser.GameObjects.Container;
   private readonly apLabel: Phaser.GameObjects.Text;
+  private readonly intentContainer: Phaser.GameObjects.Container;
+  private readonly selectionRing: Phaser.GameObjects.Ellipse;
   private readonly visual;
+  private readonly faction: RenderableUnit['faction'];
   private maxHp = 1;
+  private currentHp = -1;
   private currentState: UnitAnimationState = 'idle';
 
   public constructor(
     private readonly scene: Phaser.Scene,
     unit: RenderableUnit,
     world: Readonly<{ x: number; y: number }>,
+    onSelected?: (unitId: string) => void,
   ) {
     this.visual = getCharacterVisual(unit.visualKey, unit.faction);
+    this.faction = unit.faction;
     this.container = scene.add.container(world.x, world.y);
-    this.container.setDepth(20 + unit.position.y);
+    this.container.setDepth(30 + unit.position.y * 10);
 
-    const shadow = scene.add.ellipse(0, 25, 46, 13, this.visual.palette.shadow, 0.5);
-    this.body = scene.add.rectangle(0, -2, 40, 54, this.visual.palette.body, 1);
-    this.body.setStrokeStyle(3, this.visual.palette.accent, 0.9);
-    this.accent = scene.add.triangle(0, 0, 0, 0, 14, 6, 0, 12, this.visual.palette.accent, 1);
+    const guardian = this.visual.silhouette === 'GUARDIAN';
+    const visualHeight = this.visual.displaySize?.height ?? 96;
+    const barWidth = guardian ? 112 : 68;
+    const labelY = -visualHeight + 12;
+    const shadow = scene.add.ellipse(0, 3, guardian ? 126 : 68, guardian ? 24 : 16, 0x050704, 0.62);
+    this.selectionRing = scene.add.ellipse(0, 2, 88, 26, 0xffc66d, 0.05)
+      .setStrokeStyle(4, 0xffd67f, 0.96)
+      .setVisible(false);
+    this.unitVisual = createUnitVisual(scene, this.visual);
     this.nameLabel = scene.add
-      .text(0, -46, this.visual.displayName, {
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '12px',
-        color: '#ecf4ff',
+      .text(0, labelY, this.visual.displayName, {
+        fontFamily: '"Pretendard Variable", system-ui, sans-serif',
+        fontSize: guardian ? '16px' : '13px',
+        color: guardian ? '#ffe2bd' : '#f5f0dc',
         fontStyle: 'bold',
+        stroke: '#07100b',
+        strokeThickness: 5,
       })
-      .setOrigin(0.5);
-    this.stateLabel = scene.add
-      .text(0, 5, 'IDLE', {
-        fontFamily: 'ui-monospace, monospace',
-        fontSize: '9px',
-        color: '#0a1420',
-        fontStyle: 'bold',
-      })
-      .setOrigin(0.5);
-    this.hpBackground = scene.add.rectangle(0, 35, 48, 6, 0x17202b, 1);
-    this.hpFill = scene.add.rectangle(-24, 35, 48, 6, 0x63df8b, 1).setOrigin(0, 0.5);
+      .setOrigin(0.5)
+      .setVisible(false);
+    this.hpBackground = scene.add.rectangle(0, labelY + 22, barWidth + 4, 9, 0x120d09, 0.92);
+    this.hpLagFill = scene.add.rectangle(-barWidth / 2, labelY + 22, barWidth, 5, 0xf0d384, 0.82).setOrigin(0, 0.5);
+    this.hpFill = scene.add.rectangle(-barWidth / 2, labelY + 22, barWidth, 5, this.hpColor(1), 1).setOrigin(0, 0.5);
+    this.hpTicks = scene.add.container(0, labelY + 22);
     this.apLabel = scene.add
-      .text(0, 44, '', {
+      .text(0, 38, '', {
         fontFamily: 'ui-monospace, monospace',
-        fontSize: '10px',
-        color: '#7ed8ff',
+        fontSize: '12px',
+        color: '#e9c96f',
+        stroke: '#0b0c08',
+        strokeThickness: 3,
       })
       .setOrigin(0.5, 0);
+    this.intentContainer = scene.add.container(0, guardian ? -visualHeight + 95 : labelY - 37);
 
     this.container.add([
       shadow,
-      this.body,
-      this.accent,
+      this.selectionRing,
+      ...this.unitVisual.objects,
       this.nameLabel,
-      this.stateLabel,
       this.hpBackground,
+      this.hpLagFill,
       this.hpFill,
+      this.hpTicks,
       this.apLabel,
+      this.intentContainer,
     ]);
+    if (onSelected && unit.faction === 'ENEMY') {
+      const hitWidth = Math.max(78, (this.visual.displaySize?.width ?? 90) * 0.72);
+      const hitHeight = this.visual.displaySize?.height ?? 110;
+      const hitZone = scene.add.rectangle(0, -hitHeight / 2, hitWidth, hitHeight, 0xffffff, 0.001)
+        .setInteractive({ useHandCursor: true })
+        .on('pointerdown', () => onSelected(unit.id));
+      this.container.add(hitZone);
+      this.container.bringToTop(hitZone);
+    }
     this.update(unit);
+    this.setAnimationState('idle');
   }
 
   public update(unit: RenderableUnit): void {
     this.setHp(unit.hp, unit.maxHp);
     this.setAp(unit.ap, unit.maxAp, unit.faction === 'STUDENT');
 
-    const facingVisuals: Record<string, { x: number; y: number; angle: number }> = {
-      RIGHT: { x: 28, y: -4, angle: 0 },
-      LEFT: { x: -28, y: -4, angle: 180 },
-      UP: { x: 0, y: -34, angle: -90 },
-      DOWN: { x: 0, y: 30, angle: 90 },
-    };
-    const facing = facingVisuals[unit.facing] ?? facingVisuals.RIGHT;
-    this.accent.setPosition(facing.x, facing.y).setAngle(facing.angle);
+    this.unitVisual.setFacing(unit.facing);
     this.container.setAlpha(unit.hp > 0 ? 1 : 0.4);
   }
 
   public setHp(hp: number, maxHp = this.maxHp): void {
+    const previousHp = this.currentHp;
     this.maxHp = maxHp;
+    this.currentHp = hp;
     const hpRatio = Math.max(0, Math.min(1, hp / Math.max(maxHp, 1)));
-    this.hpFill.displayWidth = 48 * hpRatio;
-    this.hpFill.setFillStyle(hpRatio <= 0.4 ? 0xff786b : 0x63df8b);
+    const barWidth = this.visual.silhouette === 'GUARDIAN' ? 112 : 68;
+    this.hpFill.displayWidth = barWidth * hpRatio;
+    this.hpFill.setFillStyle(this.hpColor(hpRatio));
+    this.scene.tweens.killTweensOf(this.hpLagFill);
+    if (previousHp < 0 || hp >= previousHp) {
+      this.hpLagFill.displayWidth = barWidth * hpRatio;
+    } else {
+      this.scene.tweens.add({
+        targets: this.hpLagFill,
+        displayWidth: barWidth * hpRatio,
+        delay: 180,
+        duration: 360,
+        ease: 'Cubic.Out',
+      });
+    }
+    this.drawHpTicks(barWidth, maxHp);
+  }
+
+  public setSelected(selected: boolean): void {
+    this.selectionRing.setVisible(selected);
   }
 
   public setAp(ap: number, maxAp: number, visible = true): void {
-    this.apLabel.setText(visible ? `AP ${ap}/${maxAp}` : '');
+    this.apLabel.setText(visible && maxAp > 0 ? `${'◆'.repeat(ap)}${'◇'.repeat(Math.max(0, maxAp - ap))}` : '');
   }
 
   public setAnimationState(state: UnitAnimationState): void {
     this.currentState = state;
-    this.stateLabel.setText(state.toUpperCase());
-
-    const style: Partial<Record<UnitAnimationState, number>> = {
-      defend: 0x8fd7ff,
-      hit: 0xffffff,
-      knockback: 0xffc05c,
-      death: 0x4f5966,
-      attack: this.visual.palette.accent,
-    };
-    this.body.setFillStyle(style[state] ?? this.visual.palette.body);
+    this.unitVisual.setState(state);
   }
 
   public returnToIdle(): void {
@@ -125,11 +168,79 @@ export class UnitView {
     }
   }
 
-  public setWorldPosition(world: Readonly<{ x: number; y: number }>): void {
+  public setWorldPosition(world: Readonly<{ x: number; y: number }>, row?: number): void {
     this.container.setPosition(world.x, world.y);
+    if (row !== undefined) this.setGridDepth(row);
+  }
+
+  public setGridDepth(row: number): void {
+    this.container.setDepth(30 + row * 10);
+  }
+
+  public setIntentPreview(steps: readonly RenderableIntentStep[]): void {
+    this.intentContainer.removeAll(true);
+    this.intentContainer.setVisible(steps.length > 0);
+    const width = 42;
+    const gap = 7;
+    const total = steps.length * width + Math.max(0, steps.length - 1) * gap;
+    steps.forEach((step, index) => {
+      const x = -total / 2 + width / 2 + index * (width + gap);
+      const background = this.scene.add.rectangle(x, 0, width, 36, 0x11130d, 0.94)
+        .setStrokeStyle(2, this.faction === 'ENEMY' ? 0xe8664d : 0x65d7e4, 0.95)
+        .setInteractive({ useHandCursor: true });
+      const textureKey = INTENT_ICON_TEXTURES[step.icon].textureKey;
+      const icon = this.scene.textures.exists(textureKey)
+        ? this.scene.add.image(x, -1, textureKey).setDisplaySize(27, 27)
+        : this.scene.add.text(x, -2, step.glyph, {
+            fontFamily: 'Georgia, serif', fontSize: '21px', color: '#fff0bd', fontStyle: 'bold',
+          }).setOrigin(0.5);
+      const tooltip = this.scene.add.text(0, 49, `${step.label}\n${step.description}`, {
+        fontFamily: '"Pretendard Variable", system-ui, sans-serif',
+        fontSize: '12px',
+        color: '#f8edda',
+        backgroundColor: '#090c09f2',
+        stroke: '#090c09',
+        strokeThickness: 1,
+        wordWrap: { width: 250 },
+      }).setPadding(11, 8).setOrigin(0.5, 0).setDepth(180).setVisible(false);
+      background.on('pointerover', () => tooltip.setVisible(true));
+      background.on('pointerout', () => tooltip.setVisible(false));
+      this.intentContainer.add([background, icon, tooltip]);
+      if (step.damage !== undefined) {
+        const damage = this.scene.add.text(x + 17, 13, String(step.damage), {
+          fontFamily: 'ui-monospace, monospace',
+          fontSize: '11px',
+          color: '#fff5dd',
+          fontStyle: 'bold',
+          backgroundColor: '#a83f2ddd',
+        }).setPadding(3, 1).setOrigin(0.5);
+        this.intentContainer.add(damage);
+      }
+      if (index < steps.length - 1) {
+        const arrow = this.scene.add.text(x + width / 2 + gap / 2, 0, '›', {
+          fontFamily: 'Georgia, serif', fontSize: '19px', color: '#b9aa80',
+        }).setOrigin(0.5);
+        this.intentContainer.add(arrow);
+      }
+    });
   }
 
   public destroy(): void {
+    this.unitVisual.destroy();
     this.container.destroy(true);
+  }
+
+  private hpColor(hpRatio: number): number {
+    if (hpRatio <= 0.35) return 0xe24c42;
+    return this.faction === 'ENEMY' ? 0xc64a37 : 0x59b979;
+  }
+
+  private drawHpTicks(barWidth: number, maxHp: number): void {
+    this.hpTicks.removeAll(true);
+    const segments = Math.max(1, Math.min(maxHp, 10));
+    for (let index = 1; index < segments; index += 1) {
+      const x = -barWidth / 2 + (barWidth * index) / segments;
+      this.hpTicks.add(this.scene.add.rectangle(x, 0, 1, 7, 0x090a08, 0.86));
+    }
   }
 }
