@@ -52,12 +52,13 @@ related:
 ```text
 울창한 아마존 결계문에 관리자와 활 동료가 진입한다
 → 거대한 결계 수호자가 길을 막는다
-→ 짧고 치명적인 공격 범위가 관리자 발밑에 고정된다
-→ 관리자가 밀치기로 수호자의 몸과 공격 원점을 함께 옮긴다
-→ 동료가 회피·포지셔닝·사격 우선순위를 스스로 평가해 화살을 쏜다
-→ 수호자가 3개 행을 덮는 광범위 공격을 준비한다
-→ 관리자가 WASD로 접근하고 내려찍으로 공격을 중단한다
-→ 동료의 후속 사격으로 수호자가 쓰러진다
+→ 수호자의 이동 경로와 치명적인 `제압` 범위가 관리자 발밑에 고정된다
+→ 관리자가 WASD로 범위를 벗어나 계획을 확정한다
+→ 동료가 회피·포지셔닝·사격 우선순위를 스스로 평가해 가장 앞의 적에게 화살을 쏜다
+→ 수호자가 3개 행을 덮는 `외침`을 준비한다
+→ 관리자가 WASD로 접근하고 `내려찍기`로 공격을 중단한다
+→ 수호자가 하수인을 소환하고 하수인은 원거리 동료를 향해 돌진한다
+→ 세 pattern의 반복 속에서 관리자와 동료가 수호자를 쓰러뜨린다
 → 관리자가 결계 오브젝트의 봉인을 해제한다
 ```
 
@@ -73,11 +74,11 @@ related:
 
 - **관리자:** 전장의 여성 전투원이다. 턴마다 이동과 공격을 직접 선택한다. 유일한 특수 권한은 전투 뒤 오브젝트의 봉인을 해제하는 것이다.
 - **원거리 동료:** 활을 사용하고 5-slot action policy를 위에서부터 평가한다. 이 장면에서는 policy를 편집하지 않는다.
-- **결계 수호자:** 아마존 결계문을 지키는 2단계 보스다.
+- **결계 수호자:** 아마존 결계문을 지키며 `제압 → 외침 → 하수인 소환`을 반복하는 보스다.
 
 ### Exact action names
 
-- 관리자: `밀치기`, `내려찍`
+- 관리자: `밀치기`, `내려찍기`
 - 동료 policy: `회피`, `포지셔닝`, `사격`, `밀치기`, `빈 슬롯`
 - 이동: WASD, 공격과 별개, AP 1
 
@@ -91,13 +92,14 @@ related:
 - 포지셔닝 `#이동 #공격준비`
 - 사격 `#원거리공격`
 - 밀치기 `#근거리공격 #넉백`
-- 내려찍 `#근거리공격 #스턴`
+- 내려찍기 `#근거리공격 #스턴`
 
-### Boss phases
+### Boss pattern sequence
 
-- **Phase 1 — 짧은 타격:** BODY-anchor, 왼쪽 1칸, 피해 5. 수호자를 밀면 locked direction은 유지된 채 공격 원점과 범위가 함께 이동한다. 이 공격은 stun으로 중단되지 않는다.
-- **Phase 2 — 광범위 공격:** BODY-anchor, 왼쪽 5칸 × 3개 행, 피해 4. `내려찍`의 확정 stun으로 현재 intent를 취소할 수 있다.
-- 수호자에게 root, push resistance, unblockable, minion을 추가하지 않는다.
+- **1 — 제압:** 2칸 이동 뒤 BODY-anchor 1×1, 피해 6, 중단 불가. 수호자를 밀면 locked direction은 유지된 채 공격 원점과 범위가 함께 이동한다.
+- **2 — 외침:** BODY-anchor 왼쪽 5칸 × 3개 행, 피해 2, 중단 가능. `내려찍기`의 확정 stun으로 현재 Intent를 취소할 수 있다.
+- **3 — 하수인 소환:** 원거리 동료를 추적하는 하수인을 소환한다. 소환 cap은 없다.
+- 하수인은 HP 1이며 `돌진` 3×1, 피해 2를 사용한다. 대상이 있으면 피해 후 대상 바로 앞에 정지하고, 없으면 끝까지 이동한다.
 
 ### Projectile and positioning
 
@@ -107,12 +109,13 @@ related:
 
 ## Camera and spatial presentation
 
-- logical map은 `12x3`을 유지한다. 화면에 항상 12개 열을 모두 그리지 않는다.
-- 카메라와 projection은 현재 점유자와 relevant Intent 주위를 frame한다.
+- logical map은 `12 x 3`을 유지한다. 현재 public scene은 12개 열과 3개 행의 정렬된 직사각형 atlas tile을 모두 그리되, 카메라와 큰 캐릭터 scale로 개별 전투원의 행동 가독성을 유지한다.
+- 배경 이미지와 ground atlas는 분리한다. 아군 셀은 파랑, 적 셀은 빨강을 기본으로 하되 icon·stroke·pattern을 함께 쓴다.
+- 카메라와 projection은 동일한 grid 좌표계를 공유하고 점유자와 relevant Intent를 같은 cell에 정렬한다.
 - 캐릭터는 한 cell보다 클 수 있고 서로 겹칠 수 있다. 한 명 한 명의 행동과 타격을 읽는 것이 전역 cell 개수 노출보다 중요하다.
-- 바닥은 한 장의 이어진 정글 흙바닥이다. 평소 grid tile을 그리지 않고 행 baseline만 은은하게 남긴다.
-- 선택·이동 후보·적 Intent처럼 현재 필요한 cell만 월드 공간에 표시한다.
-- 광범위 공격은 3개 행의 affected cells를 일시적으로 드러내되, 발판처럼 보이는 상시 지형으로 취급하지 않는다.
+- 배경은 원경 jungle bitmap, 바닥은 4-frame atlas의 직사각형 tile layer로 분리한다. tile 사이 margin 없이 이어 붙여 한 장의 정글 흙바닥처럼 보이게 한다.
+- 모든 바닥 cell은 낮은 대비로 존재하고, 아군 점유·적 점유·선택·이동 후보·Intent만 색·stroke·pattern으로 강조한다.
+- `외침`은 3개 행의 affected cells를 일시적으로 드러내되, 점유 outline이나 이동 경로와 혼동되지 않는 위험 신호로 표시한다.
 
 ## UI hierarchy
 
@@ -135,7 +138,7 @@ Darkest Dungeon의 장면 우선 hierarchy를 기본 참고로 삼고, DNF의 si
 - `STUN` effect, interruptible intent, projectile first-hit targeting과 BODY area change가 domain event 순서로 해결된다.
 - `SliceController`가 관리자 input, 동료 5-slot policy loop, 세 턴 phase와 presentation queue를 조정한다.
 - React는 HUD·action bar·turn banner를, Phaser는 world unit·telegraph·projectile·camera·VFX를 소유한다.
-- generated bitmap background와 세 character cutout을 manifest/preload pipeline으로 소비한다.
+- generated bitmap background, ground atlas와 네 character cutout을 manifest/preload pipeline으로 소비한다.
 - 정적 cutout은 idle breathing, move, lunge, bow draw/projectile, hammer slam, hit, knockback와 death transform으로 상태를 구분한다.
 - 수호자 처치 뒤 controller가 presentation port를 통해 seal unlock 연출을 실행한다. 이 environment interaction은 combat damage 규칙을 바꾸지 않는다.
 - reset은 playback을 abort하고 동일 encounter를 새 generation으로 복원한다.
@@ -153,11 +156,11 @@ Darkest Dungeon의 장면 우선 hierarchy를 기본 참고로 삼고, DNF의 si
 
 2026-08-17 로컬 구현 milestone:
 
-- Vitest: 3 files, 29 tests
+- Vitest: 4 files, 35 tests pass.
 - TypeScript: `tsc --noEmit`
 - production build: Vite `/slice1/` base build
-- scripted Chromium flow: intro → turn 1 push → ally arrows → turn 2 WASD move → slam interrupt → victory
-- 단계별 1440×900 screenshots: intro, turn 1, push aftermath, turn 2 wide telegraph, victory
+- scripted Chromium flow: intro → turn 1 WASD dodge/confirm → ally positioning/shooting → turn 2 approach/slam interrupt → turn 3 summon → turn 4 hound intent
+- Playwright 1280×720: console/page errors 0건과 turn 1/plan/turn 2 interrupt preview/turn 3 summon intent/turn 4 hound rendered를 확인했다.
 - browser console/page errors: 0
 - 한글 webfont load-before-Phaser와 character alpha를 screenshot으로 재검증
 
@@ -166,9 +169,9 @@ Darkest Dungeon의 장면 우선 hierarchy를 기본 참고로 삼고, DNF의 si
 ## Known validation questions
 
 - intro에서 전투 목표를 별도 설명 없이 이해하는가?
-- Phase 1에서 밀치기가 damage button이 아니라 BODY 공격 원점 이동으로 읽히는가?
-- Phase 2의 15-cell telegraph가 명확하지만 장면을 다시 grid puzzle처럼 만들지는 않는가?
-- `내려찍`의 스턴과 intent 취소가 같은 사건으로 보이는가?
+- 1번 `제압`에서 2칸 이동과 locked 1×1 공격 cell의 인과가 읽히며, WASD 회피가 공격 action과 별개임을 이해하는가?
+- 2번 `외침`의 15-cell telegraph가 명확하지만 장면을 다시 grid puzzle처럼 만들지는 않는가?
+- `내려찍기`의 스턴과 Intent 취소가 같은 사건으로 보이는가?
 - 동료 policy ribbon이 자동행동의 이유를 설명하면서도 계기판처럼 느껴지지 않는가?
 - 정적 cutout transform이 production scene으로 피드백할 만큼 충분한 타격감을 주는가, 아니면 frame animation이 다음 P0인가?
 - 이동과 공격에 모두 AP를 쓰는 현재 provisional tuning이 불필요한 마찰을 만드는가?

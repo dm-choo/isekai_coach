@@ -21,8 +21,9 @@ related:
 
 - 아마존 정글 결계문 앞 장면이 scene-first로 보이고, 관리자가 전투원으로 서 있다.
 - `<내 턴>`, `<아군 턴>`, `<적 턴>`이 실제 actor animation과 일치한다.
-- WASD 이동과 `밀치기`·`내려찍` 공격이 별도 입력 동사로 읽힌다.
-- 수호자의 `짧은 타격`을 밀치기로 피하고 `광범위 공격`을 내려찍으로 interrupt하는 흐름이 재현된다.
+- WASD 이동과 `밀치기`·`내려찍기` 공격이 별도 입력 동사로 읽힌다.
+- 수호자의 `제압`을 밀치기로 피하고 `외침`을 내려찍기로 interrupt하는 흐름이 재현된다.
+- 관리자의 plan은 `Z` 마지막 하나 undo, `Space` 전체 확정이며 hover what-if가 ally policy와 enemy Intent를 함께 반영한다.
 - 궁수의 고정 5-slot policy는 자동 실행되며 Slice 1에는 policy 편집 UI가 없다.
 - 승리 뒤 관리자만 결계 오브젝트를 봉인 해제한다.
 
@@ -58,6 +59,7 @@ related:
 - combat, map, local, operation view가 [UX owner](../ux/index.md)와 [Art owner](../art/index.md)의 정보 우선순위를 유지한다.
 - 16:9와 4:3에서 핵심 조작, grid, HUD와 overlay가 가려지지 않는다.
 - Canvas/WebGL 장면은 두 화면 비율의 browser screenshot으로 검증한다.
+- Slice 1 smoke는 Playwright 1280×720에서 turn 1/plan/turn 2 interrupt preview/turn 3 summon intent/turn 4 hound rendered와 console errors 0건을 확인한다.
 
 ## Out of scope
 

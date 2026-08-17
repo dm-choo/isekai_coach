@@ -16,6 +16,13 @@ export interface RenderableUnit {
   readonly visualKey?: string;
 }
 
+export interface RenderableIntentStep {
+  readonly id: string;
+  readonly label: string;
+  readonly glyph: string;
+  readonly damage?: number;
+}
+
 export class UnitView {
   public readonly container: Phaser.GameObjects.Container;
   private readonly unitVisual: UnitVisualAdapter;
@@ -23,6 +30,7 @@ export class UnitView {
   private readonly hpBackground: Phaser.GameObjects.Rectangle;
   private readonly hpFill: Phaser.GameObjects.Rectangle;
   private readonly apLabel: Phaser.GameObjects.Text;
+  private readonly intentContainer: Phaser.GameObjects.Container;
   private readonly visual;
   private maxHp = 1;
   private currentState: UnitAnimationState = 'idle';
@@ -51,7 +59,8 @@ export class UnitView {
         stroke: '#07100b',
         strokeThickness: 5,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setVisible(false);
     this.hpBackground = scene.add.rectangle(0, labelY + 22, barWidth + 4, 9, 0x120d09, 0.92);
     this.hpFill = scene.add.rectangle(-barWidth / 2, labelY + 22, barWidth, 5, guardian ? 0xdf6b37 : 0x70c88b, 1).setOrigin(0, 0.5);
     this.apLabel = scene.add
@@ -63,6 +72,7 @@ export class UnitView {
         strokeThickness: 3,
       })
       .setOrigin(0.5, 0);
+    this.intentContainer = scene.add.container(0, guardian ? -visualHeight + 95 : labelY - 37);
 
     this.container.add([
       shadow,
@@ -71,6 +81,7 @@ export class UnitView {
       this.hpBackground,
       this.hpFill,
       this.apLabel,
+      this.intentContainer,
     ]);
     this.update(unit);
     this.setAnimationState('idle');
@@ -114,6 +125,44 @@ export class UnitView {
 
   public setGridDepth(row: number): void {
     this.container.setDepth(30 + row * 10);
+  }
+
+  public setIntentPreview(steps: readonly RenderableIntentStep[]): void {
+    this.intentContainer.removeAll(true);
+    this.intentContainer.setVisible(steps.length > 0);
+    const width = 42;
+    const gap = 7;
+    const total = steps.length * width + Math.max(0, steps.length - 1) * gap;
+    steps.forEach((step, index) => {
+      const x = -total / 2 + width / 2 + index * (width + gap);
+      const background = this.scene.add.rectangle(x, 0, width, 36, 0x11130d, 0.94)
+        .setStrokeStyle(2, 0xe2c36d, 0.9);
+      const glyph = this.scene.add.text(x, -2, step.glyph, {
+        fontFamily: 'Georgia, serif',
+        fontSize: '21px',
+        color: '#fff0bd',
+        fontStyle: 'bold',
+        stroke: '#090b07',
+        strokeThickness: 3,
+      }).setOrigin(0.5);
+      this.intentContainer.add([background, glyph]);
+      if (step.damage !== undefined) {
+        const damage = this.scene.add.text(x + 17, 13, String(step.damage), {
+          fontFamily: 'ui-monospace, monospace',
+          fontSize: '11px',
+          color: '#fff5dd',
+          fontStyle: 'bold',
+          backgroundColor: '#a83f2ddd',
+        }).setPadding(3, 1).setOrigin(0.5);
+        this.intentContainer.add(damage);
+      }
+      if (index < steps.length - 1) {
+        const arrow = this.scene.add.text(x + width / 2 + gap / 2, 0, '›', {
+          fontFamily: 'Georgia, serif', fontSize: '19px', color: '#b9aa80',
+        }).setOrigin(0.5);
+        this.intentContainer.add(arrow);
+      }
+    });
   }
 
   public destroy(): void {

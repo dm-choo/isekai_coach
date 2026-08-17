@@ -19,6 +19,7 @@ const EVENT_DURATION_MS: Partial<Record<CombatEvent['type'], number>> = {
   INTENT_CANCELLED: 300,
   INTENT_RESOLVED: 160,
   UNIT_DIED: 500,
+  UNIT_SUMMONED: 520,
   TURN_ENDED: 260,
 };
 
@@ -139,6 +140,9 @@ export class AnimationDirector {
       case 'UNIT_DIED':
         this.renderer.getUnit(event.unitId)?.setAnimationState('death');
         await this.renderer.wait(duration, signal);
+        break;
+      case 'UNIT_SUMMONED':
+        await this.renderer.summonUnit(event.unit, duration, signal);
         break;
       case 'TURN_ENDED':
         this.intents.clear();

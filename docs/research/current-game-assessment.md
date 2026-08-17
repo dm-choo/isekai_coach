@@ -15,6 +15,8 @@ related:
 
 # Current game idea assessment
 
+> **Superseded mechanic note (2026-08-17):** 이 연구 문서의 초기 `짧은 타격`/`광범위 공격` 및 `내려찍` 표현은 최신 Slice 1 canonical contract의 `제압`/`외침`/`내려찍기`와 피해·패턴 수치로 대체되었다. 아래 문장은 당시 가설·비평의 기록으로 보존한다.
+
 ## Executive verdict
 
 현재 아이디어는 **매우 강한 전투 논문을 가진, 아직 과적재된 제품**이다. 최근 UI 검토에서 드러난 가장 큰 실패는 규칙 부족이 아니라 전투가 게임 장면이 아닌 텍스트 cockpit처럼 보였다는 점이다.

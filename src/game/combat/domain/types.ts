@@ -16,6 +16,8 @@ export type Direction = 'UP' | 'RIGHT' | 'DOWN' | 'LEFT';
 export type EnemyRank = 'NORMAL' | 'ELITE' | 'BOSS';
 export type IntentAnchor = 'BODY' | 'GROUND';
 export type ThreatCategory = 'NORMAL_ATTACK' | 'UNBLOCKABLE_ATTACK';
+export type CombatRole = 'FRONTLINE' | 'RANGED' | 'BOSS' | 'MINION';
+export type UnitBehavior = 'RANGED_HUNTER';
 
 export interface UnitStatus {
   /** Remaining mitigation for the next blockable hit. */
@@ -40,6 +42,8 @@ export interface Unit {
   readonly rank: EnemyRank;
   readonly spawnOrder: number;
   readonly visualKey?: string;
+  readonly combatRole?: CombatRole;
+  readonly behavior?: UnitBehavior;
 }
 
 export interface UnitDefinition {
@@ -56,6 +60,8 @@ export interface UnitDefinition {
   readonly rank?: EnemyRank;
   readonly spawnOrder?: number;
   readonly visualKey?: string;
+  readonly combatRole?: CombatRole;
+  readonly behavior?: UnitBehavior;
 }
 
 /** Relative pattern data is rotated into the locked attack direction. */
@@ -89,8 +95,20 @@ export interface StunEffect {
   readonly turns: number;
 }
 
+export interface SummonEffect {
+  readonly type: 'SUMMON';
+  readonly templateId: string;
+  /** Deterministic relative spawn candidates, checked in authored order. */
+  readonly cells: readonly PatternCell[];
+}
+
+export interface SourceMovement {
+  readonly type: 'ADVANCE' | 'CHARGE';
+  readonly distance: number;
+}
+
 export type PatternTargetMode = 'ALL' | 'FIRST_IN_PATTERN';
-export type AbilityEffect = DamageEffect | GuardEffect | KnockbackEffect | StunEffect;
+export type AbilityEffect = DamageEffect | GuardEffect | KnockbackEffect | StunEffect | SummonEffect;
 export type AbilityTargeting = 'SELF' | 'PATTERN' | 'UNIT';
 
 export interface AbilityDefinition {
@@ -108,6 +126,8 @@ export interface AbilityDefinition {
   readonly minimumRange?: number;
   /** PATTERN attacks default to all occupants; projectiles stop at the first cell hit. */
   readonly patternTargetMode?: PatternTargetMode;
+  /** Optional movement resolved as part of the same locked enemy pattern. */
+  readonly sourceMovement?: SourceMovement;
   /** Explicit false means a stun does not cancel the already locked intent. */
   readonly interruptible?: boolean;
   /** Agreed design metadata. Tags explain an action; they do not gate execution. */
@@ -275,6 +295,13 @@ export interface UnitDiedEvent extends EventBase {
   readonly sourceId?: UnitId;
 }
 
+export interface UnitSummonedEvent extends EventBase {
+  readonly type: 'UNIT_SUMMONED';
+  readonly sourceId: UnitId;
+  readonly templateId: string;
+  readonly unit: Unit;
+}
+
 export interface TurnEndedEvent extends EventBase {
   readonly type: 'TURN_ENDED';
   readonly outcome: BattleOutcome;
@@ -296,6 +323,7 @@ export type CombatEvent =
   | IntentCancelledEvent
   | IntentResolvedEvent
   | UnitDiedEvent
+  | UnitSummonedEvent
   | TurnEndedEvent;
 
 export interface BattleState {
@@ -324,6 +352,8 @@ export interface BattleScenario {
   readonly units: readonly UnitDefinition[];
   /** Deterministic scenario defaults; a supplied enemy strategy replaces these. */
   readonly enemyPlans?: Readonly<Record<UnitId, readonly EnemyIntentPlan[]>>;
+  /** Templates used by deterministic SUMMON effects. */
+  readonly summonTemplates?: Readonly<Record<string, UnitDefinition>>;
   /** PROVISIONAL: authored sandbox demonstration, not final Gambit data. */
   readonly studentActions?: readonly CombatAction[];
 }

@@ -14,12 +14,13 @@
 
 ```text
 intro reveal
-→ <내 턴>: WASD 이동 / 밀치기
-→ <아군 턴>: 궁수의 사격
-→ <적 턴>: 짧은 타격을 밀린 몸의 원점에서 해결
-→ <내 턴>: WASD 접근 / 내려찍
-→ 광범위 공격 interrupt
-→ victory / 관리자 봉인 해제
+→ <내 턴>: WASD로 제압 범위를 벗어나고 Space로 plan 확정
+→ <아군 턴>: 궁수가 포지셔닝 후 가장 앞 적에게 사격
+→ <적 턴>: 수호자가 2칸 이동 후 제압을 해결
+→ <내 턴>: WASD 접근 / 내려찍기로 외침 interrupt
+→ 수호자의 하수인 소환과 하수인의 원거리 동료 추적
+→ 제압 → 외침 → 소환 pattern 반복
+→ 수호자 처치 / 관리자 봉인 해제
 ```
 
 관리자는 전장 밖의 운영자가 아니라 직접 움직이고 공격하는 전투원이다. 관리자만 전투 뒤 결계 오브젝트의 봉인을 해제한다. 궁수 동료는 고정된 5-slot policy를 자동으로 평가하며 이 slice에서 policy 편집은 제공하지 않는다.
@@ -32,9 +33,9 @@ intro reveal
 | 포지셔닝 | `#이동 #공격준비` |
 | 사격 | `#원거리공격` |
 | 밀치기 | `#근거리공격 #넉백` |
-| 내려찍 | `#근거리공격 #스턴` |
+| 내려찍기 | `#근거리공격 #스턴` |
 
-이동(WASD)과 공격은 별개다. `사격`은 투사체로 같은 행의 가장 앞 적 하나를 맞힌다. 보스 Intent는 `짧은 타격`, `광범위 공격`으로 표시하며 임의의 기술명이나 cockpit식 설명 패널을 사용하지 않는다.
+이동(WASD)과 공격은 별개다. 관리자 action은 plan이며 `Z`는 마지막 하나 undo, `Space`는 전체 확정이다. hover는 동료 policy와 적 Intent의 what-if를 보여준다. `사격`은 투사체로 같은 행의 가장 앞 적 하나를 맞힌다. 보스 pattern은 `제압`(2칸 이동→1×1 피해6), `외침`(5×3 피해2, 중단 가능), 원거리 동료 추적 하수인 소환을 반복한다. 하수인은 HP1 `돌진`(3×1 피해2)을 사용한다.
 
 ## Technical boundary
 
@@ -46,7 +47,7 @@ pure TypeScript BattleState
   → Phaser presentation
 ```
 
-`BattleState`가 전투 규칙의 source of truth다. React는 public shell과 typed bridge를 소유하고 Phaser는 확정된 event를 애니메이션으로 재생한다. logical map은 `12 x 3`으로 유지하지만 camera는 점유·관련 Intent 영역을 중심으로 frame한다. 바닥은 이어진 정글 흙바닥이며 필요한 순간의 cell/Intent만 강조한다.
+`BattleState`가 전투 규칙의 source of truth다. React는 public shell과 typed bridge를 소유하고 Phaser는 확정된 event를 애니메이션으로 재생한다. logical map은 `12 x 3`으로 유지하지만 camera는 점유·관련 Intent 영역을 중심으로 frame한다. 배경과 정렬된 직사각형 ground atlas tile은 분리하고, 이어진 정글 흙바닥 위에서 아군 셀은 파랑·적 셀은 빨강으로 필요한 순간만 강조한다. 캐릭터는 4.5~5.5등신 세미 데포르메, 일본 애니풍+거친 브러시 3단 명암의 DNF-like side view를 따른다.
 
 ## Development
 

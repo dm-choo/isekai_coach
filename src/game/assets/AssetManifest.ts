@@ -42,7 +42,7 @@ export interface CharacterVisualConfig {
   readonly displayName: string;
   readonly displaySize?: DisplaySize;
   readonly nativeFacing?: 'LEFT' | 'RIGHT';
-  readonly silhouette?: 'ADMINISTRATOR' | 'ARCHER' | 'GUARDIAN' | 'LANCER' | 'RAIDER' | 'GENERIC';
+  readonly silhouette?: 'ADMINISTRATOR' | 'ARCHER' | 'GUARDIAN' | 'MINION' | 'LANCER' | 'RAIDER' | 'GENERIC';
   readonly palette: {
     readonly body: number;
     readonly accent: number;
@@ -78,9 +78,9 @@ const animationSet = (prefix: string): Record<UnitAnimationState, CharacterAnima
 export const CHARACTER_VISUALS: Record<string, CharacterVisualConfig> = {
   administrator_slice_01: {
     spriteKey: 'administrator_slice_01',
-    source: { type: 'IMAGE', url: 'assets/slice1/administrator.png' },
+    source: { type: 'IMAGE', url: 'assets/slice1/administrator-v2.png' },
     displayName: '관리자',
-    displaySize: { width: 250, height: 228 },
+    displaySize: { width: 256, height: 270 },
     nativeFacing: 'RIGHT',
     silhouette: 'ADMINISTRATOR',
     palette: { body: 0x163c39, accent: 0xa8f5e5, shadow: 0x06120f },
@@ -88,9 +88,9 @@ export const CHARACTER_VISUALS: Record<string, CharacterVisualConfig> = {
   },
   archer_slice_01: {
     spriteKey: 'archer_slice_01',
-    source: { type: 'IMAGE', url: 'assets/slice1/archer.png' },
+    source: { type: 'IMAGE', url: 'assets/slice1/archer-v2.png' },
     displayName: '원거리 동료',
-    displaySize: { width: 166, height: 249 },
+    displaySize: { width: 196, height: 270 },
     nativeFacing: 'RIGHT',
     silhouette: 'ARCHER',
     palette: { body: 0x496035, accent: 0xe8bc62, shadow: 0x0d1309 },
@@ -98,13 +98,23 @@ export const CHARACTER_VISUALS: Record<string, CharacterVisualConfig> = {
   },
   barrier_guardian_slice_01: {
     spriteKey: 'barrier_guardian_slice_01',
-    source: { type: 'IMAGE', url: 'assets/slice1/barrier-guardian.png' },
+    source: { type: 'IMAGE', url: 'assets/slice1/barrier-guardian-v2.png' },
     displayName: '결계 수호자',
-    displaySize: { width: 250, height: 375 },
+    displaySize: { width: 300, height: 368 },
     nativeFacing: 'LEFT',
     silhouette: 'GUARDIAN',
     palette: { body: 0x3f4434, accent: 0xf17e3d, shadow: 0x080b07 },
     animations: animationSet('barrier_guardian_slice_01'),
+  },
+  guardian_hound_slice_01: {
+    spriteKey: 'guardian_hound_slice_01',
+    source: { type: 'IMAGE', url: 'assets/slice1/guardian-hound-v2.png' },
+    displayName: '추적 하수인',
+    displaySize: { width: 180, height: 111 },
+    nativeFacing: 'LEFT',
+    silhouette: 'MINION',
+    palette: { body: 0x3a3429, accent: 0xe66b3c, shadow: 0x090b08 },
+    animations: animationSet('guardian_hound_slice_01'),
   },
   operator_slice_01: {
     spriteKey: 'operator_slice_01',
@@ -155,7 +165,17 @@ export const CHARACTER_VISUALS: Record<string, CharacterVisualConfig> = {
 
 export const SLICE_ENVIRONMENT = {
   textureKey: 'slice1_jungle_barrier_room',
-  source: { type: 'IMAGE', url: 'assets/slice1/jungle-barrier-room.png' } as VisualAssetSource,
+  source: { type: 'IMAGE', url: 'assets/slice1/jungle-background-v2.png' } as VisualAssetSource,
+} as const;
+
+export const SLICE_GROUND_ATLAS = {
+  textureKey: 'slice1_jungle_ground_atlas_v2',
+  source: {
+    type: 'SPRITESHEET',
+    url: 'assets/slice1/jungle-ground-atlas-v2.png',
+    frameWidth: 256,
+    frameHeight: 128,
+  } as VisualAssetSource,
 } as const;
 
 export const VFX_VISUALS: Record<string, VfxVisualConfig> = {

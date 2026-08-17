@@ -19,14 +19,14 @@ Slice 1은 개발자용 전투 dashboard가 아니라 아마존 정글 결계문
 2. 전투 인과: 적 Intent, 이동/공격 결과, 투사체·타격·stun·죽음
 3. 현재 주체: `<내 턴>`, `<아군 턴>`, `<적 턴>` 배너와 해당 unit의 animation/focus
 4. 최소 HUD: 관리자·동료 HP/AP, 보스 이름·HP·phase, 현재 Intent
-5. 선택 UI: 하단 중앙의 `밀치기`, `내려찍` action bar와 WASD 이동 표시
+5. 선택 UI: 하단 중앙의 `밀치기`, `내려찍기` action bar와 WASD 이동 표시
 
 Darkest Dungeon처럼 scene-first combat composition과 contextual bottom controls를 기본으로 삼고, DNF처럼 깊이와 캐릭터 overlap을 허용하며, One Step From Eden처럼 필요한 순간에만 위협 cell을 읽기 좋게 드러낸다. 참조의 표면을 복제하지 않고 정보 계층을 가져온다.
 
 ## Turn readability
 
 - 전투 진입 시 짧은 보스방 reveal 후 `<내 턴>`으로 명확히 시작한다.
-- 관리자 입력 중에는 이동(WASD)과 공격(action bar)이 서로 다른 affordance로 보인다. 이동 버튼을 공격처럼, 공격 버튼을 이동처럼 설명하지 않는다.
+- 관리자 입력 중에는 이동(WASD)과 공격(action bar)이 서로 다른 affordance로 보인다. 선택은 plan이며 `Z`는 마지막 하나 undo, `Space`는 전체 확정이다.
 - 턴 종료 후 `<아군 턴>`과 함께 궁수가 활을 당기고 투사체를 발사한다. 선택한 policy slot과 짧은 실행 이유만 world label로 잠깐 표시한다.
 - `<적 턴>`에는 수호자의 wind-up, 위험 범위 표시와 공격/중단 결과가 순서대로 보인다.
 - 승리 후 전투 HUD를 걷어내고 관리자에게만 `봉인 해제` 상호작용을 남긴다.
@@ -44,8 +44,8 @@ Darkest Dungeon처럼 scene-first combat composition과 contextual bottom contro
 플레이테스트에서 아래를 확인한다.
 
 - 처음 본 사람이 `<내 턴>`에서 WASD와 공격이 별개라는 것을 설명할 수 있는가?
-- 수호자의 `짧은 타격`을 `밀치기`로 피한 이유가 적의 몸·공격 원점 이동으로 읽히는가?
-- `<아군 턴>`에 궁수가 왜 `사격`했는지, `<적 턴>`에 `광범위 공격`이 왜 중단됐는지 애니메이션만으로 연결하는가?
+- 수호자의 `제압`을 `밀치기`로 피한 이유가 적의 몸·공격 원점 이동으로 읽히는가?
+- `<아군 턴>`에 궁수가 왜 `사격`했는지, `<적 턴>`에 `외침`이 왜 중단됐는지 애니메이션만으로 연결하는가?
 - 승리 뒤 관리자가 왜 봉인을 해제하는지 UI 설명 없이 이해하는가?
 - 정보가 부족할 때 텍스트를 늘리기 전에 camera focus, timing, shape와 icon으로 해결할 수 있는가?
 

@@ -18,6 +18,7 @@ implementation:
 
 - 전투는 3행 기반 논리 grid에서 진행하며 Slice 1 topology는 `12 x 3`이다.
 - 논리 `GridPosition`과 화면 projection을 분리한다.
+- 화면 tile은 논리 좌표를 보존하는 정렬된 직사각형 atlas tile로 투영한다. atlas의 장식·카메라 crop은 논리 topology를 바꾸지 않는다.
 - 주인공, 동료와 적은 같은 경계·점유·이동 규칙을 사용한다.
 - 기본 이동은 상하좌우 인접 셀이고 대각선, 경계 밖, 점유 셀 이동은 허용하지 않는다.
 - 공격 범위는 방향에 상대적인 pattern data로 표현한다.

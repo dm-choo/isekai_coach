@@ -32,9 +32,12 @@ export function App() {
       if (direction) {
         event.preventDefault();
         controller.move(direction);
-      } else if ((event.key === ' ' || event.key === 'Enter') && snapshot.mode === 'PLAYER_TURN') {
+      } else if (event.key === ' ' && snapshot.mode === 'PLAYER_TURN') {
         event.preventDefault();
-        controller.endTurn();
+        controller.confirmPlan();
+      } else if (event.key.toLowerCase() === 'z' && snapshot.mode === 'PLAYER_TURN') {
+        event.preventDefault();
+        controller.undoLastAction();
       } else if (event.key.toLowerCase() === 'e' && snapshot.mode === 'VICTORY') {
         controller.unlockSeal();
       }
@@ -43,10 +46,11 @@ export function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [controller, snapshot.mode]);
 
-  const administrator = snapshot.state.units.find((unit) => unit.id === 'administrator-01');
-  const ally = snapshot.state.units.find((unit) => unit.id === 'archer-companion-01');
-  const boss = snapshot.state.units.find((unit) => unit.id === 'barrier-guardian-01');
-  const intent = snapshot.state.intents.find((candidate) => candidate.sourceId === boss?.id);
+  const displayState = snapshot.mode === 'PLAYER_TURN' ? snapshot.previewState : snapshot.state;
+  const administrator = displayState.units.find((unit) => unit.id === 'administrator-01');
+  const ally = displayState.units.find((unit) => unit.id === 'archer-companion-01');
+  const boss = displayState.units.find((unit) => unit.id === 'barrier-guardian-01');
+  const intent = displayState.intents.find((candidate) => candidate.sourceId === boss?.id);
 
   return (
     <main className={`game-shell mode-${snapshot.mode.toLowerCase()}`}>
@@ -59,13 +63,13 @@ export function App() {
             <CombatantPortrait
               unit={administrator}
               name="관리자"
-              image="assets/slice1/administrator.png"
+              image="assets/slice1/administrator-v2.png"
               tone="administrator"
             />
             <CombatantPortrait
               unit={ally}
               name="원거리 동료"
-              image="assets/slice1/archer.png"
+              image="assets/slice1/archer-v2.png"
               tone="ally"
             />
           </div>
@@ -86,7 +90,7 @@ export function App() {
               <small>적 행동 고정</small>
               <strong>{intentName(intent.abilityId)}</strong>
             </div>
-            <i>{intent.abilityId === 'guardian-rupture' ? '중단 가능' : '← 1칸'}</i>
+            <i>{intentDetail(intent.abilityId)}</i>
           </div>
         )}
 
@@ -173,6 +177,7 @@ function BossHud({
   readonly intentAbility?: string;
 }) {
   const ratio = Math.max(0, (unit?.hp ?? 0) / Math.max(1, unit?.maxHp ?? 1));
+  const pattern = ((Math.max(1, turn) - 1) % 3) + 1;
   return (
     <div className="boss-hud">
       <div className="boss-title">
@@ -182,9 +187,10 @@ function BossHud({
       </div>
       <div className="boss-health"><i style={{ width: `${ratio * 100}%` }} /></div>
       <div className="boss-phase">
-        <span className={turn <= 1 ? 'is-current' : 'is-done'}>Ⅰ 짧은 타격</span>
-        <span className={turn >= 2 ? 'is-current' : ''}>Ⅱ 광범위 공격</span>
-        <em>{intentAbility === 'guardian-rupture' ? '⚠ 중단 가능' : '대상 고정'}</em>
+        <span className={pattern === 1 ? 'is-current' : ''}>Ⅰ 이동→제압</span>
+        <span className={pattern === 2 ? 'is-current' : ''}>Ⅱ 외침</span>
+        <span className={pattern === 3 ? 'is-current' : ''}>Ⅲ 소환</span>
+        <em>{intentAbility === 'guardian-rupture' ? '⚠ 중단 가능' : '1→2→3 반복'}</em>
       </div>
     </div>
   );
@@ -192,7 +198,7 @@ function BossHud({
 
 function TurnBanner({ mode, turn }: { readonly mode: SliceMode; readonly turn: number }) {
   const copy: Partial<Record<SliceMode, { label: string; sub: string }>> = {
-    PLAYER_TURN: { label: '<내 턴>', sub: `TURN ${turn} · 이동과 공격을 선택` },
+    PLAYER_TURN: { label: '<내 턴>', sub: `TURN ${turn} · 행동 계획 후 SPACE로 확정` },
     ALLY_TURN: { label: '<아군 턴>', sub: '전술 우선순 자동 실행' },
     ENEMY_TURN: { label: '<적 턴>', sub: '고정된 행동 해결' },
     VICTORY: { label: '<승리>', sub: '결계 수호자 제압' },
@@ -216,16 +222,26 @@ function PlayerControls({
   readonly snapshot: SliceSnapshot;
   readonly controller: SliceController;
 }) {
-  const administrator = snapshot.state.units.find((unit) => unit.id === 'administrator-01');
+  const administrator = snapshot.previewState.units.find((unit) => unit.id === 'administrator-01');
   return (
     <section className={`player-controls ${snapshot.isBusy ? 'is-busy' : ''}`} aria-label="관리자 조작">
+      <div className="plan-strip" aria-label="예정 행동">
+        <small>예정 행동</small>
+        <div>
+          {snapshot.plannedActions.length === 0
+            ? <span className="plan-empty">이동 또는 공격을 선택</span>
+            : snapshot.plannedActions.map((action, index) => (
+              <span key={action.id} className="plan-chip"><i>{index + 1}</i>{action.label}</span>
+            ))}
+        </div>
+      </div>
       <div className="movement-control">
         <span className="control-caption">이동 <small>AP 1</small></span>
         <div className="wasd-grid" aria-label="WASD 이동">
-          <button type="button" onClick={() => controller.move('UP')}>W</button>
-          <button type="button" onClick={() => controller.move('LEFT')}>A</button>
-          <button type="button" onClick={() => controller.move('DOWN')}>S</button>
-          <button type="button" onClick={() => controller.move('RIGHT')}>D</button>
+          <button type="button" disabled={!snapshot.canConfirm} onClick={() => controller.move('UP')}>W</button>
+          <button type="button" disabled={!snapshot.canConfirm} onClick={() => controller.move('LEFT')}>A</button>
+          <button type="button" disabled={!snapshot.canConfirm} onClick={() => controller.move('DOWN')}>S</button>
+          <button type="button" disabled={!snapshot.canConfirm} onClick={() => controller.move('RIGHT')}>D</button>
         </div>
       </div>
       <div className="action-control">
@@ -238,6 +254,10 @@ function PlayerControls({
               className={`skill-button skill-${action.id.toLowerCase()}`}
               disabled={!action.executable || snapshot.isBusy}
               onClick={() => controller.useAction(action.id)}
+              onMouseEnter={() => controller.setActionHover(action.id)}
+              onMouseLeave={() => controller.setActionHover()}
+              onFocus={() => controller.setActionHover(action.id)}
+              onBlur={() => controller.setActionHover()}
             >
               <kbd>{index + 1}</kbd>
               <i aria-hidden="true">{action.glyph}</i>
@@ -253,9 +273,14 @@ function PlayerControls({
           <small>ACTION POINT</small>
           <strong>{'◆'.repeat(administrator?.ap ?? 0)}<i>{'◇'.repeat(Math.max(0, (administrator?.maxAp ?? 0) - (administrator?.ap ?? 0)))}</i></strong>
         </div>
-        <button type="button" className="end-turn-button" disabled={snapshot.isBusy} onClick={controller.endTurn}>
-          <span>턴 종료</span><kbd>SPACE</kbd>
-        </button>
+        <div className="plan-actions">
+          <button type="button" className="undo-button" disabled={!snapshot.canUndo} onClick={controller.undoLastAction}>
+            <span>하나 되돌리기</span><kbd>Z</kbd>
+          </button>
+          <button type="button" className="end-turn-button" disabled={!snapshot.canConfirm} onClick={controller.confirmPlan}>
+            <span>행동 확정</span><kbd>SPACE</kbd>
+          </button>
+        </div>
       </div>
     </section>
   );
@@ -320,7 +345,17 @@ function ResultOverlay({
 }
 
 function intentName(abilityId: string | undefined): string {
-  if (abilityId === 'guardian-rupture') return '광범위 공격';
-  if (abilityId === 'guardian-crush') return '짧은 타격';
+  if (abilityId === 'guardian-rupture') return '외침';
+  if (abilityId === 'guardian-crush') return '이동 → 제압';
+  if (abilityId === 'guardian-summon') return '하수인 소환';
+  if (abilityId === 'minion-charge') return '돌진';
   return '알 수 없는 행동';
+}
+
+function intentDetail(abilityId: string | undefined): string {
+  if (abilityId === 'guardian-rupture') return '5×3 · 피해 2 · 중단 가능';
+  if (abilityId === 'guardian-crush') return '2칸 이동 · 피해 6';
+  if (abilityId === 'guardian-summon') return '원거리 동료 추적';
+  if (abilityId === 'minion-charge') return '3×1 · 피해 2';
+  return '행동 고정';
 }

@@ -1,7 +1,9 @@
 import {
   BattleEngine,
   directionBetween,
+  getAbility,
   moveAction,
+  projectPattern,
   pushAction,
   slamAction,
   step,
@@ -10,6 +12,7 @@ import {
   type CombatAction,
   type CombatEvent,
   type Direction,
+  type GridPosition,
 } from '../combat';
 import type { PresentationPort } from '../phaser/bridge/PresentationPort';
 import {
@@ -37,6 +40,26 @@ export type SliceMode =
   | 'SEAL_UNLOCKED';
 export type SliceActionId = 'PUSH' | 'SLAM';
 
+export interface PlannedPlayerAction {
+  readonly id: string;
+  readonly label: string;
+  readonly action: CombatAction;
+}
+
+export interface IntentPreviewStep {
+  readonly id: string;
+  readonly label: string;
+  readonly glyph: string;
+  readonly damage?: number;
+  readonly movementPath: readonly GridPosition[];
+  readonly effectCells: readonly GridPosition[];
+}
+
+export interface UnitIntentPreview {
+  readonly unitId: string;
+  readonly steps: readonly IntentPreviewStep[];
+}
+
 export interface SliceActionCandidate {
   readonly id: SliceActionId;
   readonly label: string;
@@ -57,6 +80,8 @@ export interface SliceSnapshot {
   readonly scenarioId: string;
   readonly mode: SliceMode;
   readonly state: BattleState;
+  /** Projected player-plan state. The authoritative state remains `state`. */
+  readonly previewState: BattleState;
   readonly eventHistory: readonly CombatEvent[];
   readonly status: SliceRuntimeStatus;
   readonly isBusy: boolean;
@@ -67,6 +92,11 @@ export interface SliceSnapshot {
   readonly lastPolicyTrace: readonly PolicyExecutionStep[];
   readonly notice: string;
   readonly attempt: number;
+  readonly plannedActions: readonly PlannedPlayerAction[];
+  readonly allyIntent?: UnitIntentPreview;
+  readonly hoveredActionId?: SliceActionId;
+  readonly canUndo: boolean;
+  readonly canConfirm: boolean;
 }
 
 type SnapshotListener = () => void;
@@ -85,6 +115,8 @@ export class SliceController {
   private lastPolicyTrace: PolicyExecutionStep[] = [];
   private activePolicyStep: PolicyExecutionStep | undefined;
   private notice = '결계문 앞을 지키는 존재가 길을 막고 있다.';
+  private plannedActions: CombatAction[] = [];
+  private hoveredActionId: SliceActionId | undefined;
   private snapshot = this.buildSnapshot();
 
   public getSnapshot = (): SliceSnapshot => this.snapshot;
@@ -127,23 +159,51 @@ export class SliceController {
 
   public move = (direction: Direction): void => {
     if (!this.canAcceptPlayerInput()) return;
-    const administrator = this.unit(ADMINISTRATOR_ID);
+    const administrator = this.buildPlanProjection().state.units.find((unit) => unit.id === ADMINISTRATOR_ID);
     if (!administrator) return;
-    this.executePlayerAction(moveAction(administrator.id, step(administrator.position, direction)));
+    this.appendPlannedAction(moveAction(administrator.id, step(administrator.position, direction)));
   };
 
   public useAction = (actionId: SliceActionId): void => {
     if (!this.canAcceptPlayerInput()) return;
-    const action = this.actionFor(actionId, this.engine.getState());
-    if (action) this.executePlayerAction(action);
+    const action = this.actionFor(actionId, this.buildPlanProjection().state);
+    if (action) this.appendPlannedAction(action);
   };
 
-  public endTurn = (): void => {
+  public setActionHover = (actionId?: SliceActionId): void => {
+    if (this.mode !== 'PLAYER_TURN' || this.isBusy) return;
+    this.hoveredActionId = actionId;
+    this.publish();
+  };
+
+  public undoLastAction = (): void => {
+    if (!this.canAcceptPlayerInput() || this.plannedActions.length === 0) return;
+    this.plannedActions = this.plannedActions.slice(0, -1);
+    this.hoveredActionId = undefined;
+    this.notice = this.plannedActions.length === 0 ? '행동 계획을 비웠다.' : '마지막 계획 행동을 취소했다.';
+    this.publish();
+  };
+
+  public confirmPlan = (): void => {
     if (!this.canAcceptPlayerInput()) return;
     this.isBusy = true;
+    this.hoveredActionId = undefined;
+    this.presentation?.setPrediction?.(null);
     this.publish();
-    void this.runAllyTurn();
+    for (const action of this.plannedActions) {
+      const result = this.engine.performStudentAction(action);
+      if (!result.executable) {
+        this.isBusy = false;
+        this.notice = failureCopy(result.reason);
+        this.publish();
+        return;
+      }
+    }
+    this.plannedActions = [];
+    void this.pumpEvents().then(() => this.runAllyTurn());
   };
+
+  public endTurn = this.confirmPlan;
 
   public unlockSeal = (): void => {
     if (this.mode !== 'VICTORY' || this.isBusy) return;
@@ -171,6 +231,8 @@ export class SliceController {
     this.presentedEventCount = 0;
     this.lastPolicyTrace = [];
     this.activePolicyStep = undefined;
+    this.plannedActions = [];
+    this.hoveredActionId = undefined;
     this.attempt += 1;
     this.notice = '결계문 앞을 지키는 존재가 길을 막고 있다.';
     this.presentation?.reset(this.engine.getState());
@@ -188,26 +250,17 @@ export class SliceController {
     return this.mode === 'PLAYER_TURN' && !this.isBusy && this.engine.getState().outcome === 'ONGOING';
   }
 
-  private executePlayerAction(action: CombatAction): void {
-    const result = this.engine.performStudentAction(action);
+  private appendPlannedAction(action: CombatAction): void {
+    const result = this.simulateActions([...this.plannedActions, action]);
     if (!result.executable) {
       this.notice = failureCopy(result.reason);
       this.publish();
       return;
     }
-    this.isBusy = true;
-    this.notice = action.type === 'MOVE' ? '이동' : action.abilityId === 'push' ? '밀치기' : '내려찍';
+    this.plannedActions = [...this.plannedActions, action];
+    this.hoveredActionId = undefined;
+    this.notice = `${actionLabel(action)} 계획 · Z 취소 / SPACE 확정`;
     this.publish();
-    void this.pumpEvents().then(() => {
-      if (this.mode !== 'PLAYER_TURN') return;
-      const administrator = this.unit(ADMINISTRATOR_ID);
-      if (!administrator || administrator.ap <= 0 || this.engine.getState().outcome !== 'ONGOING') {
-        void this.runAllyTurn();
-        return;
-      }
-      this.isBusy = false;
-      this.publish();
-    });
   }
 
   private async runAllyTurn(): Promise<void> {
@@ -271,6 +324,8 @@ export class SliceController {
     }
 
     this.engine.beginTurn();
+    this.plannedActions = [];
+    this.hoveredActionId = undefined;
     this.mode = 'PLAYER_TURN';
     this.isBusy = true;
     this.phaseSerial += 1;
@@ -287,6 +342,8 @@ export class SliceController {
   private finishBattle(): void {
     this.isBusy = false;
     this.activePolicyStep = undefined;
+    this.plannedActions = [];
+    this.hoveredActionId = undefined;
     if (this.engine.getState().outcome === 'STUDENT_VICTORY') {
       this.mode = 'VICTORY';
       this.notice = '결계 수호자가 무너졌다. 관리자만 봉인을 해제할 수 있다.';
@@ -316,10 +373,80 @@ export class SliceController {
 
   private phaseDelay(duration: number, runGeneration: number): Promise<void> {
     return new Promise((resolve) => {
-      globalThis.setTimeout(() => {
+      const signal = this.playbackAbortController.signal;
+      if (runGeneration !== this.generation || signal.aborted) {
         resolve();
-      }, runGeneration === this.generation ? duration : 0);
+        return;
+      }
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        globalThis.clearTimeout(timer);
+        signal.removeEventListener('abort', abort);
+        resolve();
+      };
+      const abort = () => finish();
+      const timer = globalThis.setTimeout(finish, duration);
+      signal.addEventListener('abort', abort, { once: true });
     });
+  }
+
+  private simulateActions(actions: readonly CombatAction[]): {
+    executable: true;
+    state: BattleState;
+  } | {
+    executable: false;
+    state: BattleState;
+    reason: ActionFailureReason;
+  } {
+    const preview = this.engine.preview((engine) => {
+      for (const action of actions) {
+        const result = engine.performStudentAction(action);
+        if (!result.executable) return { executable: false as const, reason: result.reason };
+      }
+      return { executable: true as const };
+    });
+    return preview.value.executable
+      ? { executable: true, state: preview.state }
+      : { executable: false, reason: preview.value.reason, state: preview.state };
+  }
+
+  private buildPlanProjection(): { state: BattleState; allyIntent?: UnitIntentPreview } {
+    let actions = [...this.plannedActions];
+    const base = this.simulateActions(actions);
+    if (this.hoveredActionId && base.executable) {
+      const candidate = this.actionFor(this.hoveredActionId, base.state);
+      if (candidate) {
+        const candidateResult = this.simulateActions([...actions, candidate]);
+        if (candidateResult.executable) actions = [...actions, candidate];
+      }
+    }
+    const projection = this.simulateActions(actions);
+    return {
+      state: projection.state,
+      allyIntent: projection.executable ? this.simulateAllyIntent(actions) : undefined,
+    };
+  }
+
+  private simulateAllyIntent(playerActions: readonly CombatAction[]): UnitIntentPreview | undefined {
+    const preview = this.engine.preview((engine) => {
+      for (const action of playerActions) {
+        if (!engine.performStudentAction(action).executable) return [] as IntentPreviewStep[];
+      }
+      const steps: IntentPreviewStep[] = [];
+      for (let cycle = 0; cycle < 8; cycle += 1) {
+        const state = engine.getState();
+        const ally = state.units.find((unit) => unit.id === ARCHER_ID && unit.hp > 0);
+        if (!ally || ally.ap <= 0) break;
+        const selected = evaluatePolicy(state, ARCHER_ID).selected;
+        if (!selected?.action) break;
+        steps.push(previewStep(selected.policyId, selected.action, state));
+        if (!engine.performStudentAction(selected.action).executable) break;
+      }
+      return steps;
+    });
+    return preview.value.length > 0 ? { unitId: ARCHER_ID, steps: preview.value } : undefined;
   }
 
   private actionFor(actionId: SliceActionId, state: BattleState): CombatAction | null {
@@ -335,14 +462,13 @@ export class SliceController {
 
   private buildActionCandidates(): readonly SliceActionCandidate[] {
     const definitions: readonly Omit<SliceActionCandidate, 'executable' | 'failureReason'>[] = [
-      { id: 'PUSH', label: '밀치기', glyph: '»', tags: ['#근거리공격', '#넉백'], apCost: 1 },
-      { id: 'SLAM', label: '내려찍', glyph: '↓', tags: ['#근거리공격', '#스턴'], apCost: 1 },
+      { id: 'PUSH', label: '밀치기', glyph: '»', tags: ['#근거리공격', '#넉백'], apCost: 2 },
+      { id: 'SLAM', label: '내려찍기', glyph: '↓', tags: ['#근거리공격', '#스턴'], apCost: 1 },
     ];
+    const plannedState = this.simulateActions(this.plannedActions).state;
     return definitions.map((definition) => {
-      const action = this.actionFor(definition.id, this.engine.getState());
-      const result = action
-        ? this.engine.preview((engine) => engine.performStudentAction(action)).value
-        : null;
+      const action = this.actionFor(definition.id, plannedState);
+      const result = action ? this.simulateActions([...this.plannedActions, action]) : null;
       return {
         ...definition,
         executable: this.canAcceptPlayerInput() && (result?.executable ?? false),
@@ -351,16 +477,14 @@ export class SliceController {
     });
   }
 
-  private unit(id: string) {
-    return this.engine.getState().units.find((unit) => unit.id === id);
-  }
-
   private buildSnapshot(): SliceSnapshot {
     const eventHistory = this.engine.getEvents();
+    const projection = this.buildPlanProjection();
     return {
       scenarioId: SLICE_SCENARIO_ID,
       mode: this.mode,
       state: this.engine.getState(),
+      previewState: projection.state,
       eventHistory,
       status: {
         presentedEventCount: this.presentedEventCount,
@@ -375,18 +499,89 @@ export class SliceController {
       lastPolicyTrace: this.lastPolicyTrace,
       notice: this.notice,
       attempt: this.attempt,
+      plannedActions: this.plannedActions.map((action, index) => ({
+        id: `plan-${index + 1}`,
+        label: actionLabel(action),
+        action,
+      })),
+      allyIntent: projection.allyIntent,
+      hoveredActionId: this.hoveredActionId,
+      canUndo: this.canAcceptPlayerInput() && this.plannedActions.length > 0,
+      canConfirm: this.canAcceptPlayerInput(),
     };
   }
 
   private publish(): void {
     this.snapshot = this.buildSnapshot();
+    this.syncPlanningPresentation();
     for (const listener of this.listeners) listener();
+  }
+
+  private syncPlanningPresentation(): void {
+    if (!this.presentation || this.mode !== 'PLAYER_TURN' || this.isBusy) {
+      this.presentation?.setPrediction?.(null);
+      return;
+    }
+    const authoritative = this.engine.getState();
+    const preview = this.snapshot.previewState;
+    this.presentation.setPrediction?.({
+      unitPositions: preview.units
+        .filter((unit) => {
+          const current = authoritative.units.find((candidate) => candidate.id === unit.id);
+          return current && (current.position.x !== unit.position.x || current.position.y !== unit.position.y);
+        })
+        .map((unit) => ({ unitId: unit.id, position: unit.position })),
+      intents: this.snapshot.allyIntent ? [this.snapshot.allyIntent] : [],
+      previewIntents: preview.intents,
+    });
   }
 
   private abortPresentation(): void {
     this.playbackAbortController.abort();
     this.playbackAbortController = new AbortController();
   }
+}
+
+function previewStep(
+  policyId: SlicePolicyId,
+  action: CombatAction,
+  state: BattleState,
+): IntentPreviewStep {
+  const copy = POLICY_COPY[policyId];
+  if (action.type === 'MOVE') {
+    return {
+      id: `${policyId}-${action.actorId}-${action.to.x}-${action.to.y}`,
+      label: copy.name,
+      glyph: '◆',
+      movementPath: [{ ...action.to }],
+      effectCells: [],
+    };
+  }
+  const actor = state.units.find((unit) => unit.id === action.actorId);
+  const ability = getAbility(action.abilityId);
+  const target = action.targetId ? state.units.find((unit) => unit.id === action.targetId) : undefined;
+  const direction = action.direction ?? (actor && target ? directionBetween(actor.position, target.position) : undefined) ?? actor?.facing ?? 'RIGHT';
+  const effectCells = ability?.targeting === 'UNIT' && target
+    ? [{ ...target.position }]
+    : actor && ability?.pattern
+      ? projectPattern(actor.position, direction, ability.pattern, state.map)
+      : [];
+  const damage = ability?.effects.find((effect) => effect.type === 'DAMAGE');
+  return {
+    id: `${policyId}-${action.actorId}-${action.abilityId}`,
+    label: copy.name,
+    glyph: policyId === 'SHOOT' ? '➶' : policyId === 'PUSH' ? '»' : '◆',
+    damage: damage?.type === 'DAMAGE' ? damage.amount : undefined,
+    movementPath: [],
+    effectCells,
+  };
+}
+
+function actionLabel(action: CombatAction): string {
+  if (action.type === 'MOVE') return '이동';
+  if (action.abilityId === 'push') return '밀치기';
+  if (action.abilityId === 'slam') return '내려찍기';
+  return getAbility(action.abilityId)?.name ?? '행동';
 }
 
 function failureCopy(reason: ActionFailureReason): string {

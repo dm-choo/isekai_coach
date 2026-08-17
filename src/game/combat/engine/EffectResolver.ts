@@ -1,6 +1,7 @@
 import type {
   AbilityEffect,
   Direction,
+  PatternCell,
   ThreatCategory,
   UnitId,
 } from '../domain/types';
@@ -11,6 +12,7 @@ export interface EffectResolutionPort {
   applyGuard(sourceId: UnitId, targetId: UnitId, amount: number): void;
   applyKnockback(sourceId: UnitId, targetId: UnitId, direction: Direction, distance: number): boolean;
   applyStun(sourceId: UnitId, targetId: UnitId, turns: number): void;
+  applySummon(sourceId: UnitId, templateId: string, cells: readonly PatternCell[]): void;
 }
 
 export interface EffectResolutionContext {
@@ -58,6 +60,9 @@ function applyEffect(
       break;
     case 'STUN':
       port.applyStun(sourceId, targetId, effect.turns);
+      break;
+    case 'SUMMON':
+      port.applySummon(sourceId, effect.templateId, effect.cells);
       break;
   }
 }

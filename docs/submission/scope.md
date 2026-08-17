@@ -55,5 +55,5 @@ related:
 ## Under validation
 
 - 첫 섹터 전체 플레이 시간은 약 25~40분을 예상하지만 플레이테스트로 확정한다.
-- Slice 1 public 행동 이름은 `회피`, `포지셔닝`, `사격`, `밀치기`, `내려찍`으로 고정한다. 피해·AP·정확한 보스 패턴 수치는 플레이테스트로 보정한다.
+- Slice 1 public 행동 이름은 `회피`, `포지셔닝`, `사격`, `밀치기`, `내려찍기`로 고정한다. 관리자·동료 HP 10, 보스 HP 15, 사격(피해1/AP2), 밀치기(피해1/AP2), 내려찍기(피해1/AP1), 보스 3-step pattern은 최신 accepted contract다.
 - 실제 resource·cargo·combat 수치는 각 canonical owner의 provisional 데이터로 조정한다.

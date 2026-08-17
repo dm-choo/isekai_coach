@@ -11,12 +11,16 @@ related:
 
 # Intent and ally action signals
 
+## Shared sequence grammar
+
+적 Intent와 아군 prediction은 같은 머리 위 `sequence icon + damage` 문법을 사용한다. icon의 순서가 여러 단계 행동을, damage 숫자가 결과 피해를 전달하며 색·stroke·motion은 진영과 상태를 보조한다.
+
 ## Enemy Intent
 
-- 수호자의 `짧은 타격`과 `광범위 공격`은 머리 위 action icon/label, body wind-up, 바닥 effect area를 함께 사용한다.
+- 수호자의 `제압`과 `외침`은 머리 위 sequence icon/damage, body wind-up, 바닥 effect area를 함께 사용한다.
 - Intent는 선언 시점에 고정되며, 관리자 `밀치기`로 BODY source가 이동하면 공격 origin과 affected cells가 함께 이동한다. 이 변화는 이동 arc와 짧은 camera emphasis로 보여준다.
-- `광범위 공격`은 3개 행의 위험을 굵은 패턴과 깨진 원형 경계로 표현하되, 이동 목적지와 혼동하지 않는다.
-- `내려찍`으로 중단될 때 수호자의 wind-up이 끊기고 stun pose, 짧은 hit-stop과 `중단` icon을 순서대로 보여준다. 공격 effect가 실행되지 않았다는 사실을 animation이 증명해야 한다.
+- `외침`은 3개 행의 위험을 굵은 패턴과 깨진 원형 경계로 표현하되, 이동 목적지와 혼동하지 않는다.
+- `내려찍기`로 중단될 때 수호자의 wind-up이 끊기고 stun pose, 짧은 hit-stop과 `중단` icon을 순서대로 보여준다. 공격 effect가 실행되지 않았다는 사실을 animation이 증명해야 한다.
 
 ## Ally action
 

@@ -33,10 +33,11 @@ related:
 - reset, 장면 전환과 Scene detach는 현재 presentation을 abort한다. 이전 generation의 tween/timer가 새 전투를 갱신하거나 영원히 대기하지 않는다.
 - React와 Phaser는 typed bridge/event boundary로 통신한다. React가 Scene 내부 state를 직접 변경하지 않는다.
 - logical grid 좌표와 화면 projection을 분리한다. 카메라가 보여주는 영역과 `12 x 3` 논리 topology는 같은 계약이 아니다.
+- player plan은 authoritative `BattleState`와 분리된 preview projection이다. hover는 ally policy와 enemy Intent를 what-if로 계산하고, `Z`/`Space`가 각각 마지막 하나/전체 계획을 확정 경계로 보낸다.
 
 ## Grid, units, and actions
 
-- Slice 1의 논리 맵은 `12 x 3`이다. 화면에는 점유·관련 Intent 영역을 중심으로 framing하며 빈 열 12개를 항상 노출할 필요가 없다.
+- Slice 1의 논리 맵은 `12 x 3`이다. 현재 public scene은 12×3 직사각형 atlas tile을 하나의 이어진 흙바닥처럼 모두 투영하고, 점유·이동·Intent cell만 별도 신호로 강조한다.
 - 이동은 상하좌우 인접 셀을 사용하는 WASD 동사이며 공격과 별개다. 경계 밖, 대각선, 점유 셀 이동은 허용하지 않는다.
 - 관리자와 원거리 동료는 domain에서 같은 `STUDENT` faction 규칙을 공유하지만 controller가 역할과 턴 책임을 분리한다. 관리자는 전투원이며 매 턴 자신의 이동·공격을 고른다.
 - 적과 아군은 공통 unit model을 사용한다. 여러 아군·적을 수용하는 domain 경계는 유지한다.
@@ -56,10 +57,11 @@ related:
 ## Locked Intent and interruption
 
 - Intent 선언 뒤 아군이 움직여도 적은 재조준하지 않는다.
-- `BODY` Intent는 source의 현재 body 위치에서 같은 direction으로 footprint를 다시 계산한다. 따라서 수호자를 `밀치기`하면 짧은 타격의 공격 원점과 범위도 함께 이동한다.
+- `BODY` Intent는 source의 현재 body 위치에서 같은 direction으로 footprint를 다시 계산한다. 따라서 수호자를 `밀치기`하면 `제압`·`외침`의 공격 원점과 범위도 함께 이동한다.
 - `GROUND` 계약은 선언 당시 origin과 footprint를 유지한다. Slice 1의 보스 공격은 BODY anchor다.
-- `짧은 타격`은 한 칸 범위의 치명적 BODY 공격이며 stun으로 중단되지 않는다.
-- `광범위 공격`은 3개 행을 덮는 BODY Intent이며 `내려찍`의 확정 stun으로 중단할 수 있다.
+- `제압`은 2칸 이동 뒤 1×1 BODY 공격, 피해 6, 중단 불가다.
+- `외침`은 5×3 BODY Intent, 피해 2, `내려찍기`의 확정 stun으로 중단할 수 있다.
+- 세 번째 pattern은 원거리 동료 추적 하수인 소환이며, 하수인 cap은 없다. 하수인은 HP 1, `돌진` 3×1 피해 2를 사용하고 대상이 있으면 피해 후 바로 앞에 정지한다.
 - source가 실행 전에 죽거나 stun으로 interrupt되면 Intent를 취소하고 공격 effect를 실행하지 않는다.
 - 이동 경로와 공격 effect cell은 별도 의미다. 이동 목적지를 빨간 공격 threat처럼 표시하지 않는다.
 
@@ -82,7 +84,7 @@ related:
 ## Slice 1 authored surface
 
 - `src/game/slice/scenario.ts`는 관리자, 활 동료와 결계 수호자가 아마존 정글 결계문에서 만나는 단일 authored fixture를 정의한다.
-- 관리자 action bar의 승인된 이름은 `밀치기`, `내려찍`이며, WASD 이동은 action bar 공격과 분리한다.
+- 관리자 action bar의 승인된 이름은 `밀치기`, `내려찍기`이며, WASD 이동은 action bar 공격과 분리한다.
 - 궁수 동료의 고정 5-slot policy는 `회피 → 포지셔닝 → 사격 → 밀치기 → 빈 슬롯`이다. public scene에서 순서를 수정하지 않는다.
 - public 전투에서 임의의 `방어 전개`, `맥동 밀치기`, `신호 창격` 명칭이나 정책 편집 dashboard를 노출하지 않는다.
 - 승리 화면의 다음 행동은 `봉인 해제`이며, 이것이 관리자 특수성의 전장 표현이다.
@@ -101,6 +103,6 @@ related:
 
 - Node 기반 domain/controller 테스트는 Phaser 없이 실행한다.
 - CI는 `npm ci`, `npm test`, `npm run build`를 실행한다.
-- Slice 1은 controller의 intro → push → ally shots → WASD → slam interrupt → victory/봉인 해제 흐름을 테스트한다.
-- Chromium에서 desktop과 390px viewport를 확인하고 initial, 각 턴 배너, Intent, 타격·stun·죽음·victory, console/page/request error를 기록한다.
+- Slice 1은 controller의 intro → plan/undo/confirm → ally positioning/shooting → `제압` 회피 → `내려찍기` interrupt → 하수인 소환/돌진 흐름을 테스트한다.
+- Chromium에서 desktop viewport의 initial, 각 턴 배너, Intent, plan preview, 타격·stun·소환·하수인과 console/page/request error를 기록한다. mobile viewport와 전투 완주·봉인 해제는 별도 검증 항목이다.
 - 배포 완료는 `/slice1/` 공개 검증과 기존 root 보존 검증을 별도로 통과해야 한다.

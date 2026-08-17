@@ -46,6 +46,10 @@ related:
 
 제출본에는 자유 조건식, AND/OR, 자연어 정책, node graph와 복잡한 priority editor가 없다.
 
+## Player planning boundary
+
+관리자의 직접 행동 선택은 plan으로 투영한다. hover는 선택한 관리자 action의 결과와 동료 policy/enemy Intent를 what-if로 보여주며 authoritative state를 확정 전 변경하지 않는다. `Z`는 마지막 planned action 하나를 undo하고 `Space`는 전체 plan을 확정한다.
+
 ## Slice 1 boundary
 
 [Amazon Barrier Guardian slice](../../../submission/vertical-slice.md)는 활 동료의 `회피 → 포지셔닝 → 사격 → 밀치기 → 빈 슬롯`을 실행하지만 편집하지 않는다. 전투 중에는 현재 선택된 전술과 짧은 이유만 보여 주고, 전체 판정표나 정책 dashboard를 놓지 않는다. 이 전투의 목표는 policy editor 검증이 아니라 실제 전투 UI·UX 마찰 탐색이다.

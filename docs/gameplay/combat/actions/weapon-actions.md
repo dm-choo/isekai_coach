@@ -10,15 +10,17 @@ related:
 
 # Weapon actions
 
-형태와 전술 역할은 accepted이고 피해 수치는 provisional이다.
+Slice 1의 아래 관리자/동료 수치와 public 이름은 accepted다. Slice 1 밖의 무기 수치는 provisional이다.
 
 | 무기 / 정책 | Accepted shape and behavior | Provisional damage |
 | --- | --- | --- |
-| 활 / 사격 | 같은 행 전방 2~5칸의 투사체. 가장 앞의 적 하나에서 멈춘다 | 4 |
-| 검 / 베기 | 전방 1열 × 세로 3칸 | 5 |
-| 둔기 / 내려찍 | 전방 `1 × 1`, 확정 stun | 2 |
-| 창 / 찌르기 | 같은 행 전방 3칸 | 4 |
-| 단검 / 비껴 찌르기 | 전방 `1 × 1`, 적중 후 다른 행으로 무료 1칸 이동 가능 | 1 |
+| 활 / 사격 | 같은 행 전방 2~5칸의 투사체. 가장 앞의 적 하나에서 멈춘다 | 피해 1 / AP 2 |
+| 검 / 베기 | 전방 1열 × 세로 3칸 | Slice 1 밖: provisional |
+| 둔기 / 내려찍기 | 전방 `1 × 1`, 확정 stun | 피해 1 / AP 1 |
+| 창 / 찌르기 | 같은 행 전방 3칸 | Slice 1 밖: provisional |
+| 단검 / 비껴 찌르기 | 전방 `1 × 1`, 적중 후 다른 행으로 무료 1칸 이동 가능 | Slice 1 밖: provisional |
+
+관리자의 `밀치기`는 피해 1 / AP 2이며 1칸 knockback을 포함한다.
 
 ## Dagger movement
 

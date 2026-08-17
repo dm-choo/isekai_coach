@@ -62,23 +62,23 @@ sudo ./deploy/install-slice1.sh
 
 ```text
 intro reveal
-→ <내 턴>에서 밀치기
-→ <아군 턴>에서 궁수 투사체 2회
-→ <적 턴> 전환
-→ <내 턴>에서 WASD 이동
-→ 내려찍으로 광범위 공격 interrupt
-→ victory
-→ 관리자 봉인 해제
+→ <내 턴>에서 WASD로 제압 범위를 벗어나 plan 확정
+→ <아군 턴>에서 궁수가 포지셔닝 후 투사체 발사
+→ <적 턴>에서 수호자가 2칸 이동 후 제압 해결
+→ 다음 <내 턴>에서 WASD 접근 후 내려찍기로 외침 interrupt
+→ 세 번째 턴에 수호자가 하수인을 소환
+→ 다음 턴에 하수인이 원거리 동료를 향해 돌진
 ```
 
 이때 확인할 것:
 
 - 이동(WASD)과 공격 action bar가 서로 다른 입력으로 보이는가
 - `<내 턴>`, `<아군 턴>`, `<적 턴>` 배너와 실제 actor animation이 일치하는가
-- 짧은 타격의 BODY origin 이동, 궁수의 앞선 적 투사체, 광범위 공격의 stun interrupt가 화면에서 이해되는가
+- `제압`의 이동 경로와 1×1 공격 범위, 궁수의 앞선 적 투사체, `외침`의 stun interrupt가 화면에서 이해되는가
+- 소환된 하수인의 overhead Intent와 원거리 동료를 향한 `돌진` 인과가 읽히는가
 - console/page/request error가 0건인가
 
-정책 편집·reorder와 동일 상태 분석은 이 slice smoke 범위가 아니다. HTTP readiness나 service active만으로 플레이 흐름 완료를 주장하지 않는다.
+정책 편집·reorder와 동일 상태 분석은 이 slice smoke 범위가 아니다. 현재 자동 smoke는 소환과 하수인 등장까지를 검증하며, 수호자 처치와 봉인 해제는 별도의 완주 검증 전까지 완료를 주장하지 않는다. HTTP readiness나 service active만으로 플레이 흐름 완료를 주장하지 않는다.
 
 ## Current release evidence
 
