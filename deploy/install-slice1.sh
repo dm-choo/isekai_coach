@@ -37,7 +37,7 @@ case "${previous_release}" in
 esac
 
 stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-commit_id="$(git -C "${project_dir}" rev-parse --short HEAD 2>/dev/null || printf 'worktree')"
+commit_id="$(git -c safe.directory="${project_dir}" -C "${project_dir}" rev-parse --short HEAD 2>/dev/null || printf 'worktree')"
 release_dir="${release_root}/releases/${stamp}-${commit_id}-slice1"
 caddy_backup="${caddy_fragment}.bak.${stamp}-$$"
 fragment_installed=0
