@@ -1,6 +1,6 @@
 ---
 title: Policy Editor UX
-status: accepted
+status: under-validation
 last_updated: 2026-08-17
 related:
   - ../../gameplay/combat/policy/action-policy.md
@@ -9,6 +9,8 @@ related:
 ---
 
 # Policy editor UX
+
+이 문서는 Slice 1이 아닌 후속 policy-authoring experience의 방향이다. 현재 보스방에서는 fixed 5-slot 궁수 policy를 관찰만 하며 편집하지 않는다.
 
 - 최대 5개의 원자 행동 슬롯을 위에서 아래 우선순위로 보여준다.
 - 제출본 핵심 편집은 정책 순서 재배치다.

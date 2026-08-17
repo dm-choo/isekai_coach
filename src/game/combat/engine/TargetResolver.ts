@@ -28,15 +28,24 @@ export function resolveAbilityTargets(context: TargetResolutionContext): readonl
     return target ? [target.id] : [];
   }
 
-  return units
+  const occupants = units
     .filter(
       (unit) =>
         unit.hp > 0 &&
         unit.faction !== source.faction &&
         footprint.some((cell) => positionsEqual(cell, unit.position)),
     )
-    .sort(compareStableUnits)
-    .map((unit) => unit.id);
+    .sort(compareStableUnits);
+
+  if (ability.patternTargetMode === 'FIRST_IN_PATTERN') {
+    for (const cell of footprint) {
+      const target = occupants.find((unit) => positionsEqual(cell, unit.position));
+      if (target) return [target.id];
+    }
+    return [];
+  }
+
+  return occupants.map((unit) => unit.id);
 }
 
 function compareStableUnits(left: Unit, right: Unit): number {

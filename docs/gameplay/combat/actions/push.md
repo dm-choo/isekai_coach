@@ -8,7 +8,7 @@ related:
   - ../../../development/architecture/existing-scaffold-contract.md
 ---
 
-# Push
+# 밀치기 (Push)
 
 ## Accepted structure
 

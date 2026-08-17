@@ -41,6 +41,8 @@ export interface CharacterVisualConfig {
   readonly source?: VisualAssetSource;
   readonly displayName: string;
   readonly displaySize?: DisplaySize;
+  readonly nativeFacing?: 'LEFT' | 'RIGHT';
+  readonly silhouette?: 'ADMINISTRATOR' | 'ARCHER' | 'GUARDIAN' | 'LANCER' | 'RAIDER' | 'GENERIC';
   readonly palette: {
     readonly body: number;
     readonly accent: number;
@@ -74,6 +76,57 @@ const animationSet = (prefix: string): Record<UnitAnimationState, CharacterAnima
  * adapter to replace the generated placeholder.
  */
 export const CHARACTER_VISUALS: Record<string, CharacterVisualConfig> = {
+  administrator_slice_01: {
+    spriteKey: 'administrator_slice_01',
+    source: { type: 'IMAGE', url: 'assets/slice1/administrator.png' },
+    displayName: '관리자',
+    displaySize: { width: 250, height: 228 },
+    nativeFacing: 'RIGHT',
+    silhouette: 'ADMINISTRATOR',
+    palette: { body: 0x163c39, accent: 0xa8f5e5, shadow: 0x06120f },
+    animations: animationSet('administrator_slice_01'),
+  },
+  archer_slice_01: {
+    spriteKey: 'archer_slice_01',
+    source: { type: 'IMAGE', url: 'assets/slice1/archer.png' },
+    displayName: '원거리 동료',
+    displaySize: { width: 166, height: 249 },
+    nativeFacing: 'RIGHT',
+    silhouette: 'ARCHER',
+    palette: { body: 0x496035, accent: 0xe8bc62, shadow: 0x0d1309 },
+    animations: animationSet('archer_slice_01'),
+  },
+  barrier_guardian_slice_01: {
+    spriteKey: 'barrier_guardian_slice_01',
+    source: { type: 'IMAGE', url: 'assets/slice1/barrier-guardian.png' },
+    displayName: '결계 수호자',
+    displaySize: { width: 250, height: 375 },
+    nativeFacing: 'LEFT',
+    silhouette: 'GUARDIAN',
+    palette: { body: 0x3f4434, accent: 0xf17e3d, shadow: 0x080b07 },
+    animations: animationSet('barrier_guardian_slice_01'),
+  },
+  operator_slice_01: {
+    spriteKey: 'operator_slice_01',
+    displayName: 'Administrator',
+    silhouette: 'ADMINISTRATOR',
+    palette: { body: 0x17353d, accent: 0xcdf9ff, shadow: 0x071619 },
+    animations: animationSet('operator_slice_01'),
+  },
+  ally_lancer_slice_01: {
+    spriteKey: 'ally_lancer_slice_01',
+    displayName: 'Sera',
+    silhouette: 'LANCER',
+    palette: { body: 0x2a5361, accent: 0x9eeeff, shadow: 0x0b2027 },
+    animations: animationSet('ally_lancer_slice_01'),
+  },
+  enemy_raider_slice_01: {
+    spriteKey: 'enemy_raider_slice_01',
+    displayName: 'Rift Raider',
+    silhouette: 'RAIDER',
+    palette: { body: 0x5f2d32, accent: 0xff7f83, shadow: 0x210d10 },
+    animations: animationSet('enemy_raider_slice_01'),
+  },
   student_sprite_01: {
     spriteKey: 'student_sprite_01',
     displayName: 'Student',
@@ -99,6 +152,11 @@ export const CHARACTER_VISUALS: Record<string, CharacterVisualConfig> = {
     animations: animationSet('enemy_sprite_02'),
   },
 };
+
+export const SLICE_ENVIRONMENT = {
+  textureKey: 'slice1_jungle_barrier_room',
+  source: { type: 'IMAGE', url: 'assets/slice1/jungle-barrier-room.png' } as VisualAssetSource,
+} as const;
 
 export const VFX_VISUALS: Record<string, VfxVisualConfig> = {
   attack_fx_01: { textureKey: 'attack_fx_01', durationMs: 180, color: 0xfff0cb },

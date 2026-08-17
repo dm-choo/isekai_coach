@@ -59,7 +59,9 @@ related:
 
 부대와 시간 처리는 [Parties](../gameplay/operations/parties.md)와 [Shared world time](../gameplay/operations/world-time.md), 전투 연쇄는 [Turn and Intent](../gameplay/combat/turn-and-intent.md)가 소유한다.
 
-## Policy revision
+## Policy revision (post-Slice 1, under validation)
+
+이 단계는 Slice 1 public boss room의 범위가 아니다. 후속 build에서만 검증한다.
 
 1. 별동대 작전 채널에서 전투를 관전한다.
 2. 분석 모드로 전환한다.

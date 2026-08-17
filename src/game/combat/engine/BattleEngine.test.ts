@@ -22,6 +22,23 @@ import {
 } from '..';
 
 describe('BattleEngine turn contract', () => {
+  it('restores the exact simulation head after a what-if preview', () => {
+    const engine = new BattleEngine(createWarriorKnockbackScenario());
+    engine.beginTurn();
+    const stateBefore = engine.state;
+    const eventsBefore = engine.events;
+
+    const branch = engine.preview((preview) =>
+      preview.performStudentAction(knockbackAction('student-01', 'enemy-01', 'RIGHT')),
+    );
+
+    expect(branch.value.executable).toBe(true);
+    expect(branch.state).not.toEqual(stateBefore);
+    expect(branch.events.some((event) => event.type === 'UNIT_KNOCKED_BACK')).toBe(true);
+    expect(engine.state).toEqual(stateBefore);
+    expect(engine.events).toEqual(eventsBefore);
+  });
+
   it('declares locked intents before AP refill and rejects duplicate phase calls', () => {
     const engine = new BattleEngine(createWarriorKnockbackScenario());
 
@@ -462,7 +479,7 @@ function fakeUnit(
     maxHp: 5,
     ap: 0,
     maxAp: 2,
-    status: { guard: 0 },
+    status: { guard: 0, stunned: 0 },
     abilities: [],
     rank: 'NORMAL',
     spawnOrder,

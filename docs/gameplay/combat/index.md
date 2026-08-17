@@ -22,8 +22,8 @@ related:
 
 ## Status summary
 
-- **accepted**: 3행 가변 폭, locked Intent, BODY/GROUND, 사망 취소, 주인공 후보/동료 예측 턴, 제출본 무전투 RNG
-- **under-validation**: 창 관통과 보스 패턴
+- **accepted**: 3행 논리 topology, locked Intent, BODY/GROUND 계약, 사망·stun 취소, 관리자 수동/궁수 자동 턴, 제출본 무전투 RNG
+- **under-validation**: 보스 수치·패턴의 체감, 장기 무기 관통 규칙
 - **provisional**: 폭 10~12, 피해·AP와 현재 scaffold 샘플 수치
 - **deferred**: 추적 재조준 적, 확률 전투, 복잡한 조건 언어
 

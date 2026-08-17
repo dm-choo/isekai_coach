@@ -1,6 +1,7 @@
 import type { BattleState, CombatEvent, Intent } from '../../combat';
 import type { UnitAnimationState } from '../../assets/AssetManifest';
 import { BattleRenderer } from '../rendering/BattleRenderer';
+import type { BattlePredictionPresentation } from '../bridge/PresentationPort';
 
 const EVENT_DURATION_MS: Partial<Record<CombatEvent['type'], number>> = {
   TURN_STARTED: 180,
@@ -8,8 +9,9 @@ const EVENT_DURATION_MS: Partial<Record<CombatEvent['type'], number>> = {
   AP_REFILLED: 120,
   AP_SPENT: 90,
   UNIT_MOVED: 280,
-  ABILITY_USED: 300,
+  ABILITY_USED: 460,
   STATUS_APPLIED: 240,
+  STATUS_CONSUMED: 80,
   DAMAGE_DEALT: 260,
   DAMAGE_BLOCKED: 260,
   UNIT_KNOCKED_BACK: 330,
@@ -37,6 +39,14 @@ export class AnimationDirector {
 
   public settle(state: BattleState): void {
     this.renderer.sync(state);
+  }
+
+  public setPrediction(prediction: BattlePredictionPresentation | null): void {
+    this.renderer.setPrediction(prediction);
+  }
+
+  public playSealUnlock(signal: AbortSignal): Promise<void> {
+    return this.renderer.playSealUnlock(signal);
   }
 
   public async present(
@@ -88,17 +98,28 @@ export class AnimationDirector {
           ? 'defend'
           : 'attack';
         this.renderer.getUnit(event.sourceId)?.setAnimationState(state);
-        await Promise.all([
-          this.renderer.pulseUnit(event.sourceId, duration, signal),
-          this.renderer.showVfx(event.sourceId, 'attack_fx_01', duration, signal),
-        ]);
+        await this.renderer.animateAbility(
+          event.sourceId,
+          event.abilityId,
+          event.targetId,
+          duration,
+          signal,
+        );
         this.renderer.getUnit(event.sourceId)?.returnToIdle();
         break;
       }
       case 'STATUS_APPLIED':
         this.renderer.getUnit(event.targetId)?.setAnimationState('defend');
-        await this.renderer.wait(duration, signal);
+        await this.renderer.showStatus(
+          event.targetId,
+          event.status === 'STUN' ? '스턴 · 행동 중단' : '방어',
+          duration,
+          signal,
+        );
         this.renderer.getUnit(event.targetId)?.returnToIdle();
+        break;
+      case 'STATUS_CONSUMED':
+        await this.renderer.wait(duration, signal);
         break;
       case 'DAMAGE_DEALT':
         this.renderer.setUnitHp(event.targetId, event.hpAfter);

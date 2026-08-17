@@ -4,6 +4,7 @@ status: accepted
 last_updated: 2026-08-17
 related:
   - scope.md
+  - vertical-slice.md
   - first-15-minutes.md
   - sector-1-golden-run.md
   - acceptance-criteria.md
@@ -18,13 +19,14 @@ OpenAI Game Builders Seoul 제출용 Web Build가 전체 게임 설계에서 선
 ## Canonical documents
 
 - [Scope](./scope.md): 제출 콘텐츠와 제외 범위
+- [Core vertical slice](./vertical-slice.md): 전체 구현 전에 검증할 승인된 좁은 제작 범위, 목표 경험과 가설
 - [First 15 minutes](./first-15-minutes.md): 코어 체험형 데모 범위
 - [Sector 1 golden run](./sector-1-golden-run.md): 첫 섹터의 대표 진행 순서
 - [Acceptance criteria](./acceptance-criteria.md): 제출본 완료 판정
 
 ## Status summary
 
-- **accepted**: 첫 15분의 약속, 첫 섹터 완결 순서, 세 가지 목표 체험
-- **under-validation**: 총 25~40분 예상, 첫 근접 행동, 결계 수호자 패턴과 정확한 밸런스
+- **accepted**: Amazon Barrier Guardian 수직 슬라이스 우선 구현, scene-first 전투 UX, 관리자·궁수·수호자 역할과 턴 흐름
+- **under-validation**: 실제 사용성·타격감·보스 패턴의 정확한 밸런스, 첫 섹터 총 플레이 시간
 - **provisional**: 개별 거리·피해·AP·적재 수치
 - **deferred**: 다음 섹터, 장기 정책 언어, 고급 분석·진행 시스템과 최종 타이틀

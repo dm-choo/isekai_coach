@@ -12,7 +12,9 @@ related:
 
 # Combat view art
 
-- [Grid](./grid.md)
+전투 화면은 `장면 우선 + 큰 실루엣 + 필요한 순간의 signal`을 사용한다. 참고 이미지는 [reference screenshot index](../../../images/reference_screenshot/README.md)에 출처와 함께 보관한다.
+
+- [Ground and grid](./grid.md)
 - [Health and AP](./health-and-ap.md)
 - [Intent and ally prediction](./intent-and-ally-prediction.md)
 - [Action bar and policy label](./action-bar-and-policy-label.md)

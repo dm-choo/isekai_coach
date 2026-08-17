@@ -10,6 +10,7 @@ export interface EffectResolutionPort {
   applyDamage(sourceId: UnitId, targetId: UnitId, amount: number, threat: ThreatCategory): void;
   applyGuard(sourceId: UnitId, targetId: UnitId, amount: number): void;
   applyKnockback(sourceId: UnitId, targetId: UnitId, direction: Direction, distance: number): boolean;
+  applyStun(sourceId: UnitId, targetId: UnitId, turns: number): void;
 }
 
 export interface EffectResolutionContext {
@@ -54,6 +55,9 @@ function applyEffect(
       break;
     case 'KNOCKBACK':
       port.applyKnockback(sourceId, targetId, direction, effect.distance);
+      break;
+    case 'STUN':
+      port.applyStun(sourceId, targetId, effect.turns);
       break;
   }
 }

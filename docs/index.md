@@ -5,6 +5,7 @@ last_updated: 2026-08-17
 related:
   - _meta/documentation-governance.md
   - submission/scope.md
+  - research/index.md
 ---
 
 # Isekai Coach canonical documentation
@@ -22,10 +23,14 @@ related:
 - [ADR](./adr/index.md): 구조적 결정과 대안
 - [Templates](./_templates/index.md): canonical 문서와 ADR 작성 형식
 
+## Decision support
+
+- [Research](./research/index.md): 외부 근거, 현재 아이디어 비평과 플레이테스트 가설. 정본 계약을 직접 소유하지 않으며, 채택된 결론은 해당 canonical owner나 ADR로 옮긴다.
+
 ## Status summary
 
-- **accepted**: 전투 공간·Intent·결정론, action-policy 우선순위, 섹터 탐색, 본대/별동대, 공유 월드 시간, 작전 채널, 첫 섹터 제출 구조, 핵심 UX·아트 방향
-- **under-validation**: 총 플레이 시간, 재침식 시간, 창 관통, 작업 프리셋 UI, 결계 수호자 패턴, 일부 첫 전투 행동
+- **accepted**: 전투 공간·Intent·결정론, action-policy 우선순위 계약, 섹터 탐색, 본대/별동대, 공유 월드 시간, 작전 채널, 첫 섹터 제출 구조, Slice 1 scene-first UX·아트 방향
+- **under-validation**: Slice 1 실제 전투 UX·타격감, 총 플레이 시간, 재침식 시간, 창 관통, 작업 프리셋 UI와 결계 수호자 수치
 - **provisional**: 맵 크기·거리, 피해/AP, 자원·적재 슬롯 수와 scaffold 샘플 값
 - **deferred**: 장기 정책 언어 구현, 고급 리플레이 편집, 행동 모델 추론, 다음 섹터와 완제품 시스템
 

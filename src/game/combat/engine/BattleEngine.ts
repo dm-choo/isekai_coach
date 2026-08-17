@@ -4,6 +4,7 @@ import type {
   ActionFailureReason,
   ActionResult,
   BattleEngineOptions,
+  BattlePreview,
   BattleMapConfig,
   BattleOutcome,
   BattlePhase,
@@ -116,6 +117,38 @@ export class BattleEngine {
 
   public getEvents(): readonly CombatEvent[] {
     return this.eventHistory.map(cloneEvent);
+  }
+
+  /**
+   * Runs a synchronous what-if branch and restores the exact simulation head.
+   * It is intended for deterministic UI prediction and never exposes mutable
+   * state or lets preview events leak into the authoritative history.
+   */
+  public preview<T>(run: (engine: BattleEngine) => T): BattlePreview<T> {
+    const checkpoint = {
+      units: this.units.map(cloneUnit),
+      intents: this.intents.map(cloneIntent),
+      eventHistory: this.eventHistory.map(cloneEvent),
+      turn: this.turn,
+      phase: this.phase,
+      outcome: this.outcome,
+    };
+    const eventStart = this.eventHistory.length;
+    try {
+      const value = run(this);
+      return {
+        value,
+        state: this.getState(),
+        events: this.eventsSince(eventStart),
+      };
+    } finally {
+      this.units = checkpoint.units;
+      this.intents = checkpoint.intents;
+      this.eventHistory = checkpoint.eventHistory;
+      this.turn = checkpoint.turn;
+      this.phase = checkpoint.phase;
+      this.outcome = checkpoint.outcome;
+    }
   }
 
   /** Locks all living enemy intents before refilling student AP. */
@@ -242,6 +275,7 @@ export class BattleEngine {
     }
 
     this.recomputeOutcome();
+    this.consumeTurnStatuses();
     this.emit({ type: 'TURN_ENDED', outcome: this.outcome });
     this.phase = this.outcome === 'ONGOING' ? 'READY' : 'BATTLE_ENDED';
     return this.eventsSince(eventStart);
@@ -301,6 +335,12 @@ export class BattleEngine {
     if (ability.targeting === 'UNIT') {
       const target = action.targetId ? this.findUnit(action.targetId) : undefined;
       if (!target || target.hp <= 0 || target.id === actor.id) return 'INVALID_TARGET';
+      if (
+        ability.range !== undefined &&
+        manhattanDistance(actor.position, target.position) > ability.range
+      ) {
+        return 'INVALID_TARGET';
+      }
       const knockbacks = ability.effects.filter((effect) => effect.type === 'KNOCKBACK');
       const displacementOnly = knockbacks.length > 0 && knockbacks.length === ability.effects.length;
       if (displacementOnly) {
@@ -459,6 +499,7 @@ export class BattleEngine {
         applyGuard: (sourceId, targetId, amount) => this.applyGuard(sourceId, targetId, amount),
         applyKnockback: (sourceId, targetId, effectDirection, distance) =>
           this.applyKnockback(sourceId, targetId, effectDirection, distance),
+        applyStun: (sourceId, targetId, turns) => this.applyStun(sourceId, targetId, turns),
       },
     });
   }
@@ -477,6 +518,39 @@ export class BattleEngine {
       status: 'GUARD',
       amount: applied,
     });
+  }
+
+  private applyStun(sourceId: string, targetId: string, turns: number): void {
+    const applied = Math.max(0, Math.floor(turns));
+    const target = this.findUnit(targetId);
+    if (!target || target.hp <= 0 || applied <= 0) return;
+    this.replaceUnit(targetId, (unit) => ({
+      ...unit,
+      status: { ...unit.status, stunned: Math.max(unit.status.stunned, applied) },
+    }));
+    this.emit({ type: 'STATUS_APPLIED', sourceId, targetId, status: 'STUN', amount: applied });
+    const intent = this.intents.find((candidate) => candidate.sourceId === targetId);
+    const intentAbility = intent?.abilityId ? getAbility(intent.abilityId) : undefined;
+    if (intent && intentAbility?.interruptible !== false) {
+      this.cancelIntent(intent.id, 'SOURCE_STUNNED');
+    }
+  }
+
+  private consumeTurnStatuses(): void {
+    for (const unit of this.units) {
+      if (unit.status.stunned <= 0) continue;
+      const consumed = unit.status.stunned;
+      this.replaceUnit(unit.id, (current) => ({
+        ...current,
+        status: { ...current.status, stunned: 0 },
+      }));
+      this.emit({
+        type: 'STATUS_CONSUMED',
+        targetId: unit.id,
+        status: 'STUN',
+        amount: consumed,
+      });
+    }
   }
 
   private applyDamage(
@@ -596,7 +670,10 @@ export class BattleEngine {
     return source ? this.calculateBodyCells(intent, source) : [];
   }
 
-  private cancelIntent(intentId: string, reason: 'SOURCE_DIED' | 'BATTLE_ENDED'): void {
+  private cancelIntent(
+    intentId: string,
+    reason: 'SOURCE_DIED' | 'SOURCE_STUNNED' | 'BATTLE_ENDED',
+  ): void {
     const intent = this.intents.find((candidate) => candidate.id === intentId);
     if (!intent) return;
     this.removeIntent(intentId);
@@ -701,7 +778,10 @@ function createUnit(definition: UnitDefinition, index: number): Unit {
     maxHp,
     ap: Math.max(0, Math.min(maxAp, Math.floor(definition.ap ?? 0))),
     maxAp,
-    status: { guard: Math.max(0, Math.floor(definition.status?.guard ?? 0)) },
+    status: {
+      guard: Math.max(0, Math.floor(definition.status?.guard ?? 0)),
+      stunned: Math.max(0, Math.floor(definition.status?.stunned ?? 0)),
+    },
     abilities: [...definition.abilities],
     rank: definition.rank ?? 'NORMAL',
     spawnOrder: definition.spawnOrder ?? index,

@@ -16,7 +16,7 @@ implementation:
 
 ## Accepted contract
 
-- 전투는 3행 기반 가변 너비 논리 grid에서 진행한다.
+- 전투는 3행 기반 논리 grid에서 진행하며 Slice 1 topology는 `12 x 3`이다.
 - 논리 `GridPosition`과 화면 projection을 분리한다.
 - 주인공, 동료와 적은 같은 경계·점유·이동 규칙을 사용한다.
 - 기본 이동은 상하좌우 인접 셀이고 대각선, 경계 밖, 점유 셀 이동은 허용하지 않는다.
@@ -25,8 +25,8 @@ implementation:
 
 ## Provisional
 
-- 제출본 전투 폭 후보는 10~12칸이다.
-- 현재 scaffold 검증 맵은 `12 × 3`이며 최종 전장 크기가 아니다.
+- `12 x 3`을 화면에 몇 열까지 frame할지, event zoom과 empty-area cropping의 정확한 수치는 under-validation이다.
+- 최종 게임의 전장 폭과 다수 unit 배치는 별도 콘텐츠 결정이다.
 
 ## Ownership boundaries
 

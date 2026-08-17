@@ -4,6 +4,7 @@ status: accepted
 last_updated: 2026-08-17
 implementation:
   - src/game/combat/
+  - src/game/slice/
   - src/game/phaser/
   - src/game/assets/
 related:

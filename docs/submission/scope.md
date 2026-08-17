@@ -3,6 +3,7 @@ title: Web Build Submission Scope
 status: accepted
 last_updated: 2026-08-17
 related:
+  - vertical-slice.md
   - first-15-minutes.md
   - sector-1-golden-run.md
   - acceptance-criteria.md
@@ -24,6 +25,8 @@ related:
 3. [시설과 장비를 복구해 결계를 돌파하는 진행](../gameplay/economy/index.md)
 
 보조 경험은 주인공과 동료의 공간 협동, 본대·별동대를 위임하는 관리자 감각, 작전 기록을 분석해 정책을 개선하는 유능감, 비콘과 횃불로 진척을 세계에 고정하는 복원감이다. 각 규칙은 아래 포함 범위의 canonical owner가 소유한다.
+
+첫 구현 milestone은 전체 범위를 동시에 만드는 대신 [Core vertical slice](./vertical-slice.md)에서 보스방 장면, 턴 주체, 이동·공격 분리, Intent·애니메이션 인과와 관리자 봉인 해제를 먼저 검증한다. Slice 1에서는 policy 편집·정책 수정 전이를 구현하거나 검증하지 않는다. 이 제작 순서는 승인됐지만 목표 경험의 성립 여부는 플레이테스트 전까지 under-validation이다.
 
 ## Included canonical systems
 
@@ -52,5 +55,5 @@ related:
 ## Under validation
 
 - 첫 섹터 전체 플레이 시간은 약 25~40분을 예상하지만 플레이테스트로 확정한다.
-- 첫 근접 행동의 명칭·수치와 [결계 수호자](./sector-1-golden-run.md#under-validation)는 확정하지 않는다.
+- Slice 1 public 행동 이름은 `회피`, `포지셔닝`, `사격`, `밀치기`, `내려찍`으로 고정한다. 피해·AP·정확한 보스 패턴 수치는 플레이테스트로 보정한다.
 - 실제 resource·cargo·combat 수치는 각 canonical owner의 provisional 데이터로 조정한다.

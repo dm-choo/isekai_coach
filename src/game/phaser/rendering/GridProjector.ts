@@ -18,12 +18,12 @@ export interface GridProjectionConfig {
 }
 
 export const DEFAULT_GRID_PROJECTION: GridProjectionConfig = {
-  origin: { x: 76, y: 180 },
-  columnStep: 73,
-  rowStep: 84,
-  rowSkew: 15,
-  cellWidth: 68,
-  cellHeight: 72,
+  origin: { x: 130, y: 430 },
+  columnStep: 135,
+  rowStep: 70,
+  rowSkew: 18,
+  cellWidth: 128,
+  cellHeight: 52,
 };
 
 /** Logical coordinates stay independent from the replaceable side-view projection. */

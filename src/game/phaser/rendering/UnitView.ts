@@ -34,25 +34,33 @@ export class UnitView {
   ) {
     this.visual = getCharacterVisual(unit.visualKey, unit.faction);
     this.container = scene.add.container(world.x, world.y);
-    this.container.setDepth(20 + unit.position.y);
+    this.container.setDepth(30 + unit.position.y * 10);
 
-    const shadow = scene.add.ellipse(0, 25, 46, 13, this.visual.palette.shadow, 0.5);
+    const guardian = this.visual.silhouette === 'GUARDIAN';
+    const visualHeight = this.visual.displaySize?.height ?? 96;
+    const barWidth = guardian ? 112 : 68;
+    const labelY = -visualHeight + 12;
+    const shadow = scene.add.ellipse(0, 27, guardian ? 142 : 82, guardian ? 27 : 19, 0x050704, 0.58);
     this.unitVisual = createUnitVisual(scene, this.visual);
     this.nameLabel = scene.add
-      .text(0, -46, this.visual.displayName, {
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '12px',
-        color: '#ecf4ff',
+      .text(0, labelY, this.visual.displayName, {
+        fontFamily: '"Pretendard Variable", system-ui, sans-serif',
+        fontSize: guardian ? '16px' : '13px',
+        color: guardian ? '#ffe2bd' : '#f5f0dc',
         fontStyle: 'bold',
+        stroke: '#07100b',
+        strokeThickness: 5,
       })
       .setOrigin(0.5);
-    this.hpBackground = scene.add.rectangle(0, 35, 48, 6, 0x17202b, 1);
-    this.hpFill = scene.add.rectangle(-24, 35, 48, 6, 0x63df8b, 1).setOrigin(0, 0.5);
+    this.hpBackground = scene.add.rectangle(0, labelY + 22, barWidth + 4, 9, 0x120d09, 0.92);
+    this.hpFill = scene.add.rectangle(-barWidth / 2, labelY + 22, barWidth, 5, guardian ? 0xdf6b37 : 0x70c88b, 1).setOrigin(0, 0.5);
     this.apLabel = scene.add
-      .text(0, 44, '', {
+      .text(0, 38, '', {
         fontFamily: 'ui-monospace, monospace',
-        fontSize: '10px',
-        color: '#7ed8ff',
+        fontSize: '12px',
+        color: '#e9c96f',
+        stroke: '#0b0c08',
+        strokeThickness: 3,
       })
       .setOrigin(0.5, 0);
 
@@ -79,12 +87,13 @@ export class UnitView {
   public setHp(hp: number, maxHp = this.maxHp): void {
     this.maxHp = maxHp;
     const hpRatio = Math.max(0, Math.min(1, hp / Math.max(maxHp, 1)));
-    this.hpFill.displayWidth = 48 * hpRatio;
-    this.hpFill.setFillStyle(hpRatio <= 0.4 ? 0xff786b : 0x63df8b);
+    const barWidth = this.visual.silhouette === 'GUARDIAN' ? 112 : 68;
+    this.hpFill.displayWidth = barWidth * hpRatio;
+    this.hpFill.setFillStyle(hpRatio <= 0.35 ? 0xe14f3f : this.visual.silhouette === 'GUARDIAN' ? 0xdf6b37 : 0x70c88b);
   }
 
   public setAp(ap: number, maxAp: number, visible = true): void {
-    this.apLabel.setText(visible ? `AP ${ap}/${maxAp}` : '');
+    this.apLabel.setText(visible && maxAp > 0 ? `${'◆'.repeat(ap)}${'◇'.repeat(Math.max(0, maxAp - ap))}` : '');
   }
 
   public setAnimationState(state: UnitAnimationState): void {
@@ -104,7 +113,7 @@ export class UnitView {
   }
 
   public setGridDepth(row: number): void {
-    this.container.setDepth(20 + row);
+    this.container.setDepth(30 + row * 10);
   }
 
   public destroy(): void {

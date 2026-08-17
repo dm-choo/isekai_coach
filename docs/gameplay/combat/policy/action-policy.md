@@ -36,12 +36,16 @@ related:
 
 다른 무기도 같은 구조에 해당 무기 행동을 삽입한다. 기본 순서가 항상 최적이 되도록 설계하지 않는다.
 
-## First tutorial policy
+## First tutorial policy (post-Slice 1, under validation)
 
-단검 동료는 `회피 → 포지셔닝 → 비껴 찌르기 → 밀치기`로 시작한다. 첫 자동전투는 승리하지만 비효율적이다. 분석 뒤 플레이어는 순서를 `비껴 찌르기 → 회피 → 포지셔닝 → 밀치기`로 바꾼다.
+단검 동료는 `회피 → 포지셔닝 → 비껴 찌르기 → 밀치기`로 시작한다. 첫 자동전투는 승리하지만 비효율적이다. 분석 뒤 플레이어는 순서를 `비껴 찌르기 → 회피 → 포지셔닝 → 밀치기`로 바꾼다. 이 정책 편집 curriculum은 Slice 1 보스방에 포함하지 않는다.
 
 다음 실제 자동전투에서는 동료가 먼저 찌르고 무료 행 이동으로 locked enemy footprint를 벗어난다. 이전 전투보다 턴, 시간과 피해가 감소해야 하며 과거 기록은 바뀌지 않는다. 자연어 예측 문장으로 실제 결과 비교를 대신하지 않는다. 튜토리얼의 시점과 화면 흐름은 [첫 15분](../../../submission/first-15-minutes.md)이 소유한다.
 
 ## Explicit exclusions
 
 제출본에는 자유 조건식, AND/OR, 자연어 정책, node graph와 복잡한 priority editor가 없다.
+
+## Slice 1 boundary
+
+[Amazon Barrier Guardian slice](../../../submission/vertical-slice.md)는 활 동료의 `회피 → 포지셔닝 → 사격 → 밀치기 → 빈 슬롯`을 실행하지만 편집하지 않는다. 전투 중에는 현재 선택된 전술과 짧은 이유만 보여 주고, 전체 판정표나 정책 dashboard를 놓지 않는다. 이 전투의 목표는 policy editor 검증이 아니라 실제 전투 UI·UX 마찰 탐색이다.

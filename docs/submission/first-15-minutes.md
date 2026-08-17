@@ -11,7 +11,7 @@ related:
 
 # First 15 minutes
 
-첫 15분은 엔딩이 아니라 플레이어가 게임의 약속을 이해하는 코어 체험형 데모다. 연출과 화면 전환은 [First 15 minutes UX](../ux/flows/first-15-minutes.md)가 소유한다.
+이 문서는 전체 submission을 위한 후속 flow다. 현재 구현·검증의 진입점은 별도의 [Amazon Barrier Guardian Slice 1](./vertical-slice.md)이며, 그 slice에서는 아래 15분 curriculum과 policy 편집을 실행하지 않는다. 연출과 화면 전환은 [First 15 minutes UX](../ux/flows/first-15-minutes.md)가 소유한다.
 
 플레이어는 15분 안에 다음 순서의 경험을 완료해야 한다.
 

@@ -2,7 +2,10 @@ import * as Phaser from 'phaser';
 import type { BattleState, CombatEvent } from '../../combat';
 import { AnimationDirector } from '../animation/AnimationDirector';
 import { preloadVisualAssets, registerVisualAnimations } from '../assets/VisualAssetLoader';
-import type { PresentationPort } from '../bridge/PresentationPort';
+import type {
+  BattlePredictionPresentation,
+  PresentationPort,
+} from '../bridge/PresentationPort';
 import { BattleRenderer } from '../rendering/BattleRenderer';
 
 export class BattleScene extends Phaser.Scene {
@@ -83,6 +86,15 @@ class PhaserPresentationPort implements PresentationPort {
     if (this.destroyed) return;
     this.scene.tweens.timeScale = multiplier;
     this.scene.time.timeScale = multiplier;
+  }
+
+  public setPrediction(prediction: BattlePredictionPresentation | null): void {
+    if (!this.destroyed) this.director.setPrediction(prediction);
+  }
+
+  public playSealUnlock(signal: AbortSignal): Promise<void> {
+    if (this.destroyed) return Promise.resolve();
+    return this.director.playSealUnlock(signal);
   }
 
   public destroy(): void {

@@ -20,6 +20,8 @@ export type ThreatCategory = 'NORMAL_ATTACK' | 'UNBLOCKABLE_ATTACK';
 export interface UnitStatus {
   /** Remaining mitigation for the next blockable hit. */
   readonly guard: number;
+  /** Remaining turns during which a declared intent is interrupted. */
+  readonly stunned: number;
 }
 
 /** A shared runtime model is used for students and enemies. */
@@ -82,7 +84,13 @@ export interface KnockbackEffect {
   readonly distance: number;
 }
 
-export type AbilityEffect = DamageEffect | GuardEffect | KnockbackEffect;
+export interface StunEffect {
+  readonly type: 'STUN';
+  readonly turns: number;
+}
+
+export type PatternTargetMode = 'ALL' | 'FIRST_IN_PATTERN';
+export type AbilityEffect = DamageEffect | GuardEffect | KnockbackEffect | StunEffect;
 export type AbilityTargeting = 'SELF' | 'PATTERN' | 'UNIT';
 
 export interface AbilityDefinition {
@@ -94,6 +102,16 @@ export interface AbilityDefinition {
   readonly effects: readonly AbilityEffect[];
   readonly intentAnchor?: IntentAnchor;
   readonly threat?: ThreatCategory;
+  /** Maximum Manhattan distance for UNIT targeting. */
+  readonly range?: number;
+  /** Minimum distance used by ranged abilities and policy positioning. */
+  readonly minimumRange?: number;
+  /** PATTERN attacks default to all occupants; projectiles stop at the first cell hit. */
+  readonly patternTargetMode?: PatternTargetMode;
+  /** Explicit false means a stun does not cancel the already locked intent. */
+  readonly interruptible?: boolean;
+  /** Agreed design metadata. Tags explain an action; they do not gate execution. */
+  readonly tags?: readonly string[];
   /** Developer scaffolding, not a player-facing combat-design commitment. */
   readonly provisional?: boolean;
 }
@@ -191,7 +209,14 @@ export interface StatusAppliedEvent extends EventBase {
   readonly type: 'STATUS_APPLIED';
   readonly sourceId: UnitId;
   readonly targetId: UnitId;
-  readonly status: 'GUARD';
+  readonly status: 'GUARD' | 'STUN';
+  readonly amount: number;
+}
+
+export interface StatusConsumedEvent extends EventBase {
+  readonly type: 'STATUS_CONSUMED';
+  readonly targetId: UnitId;
+  readonly status: 'STUN';
   readonly amount: number;
 }
 
@@ -235,7 +260,7 @@ export interface IntentCancelledEvent extends EventBase {
   readonly type: 'INTENT_CANCELLED';
   readonly sourceId: UnitId;
   readonly intentId: string;
-  readonly reason: 'SOURCE_DIED' | 'BATTLE_ENDED';
+  readonly reason: 'SOURCE_DIED' | 'SOURCE_STUNNED' | 'BATTLE_ENDED';
 }
 
 export interface IntentResolvedEvent extends EventBase {
@@ -263,6 +288,7 @@ export type CombatEvent =
   | UnitMovedEvent
   | AbilityUsedEvent
   | StatusAppliedEvent
+  | StatusConsumedEvent
   | DamageBlockedEvent
   | DamageDealtEvent
   | UnitKnockedBackEvent
@@ -361,4 +387,10 @@ export interface BattleEngineOptions {
   readonly enemyStrategies?:
     | Readonly<Record<UnitId, EnemyIntentStrategy>>
     | ReadonlyMap<UnitId, EnemyIntentStrategy>;
+}
+
+export interface BattlePreview<T> {
+  readonly value: T;
+  readonly state: BattleState;
+  readonly events: readonly CombatEvent[];
 }

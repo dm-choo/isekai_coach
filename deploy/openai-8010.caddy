@@ -1,0 +1,28 @@
+# Shared origin for openai.ktwome.cc. The root OOH application remains the
+# fallback, while Isekai Coach owns only the /slice1/ namespace.
+http://:8010 {
+	bind 127.0.0.1
+	encode zstd gzip
+
+	handle_path /slice1/* {
+		root * /srv/ooh/current/slice1
+		try_files {path} /index.html
+		file_server
+	}
+
+	handle {
+		root * /srv/ooh/current
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		-Server
+		Cache-Control "public, no-transform"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), geolocation=(), microphone=(), payment=(), usb=()"
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+	}
+}

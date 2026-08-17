@@ -20,23 +20,20 @@ related:
 - `BODY` 공격은 source가 밀리면 현재 body 위치에서 선언 방향을 유지한 채 범위를 다시 투영한다.
 - `GROUND` 공격은 선언 당시 셀에 고정한다.
 - 밀린 짧은 공격은 빗나갈 수 있고, 같은 이동 뒤 긴 찌르기는 여전히 닿을 수 있다.
-- `NORMAL_ATTACK`과 `UNBLOCKABLE_ATTACK`은 별도 threat category다.
+- Slice 1의 public threat는 `짧은 타격`과 `광범위 공격`이다. 둘 다 임의의 방어/가드 분기 없이 Intent의 footprint와 중단 가능 여부를 읽게 한다.
+- stun은 확률이 아닌 확정 effect다. interruptible Intent의 source가 stun을 받으면 해당 Intent를 취소한다.
+- 모든 공격이 interruptible인 것은 아니다. 적 행동 데이터가 중단 가능 여부를 명시한다.
 
 화면 신호의 소유자는 [Combat view UX](../../ux/views/combat-view.md)와 [Intent art](../../art/ui/combat-view/intent-and-ally-prediction.md)다.
 
 ## Accepted turn sequence
 
-1. 적 Intent를 확정·표시한다.
-2. 동료의 현재 예상 행동을 계산·표시한다.
-3. 주인공이 행동 후보를 선택한다.
-4. 후보 상태에서 다수 동료의 행동 연쇄를 공개 실행 순서대로 시뮬레이션한다.
-5. 주인공 행동을 실행한다.
-6. 동료 예상 행동을 재계산한다.
-7. AP가 남으면 후보 선택부터 반복한다.
-8. 주인공 phase를 종료한다.
-9. 동료들이 공개된 실행 순서대로 자동 행동한다.
-10. 살아 있는 적의 locked Intent를 해결한다.
-11. 상태, 사망과 위치를 정산한다.
+1. 살아 있는 적의 Intent를 안정적인 순서로 확정·표시한다.
+2. `<내 턴>`에 주인공이 이동과 공격을 별개로 선택한다. AP가 남으면 계속 행동하거나 턴을 끝낸다.
+3. `<아군 턴>`에 동료들이 공개된 순서와 policy로 자동 행동한다.
+4. 실행 가능한 첫 policy를 행동하고 AP가 남으면 첫 슬롯부터 다시 평가한다.
+5. `<적 턴>`에 살아 있고 중단되지 않은 locked Intent를 해결한다.
+6. 상태, 사망, Intent 취소와 위치를 정산하고 다음 턴을 시작한다.
 
 동료 실행 순서는 장기적으로 커스텀할 수 있어야 한다. 제출본 본대는 동료 1명이므로 순서 UI의 실질적 사용은 제한될 수 있지만, 엔진 계약은 다수 동료의 순차 예측을 수용한다.
 
@@ -46,4 +43,4 @@ related:
 
 ## Implementation alignment
 
-현재 scaffold는 locked enemy Intent와 단일 student strategy 실행을 검증하지만, 주인공 후보 상태와 동료 prediction/execution 분리는 아직 구현하지 않았다. 구현 사실은 [existing scaffold contract](../../development/architecture/existing-scaffold-contract.md)가 소유한다.
+현재 Slice 1은 관리자와 동료를 domain faction `STUDENT`로 공유하되 controller에서 수동·자동 phase를 분리한다. 작업 후보별 전체 동료 미리보기는 현재 public combat view에 노출하지 않는다. 구현 사실은 [existing scaffold contract](../../development/architecture/existing-scaffold-contract.md)가 소유한다.
