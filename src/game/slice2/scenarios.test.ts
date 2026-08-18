@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BattleEngine, moveAction } from '../combat';
+import { BattleEngine, moveAction, slamAction } from '../combat';
 import { createEncounterSpec, createSlice2EncounterScenario } from './scenarios';
 
 describe('Slice 2 goblin encounters', () => {
@@ -39,8 +39,55 @@ describe('Slice 2 goblin encounters', () => {
       action: { targetId: 'archer-companion-slice2' },
     });
     engine.resolveEnemyIntents();
+    const archerEvents = engine.events.filter((event) =>
+      (event.type === 'UNIT_MOVED' && event.unitId === 'goblin-archer') ||
+      (event.type === 'ABILITY_USED' && event.sourceId === 'goblin-archer'));
+    expect(archerEvents.map((event) => event.type)).toEqual(['UNIT_MOVED', 'ABILITY_USED']);
     expect(engine.state.units.find((unit) => unit.id === 'goblin-archer')?.position).toEqual({ x: 10, y: 0 });
     expect(engine.state.units.find((unit) => unit.id === 'archer-companion-slice2')?.hp).toBe(11);
+  });
+
+  it('turns a melee pursuer around and reacquires targets after passing to their left', () => {
+    const base = createSlice2EncounterScenario('turn-around', 'GOBLIN_WARRIOR', { administratorHp: 14, allyHp: 12 });
+    const scenario = {
+      ...base,
+      units: base.units.map((unit) => unit.id === 'goblin-warrior'
+        ? { ...unit, position: { x: 0, y: 1 }, facing: 'LEFT' as const }
+        : unit),
+    };
+    const engine = new BattleEngine(scenario);
+    engine.beginTurn();
+
+    expect(engine.state.intents[0]).toMatchObject({ direction: 'RIGHT', action: { targetId: 'administrator-slice2' } });
+    engine.resolveEnemyIntents();
+    expect(engine.state.units.find((unit) => unit.id === 'goblin-warrior')).toMatchObject({ facing: 'RIGHT' });
+    expect(engine.state.units.find((unit) => unit.id === 'administrator-slice2')?.hp).toBe(12);
+  });
+
+  it('updates student facing from movement and alternates bomber ground targets by turn', () => {
+    const engine = new BattleEngine(createSlice2EncounterScenario('adaptive-bomb', 'GOBLIN_BOMBER', { administratorHp: 14, allyHp: 12 }));
+    engine.beginTurn();
+    const firstOrigin = engine.state.intents[0]?.origin;
+    expect(engine.performStudentAction(moveAction('administrator-slice2', { x: 2, y: 1 })).executable).toBe(true);
+    expect(engine.state.units.find((unit) => unit.id === 'administrator-slice2')?.facing).toBe('LEFT');
+    engine.resolveEnemyIntents();
+    engine.beginTurn();
+    const secondOrigin = engine.state.intents[0]?.origin;
+    expect(secondOrigin).not.toEqual(firstOrigin);
+  });
+
+  it('faces a student toward the selected target before using an ability', () => {
+    const base = createSlice2EncounterScenario('student-facing', 'GOBLIN_BOMBER', { administratorHp: 14, allyHp: 12 });
+    const scenario = {
+      ...base,
+      units: base.units.map((unit) => unit.id === 'goblin-bomber'
+        ? { ...unit, position: { x: 4, y: 1 } }
+        : unit),
+    };
+    const engine = new BattleEngine(scenario);
+    engine.beginTurn();
+    expect(engine.performStudentAction(slamAction('administrator-slice2', 'goblin-bomber', 'RIGHT')).executable).toBe(true);
+    expect(engine.state.units.find((unit) => unit.id === 'administrator-slice2')?.facing).toBe('RIGHT');
   });
 
   it('uses the shared AP grammar and gives the melee goblin three HP', () => {

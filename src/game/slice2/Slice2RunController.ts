@@ -25,7 +25,7 @@ import {
   type WorldTileState,
 } from './world';
 
-export type Slice2Mode = 'INTRO' | 'EXPLORE' | 'COMBAT' | 'POLICY_REVIEW' | 'VICTORY' | 'DEFEAT';
+export type Slice2Mode = 'INTRO' | 'EXPLORE' | 'COMBAT' | 'VICTORY' | 'DEFEAT';
 
 export interface ExpeditionSupplies {
   readonly water: number;
@@ -52,7 +52,6 @@ export interface Slice2RunSnapshot {
   readonly elapsedBattleTurns: number;
   readonly elapsedEventMinutes: number;
   readonly policy: readonly SlicePolicyId[];
-  readonly policyChanged: boolean;
   readonly notice: string;
   readonly combat?: SliceSnapshot;
   readonly currentEncounter?: WorldEncounter;
@@ -81,7 +80,6 @@ export interface CorridorTraversal {
 
 type Listener = () => void;
 
-const AGGRESSIVE_POLICY: readonly SlicePolicyId[] = ['SHOOT', 'EVADE', 'POSITION', 'PUSH', 'EMPTY'];
 export const SLICE2_START_MINUTE = 10 * 60;
 export const SLICE2_LATE_START_MINUTE = 17 * 60;
 export const NIGHT_START_MINUTE = 18 * 60;
@@ -91,6 +89,10 @@ export const EVENT_MINUTES = 5;
 export const REST_MINUTES = 20;
 export const REST_HEALING = 3;
 export const MAX_CARRIED_SUPPLY = 2;
+
+export function rootSnareHpAfter(hp: number): number {
+  return hp > 1 ? hp - 1 : Math.max(0, hp);
+}
 
 interface EncounterCheckpoint {
   readonly vitals: ExpeditionVitals;
@@ -114,7 +116,6 @@ export class Slice2RunController {
   private supplies: ExpeditionSupplies = { water: 1, food: 1, light: 1 };
   private restCount = 0;
   private policy: readonly SlicePolicyId[] = [...DEFAULT_SLICE_POLICY];
-  private policyChanged = false;
   private notice = '네 개의 월드 타일을 지나 고블린 봉쇄선을 돌파한다.';
   private combat: SliceController | null = null;
   private combatUnsubscribe: (() => void) | null = null;
@@ -231,20 +232,18 @@ export class Slice2RunController {
       this.publish();
       return;
     }
-    if (this.currentTileIndex === 1 && !this.policyChanged) {
-      this.mode = 'POLICY_REVIEW';
-      this.notice = '두 타일의 기록을 바탕으로 동료 전술 순서를 한 번 조정한다.';
-      this.publish();
-      return;
-    }
     this.enterNextTile();
   };
 
-  public choosePolicy = (kind: 'KEEP' | 'AGGRESSIVE'): void => {
-    if (this.mode !== 'POLICY_REVIEW') return;
-    this.policy = kind === 'AGGRESSIVE' ? [...AGGRESSIVE_POLICY] : [...DEFAULT_SLICE_POLICY];
-    this.policyChanged = true;
-    this.enterNextTile();
+  public movePolicy = (index: number, offset: -1 | 1): void => {
+    if (this.mode === 'COMBAT') return;
+    const destination = index + offset;
+    if (index < 0 || index >= this.policy.length || destination < 0 || destination >= this.policy.length) return;
+    const next = [...this.policy];
+    [next[index], next[destination]] = [next[destination], next[index]];
+    this.policy = next;
+    this.notice = '원거리 동료의 전술 우선순위를 변경했다.';
+    this.publish();
   };
 
   public rest = (): void => {
@@ -331,7 +330,6 @@ export class Slice2RunController {
     this.supplies = { water: 1, food: 1, light: 1 };
     this.restCount = 0;
     this.policy = [...DEFAULT_SLICE_POLICY];
-    this.policyChanged = false;
     this.lastPolicyTrace = [];
     this.notice = '네 개의 월드 타일을 지나 고블린 봉쇄선을 돌파한다.';
     this.encounterCheckpoint = null;
@@ -409,11 +407,14 @@ export class Slice2RunController {
       this.supplies = { ...this.supplies, food: before + 1 };
       this.notice = '버려진 야전 식량 1을 확보했다.';
     } else {
+      const before = this.vitals.administratorHp;
       this.vitals = {
         ...this.vitals,
-        administratorHp: Math.max(0, this.vitals.administratorHp - 1),
+        administratorHp: rootSnareHpAfter(before),
       };
-      this.notice = '뿌리 덫을 통과하며 관리자가 피해 1을 받았다.';
+      this.notice = before > 1
+        ? '뿌리 덫을 통과하며 관리자가 피해 1을 받았다.'
+        : '뿌리 덫이 장비에 걸렸다. 치명상은 피했다.';
     }
     this.worldMinute += EVENT_MINUTES;
     this.elapsedEventMinutes += EVENT_MINUTES;
@@ -480,7 +481,6 @@ export class Slice2RunController {
       elapsedBattleTurns: this.elapsedBattleTurns,
       elapsedEventMinutes: this.elapsedEventMinutes,
       policy: this.policy,
-      policyChanged: this.policyChanged,
       notice: this.notice,
       combat: this.combat?.getSnapshot(),
       currentEncounter: encounterAt(tile, this.currentNodeId),

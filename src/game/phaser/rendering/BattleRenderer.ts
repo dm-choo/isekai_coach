@@ -202,6 +202,10 @@ export class BattleRenderer {
     this.unitViews.get(id)?.setAp(ap, maxAp, true);
   }
 
+  public setUnitFacing(id: string, direction: 'UP' | 'RIGHT' | 'DOWN' | 'LEFT'): void {
+    this.unitViews.get(id)?.setFacing(direction);
+  }
+
   public moveUnit(
     id: string,
     to: Readonly<{ x: number; y: number }>,
@@ -566,13 +570,13 @@ export class BattleRenderer {
     for (const [unitId, view] of this.unitViews) {
       if (!this.previewIntentUnitIds.has(unitId) && !intentSources.has(unitId)) view.setIntentPreview([]);
     }
-    for (const intent of state.intents) {
+    for (const [intentIndex, intent] of state.intents.entries()) {
       const ability = intent.abilityId ? getAbility(intent.abilityId) : undefined;
       const steps = [];
       if (intent.movementPath.length > 0) {
         steps.push({
           id: `${intent.id}:move`,
-          label: '이동',
+          label: `${String.fromCharCode(65 + intentIndex)} · 이동`,
           glyph: '↝',
           icon: 'MOVE' as IntentIconKind,
           description: `${directionLabel(intent.direction)} ${intent.movementPath.length}칸 이동한 뒤 다음 행동을 실행합니다.`,
@@ -582,7 +586,7 @@ export class BattleRenderer {
         const damage = ability.effects.find((effect) => effect.type === 'DAMAGE');
         steps.push({
           id: `${intent.id}:ability`,
-          label: ability.name,
+          label: `${String.fromCharCode(65 + intentIndex)} · ${ability.name}`,
           glyph: intentGlyph(ability.id),
           icon: intentIcon(ability.id),
           description: intentDescription(ability.id, damage?.type === 'DAMAGE' ? damage.amount : undefined),
@@ -661,12 +665,18 @@ export class BattleRenderer {
   private syncIntentGhosts(intents: readonly RenderableIntent[]): void {
     this.clearIntentGhosts();
     if (!this.currentState) return;
-    for (const intent of intents) {
+    for (const [intentIndex, intent] of intents.entries()) {
       if (intent.movementPath.length === 0 && intent.effectCells.length === 0) continue;
       const unit = this.currentState.units.find((candidate) => candidate.id === intent.sourceId && candidate.hp > 0);
       if (!unit) continue;
       const destination = intent.movementPath.at(-1) ?? unit.position;
-      this.intentGhostObjects.push(this.createGhost(unit, destination, 'ENEMY', intent.effectCells.length > 0));
+      this.intentGhostObjects.push(this.createGhost(
+        { ...unit, facing: intent.direction },
+        destination,
+        'ENEMY',
+        intent.effectCells.length > 0,
+        String.fromCharCode(65 + intentIndex),
+      ));
     }
   }
 
@@ -680,6 +690,7 @@ export class BattleRenderer {
     position: Readonly<{ x: number; y: number }>,
     tone: 'ALLY' | 'ENEMY',
     attacking: boolean,
+    marker?: string,
   ): Phaser.GameObjects.Container {
     const visual = getCharacterVisual(unit.visualKey, unit.faction);
     const world = this.projector.gridToWorld(position);
@@ -702,7 +713,7 @@ export class BattleRenderer {
       .setAlpha(0.44)
       .setTint(color)
       .setAngle(attacking ? (unit.facing === 'LEFT' ? 5 : -5) : 0);
-    const label = this.scene.add.text(0, 17, moved ? '도착' : '공격', {
+    const label = this.scene.add.text(0, 17, `${marker ? `${marker} · ` : ''}${moved ? '도착' : '공격'}`, {
       fontFamily: '"Pretendard Variable", system-ui, sans-serif',
       fontSize: '10px', color: '#fff7e8', backgroundColor: tone === 'ALLY' ? '#174f57dd' : '#6b2018dd',
     }).setPadding(5, 2).setOrigin(0.5, 0);

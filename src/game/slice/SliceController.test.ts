@@ -214,7 +214,7 @@ describe('SliceController barrier-guardian encounter', () => {
     expect(controller.getSnapshot().selectedTargetId).toBe(hound!.id);
 
     controller.restart();
-    expect(controller.getSnapshot().selectedTargetId).toBe('barrier-guardian-01');
+    expect(controller.getSnapshot()).toMatchObject({ selectedTargetId: undefined, targetableEnemyIds: [] });
   });
 
   it('commits a lethal attack from plan state even when hover preview removed the target', async () => {

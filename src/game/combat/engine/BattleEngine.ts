@@ -54,6 +54,7 @@ const RANK_PRIORITY: Readonly<Record<EnemyRank, number>> = {
   ELITE: 1,
   NORMAL: 2,
 };
+const ENEMY_POLICY_BUDGET = 3;
 
 /** Pure deterministic combat kernel. It has no Phaser, timer, or global RNG dependency. */
 export class BattleEngine {
@@ -173,7 +174,7 @@ export class BattleEngine {
         turn: this.turn,
       };
       const choice = strategy?.chooseIntent(context) ?? this.chooseBuiltInIntent(enemy);
-      if (!choice) continue;
+      if (!choice || (choice.internalCost ?? ENEMY_POLICY_BUDGET) > ENEMY_POLICY_BUDGET) continue;
       const intent = this.lockIntent(enemy, choice);
       if (!intent) continue;
       this.intents = [...this.intents, intent];
@@ -207,6 +208,7 @@ export class BattleEngine {
         ...unit,
         ap: apAfter,
         position: { ...action.to },
+        facing: directionBetween(actor.position, action.to) ?? unit.facing,
       }));
       this.emit({
         type: 'AP_SPENT',
@@ -326,6 +328,8 @@ export class BattleEngine {
 
   private chooseBuiltInIntent(enemy: Unit): IntentChoice | null {
     if (enemy.behavior === 'RANGED_SKIRMISHER') return this.chooseRangedSkirmisherIntent(enemy);
+    if (enemy.behavior === 'MELEE_PURSUER') return this.chooseMeleePursuerIntent(enemy);
+    if (enemy.behavior === 'AREA_BOMBER') return this.chooseAreaBomberIntent(enemy);
     if (enemy.behavior !== 'RANGED_HUNTER') return null;
     const targets = this.livingUnits('STUDENT').slice().sort((left, right) => {
       const rolePriority = Number(right.combatRole === 'RANGED') - Number(left.combatRole === 'RANGED');
@@ -348,6 +352,50 @@ export class BattleEngine {
       },
       direction,
       anchor: 'BODY',
+      internalCost: 3,
+    };
+  }
+
+  private chooseMeleePursuerIntent(enemy: Unit): IntentChoice | null {
+    if (!enemy.abilities.includes(ABILITY_IDS.GOBLIN_RUSH)) return null;
+    const targets = this.livingUnits('STUDENT').slice().sort(compareStableUnits);
+    const candidates = (['LEFT', 'RIGHT', 'UP', 'DOWN'] as const).map((direction, order) => {
+      const path = this.projectTraversableMovementPath(enemy, direction, 4);
+      const origin = path.at(-1) ?? enemy.position;
+      const effectCell = step(origin, direction);
+      const hit = targets.find((target) => positionsEqual(target.position, effectCell));
+      const target = hit ?? targets.slice().sort((left, right) =>
+        manhattanDistance(effectCell, left.position) - manhattanDistance(effectCell, right.position) || compareStableUnits(left, right)
+      )[0];
+      return { direction, order, hit: Boolean(hit), target, distance: target ? manhattanDistance(effectCell, target.position) : Number.MAX_SAFE_INTEGER };
+    }).sort((left, right) => Number(right.hit) - Number(left.hit) || left.distance - right.distance || left.order - right.order);
+    const candidate = candidates[0];
+    const target = candidate?.target;
+    if (!target) return null;
+    const direction = candidate.direction;
+    return {
+      action: { type: 'USE_ABILITY', actorId: enemy.id, abilityId: ABILITY_IDS.GOBLIN_RUSH, direction, targetId: target.id },
+      direction,
+      anchor: 'BODY',
+      internalCost: 3,
+    };
+  }
+
+  private chooseAreaBomberIntent(enemy: Unit): IntentChoice | null {
+    if (!enemy.abilities.includes(ABILITY_IDS.GOBLIN_BOMB)) return null;
+    const targets = this.livingUnits('STUDENT').slice().sort(compareStableUnits);
+    if (targets.length === 0) return null;
+    const target = targets[(this.turn - 1 + enemy.spawnOrder) % targets.length] ?? targets[0];
+    const direction = directionBetween(enemy.position, target.position) ?? enemy.facing;
+    return {
+      action: {
+        type: 'USE_ABILITY', actorId: enemy.id, abilityId: ABILITY_IDS.GOBLIN_BOMB,
+        direction, targetId: target.id, groundOrigin: { ...target.position },
+      },
+      direction,
+      anchor: 'GROUND',
+      groundOrigin: { ...target.position },
+      internalCost: 3,
     };
   }
 
@@ -376,6 +424,7 @@ export class BattleEngine {
       direction,
       anchor: 'BODY',
       movementPath,
+      internalCost: movementPath.length > 0 ? 3 : 2,
     };
   }
 
@@ -431,7 +480,7 @@ export class BattleEngine {
       (selectedTarget ? directionBetween(actor.position, selectedTarget.position) : undefined) ??
       actor.facing;
     const apAfter = actor.ap - ability.apCost;
-    this.replaceUnit(actor.id, (unit) => ({ ...unit, ap: apAfter }));
+    this.replaceUnit(actor.id, (unit) => ({ ...unit, ap: apAfter, facing: direction }));
     if (ability.apCost > 0) {
       this.emit({
         type: 'AP_SPENT',
@@ -522,7 +571,11 @@ export class BattleEngine {
         manhattanDistance(source.position, destination) === 1 &&
         !isOccupied(this.units, destination, source.id)
       ) {
-        this.replaceUnit(source.id, (unit) => ({ ...unit, position: { ...destination } }));
+        this.replaceUnit(source.id, (unit) => ({
+          ...unit,
+          position: { ...destination },
+          facing: directionBetween(source.position, destination) ?? unit.facing,
+        }));
         this.emit({
           type: 'UNIT_MOVED',
           unitId: source.id,
@@ -538,13 +591,6 @@ export class BattleEngine {
     if (!ability) return;
     this.refreshBodyIntents(source.id);
     const currentIntent = this.intents.find((candidate) => candidate.id === intent.id) ?? intent;
-    this.emit({
-      type: 'ABILITY_USED',
-      sourceId: source.id,
-      abilityId: ability.id,
-      direction: currentIntent.direction,
-      targetId: currentIntent.action.type === 'USE_ABILITY' ? currentIntent.action.targetId : undefined,
-    });
     if (currentIntent.action.type === 'USE_ABILITY') {
       let currentSource = this.requireUnit(source.id);
       let cells = this.effectiveIntentCells(currentIntent);
@@ -553,7 +599,7 @@ export class BattleEngine {
         const destination = this.resolveAdvanceDestination(currentSource, currentIntent.movementPath);
         if (!positionsEqual(currentSource.position, destination)) {
           const from = { ...currentSource.position };
-          this.replaceUnit(currentSource.id, (unit) => ({ ...unit, position: { ...destination } }));
+          this.replaceUnit(currentSource.id, (unit) => ({ ...unit, position: { ...destination }, facing: currentIntent.direction }));
           this.emit({ type: 'UNIT_MOVED', unitId: currentSource.id, from, to: { ...destination } });
           currentSource = this.requireUnit(currentSource.id);
         }
@@ -564,6 +610,15 @@ export class BattleEngine {
       const chargeDestination = ability.sourceMovement?.type === 'CHARGE'
         ? this.resolveChargeDestination(currentSource, currentIntent.movementPath)
         : null;
+      this.replaceUnit(currentSource.id, (unit) => ({ ...unit, facing: currentIntent.direction }));
+      currentSource = this.requireUnit(currentSource.id);
+      this.emit({
+        type: 'ABILITY_USED',
+        sourceId: source.id,
+        abilityId: ability.id,
+        direction: currentIntent.direction,
+        targetId: currentIntent.action.targetId,
+      });
       const interceptor = this.findInterceptionTarget(currentIntent);
       const guardBefore = interceptor?.status.guard ?? 0;
       this.resolveAbilityEffects(
@@ -581,7 +636,7 @@ export class BattleEngine {
       if (chargeDestination) {
         if (!positionsEqual(currentSource.position, chargeDestination)) {
           const from = { ...currentSource.position };
-          this.replaceUnit(currentSource.id, (unit) => ({ ...unit, position: { ...chargeDestination } }));
+          this.replaceUnit(currentSource.id, (unit) => ({ ...unit, position: { ...chargeDestination }, facing: currentIntent.direction }));
           this.emit({ type: 'UNIT_MOVED', unitId: currentSource.id, from, to: { ...chargeDestination } });
         }
       }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { Unit } from '../game/combat';
 import { POLICY_COPY, type SliceActionId, type SliceSnapshot } from '../game/slice';
 import {
@@ -88,6 +88,7 @@ export function Slice2App() {
         {snapshot.mode === 'COMBAT' && snapshot.combat
           ? <CombatStage snapshot={snapshot.combat} run={snapshot} controller={controller} encounter={snapshot.currentEncounter?.content} />
           : <ExplorationStage snapshot={snapshot} controller={controller} />}
+        {snapshot.mode !== 'COMBAT' && <ExpeditionPartyPanel snapshot={snapshot} controller={controller} />}
         <RunHud snapshot={snapshot} />
       </section>
     </main>
@@ -109,22 +110,6 @@ function ExplorationStage({ snapshot, controller }: {
             <b>장거리 사격</b><b>고속 접근</b><b>고정 지면 폭격</b>
           </div>
           <button type="button" onClick={controller.startRun}>원정 시작 <kbd>SPACE</kbd></button>
-        </div>
-      </div>
-    );
-  }
-  if (snapshot.mode === 'POLICY_REVIEW') {
-    const last = snapshot.lastPolicyTrace.at(-1);
-    const skipped = last?.evaluations.find((evaluation) => !evaluation.executable);
-    return (
-      <div className="policy-review-screen">
-        <p>AFTER ACTION · TILE 02</p>
-        <h2>동료 전술 순서 검토</h2>
-        <span>{last ? `마지막 선택: ${last.selectedName} · ${last.reason}` : '두 타일의 전투 기록을 확인했다.'}</span>
-        {skipped && <em>상위 슬롯 미실행: {POLICY_COPY[skipped.policyId].name} · {skipped.reason}</em>}
-        <div className="policy-choice-grid">
-          <PolicyChoice title="기존 순서 유지" policy={snapshot.policy} onClick={() => controller.choosePolicy('KEEP')} />
-          <PolicyChoice title="사격 우선으로 변경" policy={['SHOOT', 'EVADE', 'POSITION', 'PUSH', 'EMPTY']} onClick={() => controller.choosePolicy('AGGRESSIVE')} />
         </div>
       </div>
     );
@@ -207,8 +192,9 @@ function CorridorTraversalScene({ snapshot, controller }: {
   const stopPointer = () => { if (activeTimer.current !== undefined) window.clearInterval(activeTimer.current); activeTimer.current = undefined; };
   const remaining = traversal.distanceMeters - traversal.progressMeters;
   return <section className="corridor-traversal" aria-label="400미터 통로 이동">
-    <div className="corridor-depth" style={{ backgroundPositionX: `${progress * -180}px` }} />
-    <div className="travel-party" style={{ left: `${14 + progress * 66}%` }}><img src={`${BASE_URL}assets/slice1/administrator-v2.png`} alt="관리자" /><img src={`${BASE_URL}assets/slice1/archer-v2.png`} alt="원거리 동료" /></div>
+    <div className="corridor-depth" style={{ backgroundPositionX: `${progress * -1280}px` }} />
+    <div className="corridor-ground" style={{ backgroundPositionX: `${progress * -920}px` }} />
+    <div className="travel-party"><img src={`${BASE_URL}assets/slice1/administrator-v2.png`} alt="관리자" /><img src={`${BASE_URL}assets/slice1/archer-v2.png`} alt="원거리 동료" /></div>
     <div className="travel-destination"><span aria-hidden="true">▯</span><small>{remaining}m</small></div>
     <div className="travel-progress"><i style={{ width: `${progress * 100}%` }} />{[1, 2, 3].map((tick) => <b key={tick} style={{ left: `${tick * 25}%` }} />)}<span>{traversal.progressMeters} / 400m</span></div>
     <div className="travel-controls"><button type="button" onPointerDown={() => startPointer('BACK')} onPointerUp={stopPointer} onPointerLeave={stopPointer}><kbd>A</kbd> 후퇴</button><p role="status">{snapshot.notice}</p><button type="button" onPointerDown={() => startPointer('FORWARD')} onPointerUp={stopPointer} onPointerLeave={stopPointer}>전진 <kbd>D</kbd></button></div>
@@ -245,18 +231,20 @@ function DungeonMiniMap({ snapshot }: { readonly snapshot: ReturnType<Slice2RunC
   const directions: readonly WorldDirection[] = ['NORTH', 'EAST', 'SOUTH', 'WEST'];
   const activeRoom = snapshot.traversal ? undefined : snapshot.currentNodeId;
   return <aside className="dungeon-minimap" aria-label="현재 월드 타일 구조. 조작할 수 없는 상태 지도">
-    <div className={`mini-room room-center ${activeRoom === 'room-center' ? 'is-current' : ''}`} />
-    {directions.map((direction) => {
-      const name = direction.toLowerCase();
-      return <div key={direction} className={`mini-branch is-${name}`}>
-        <div className="mini-corridor">{snapshot.tile.corridors[direction].map((segment) => {
-          const visible = isEncounterVisible(snapshot.tile, segment.id);
-          const current = snapshot.currentNodeId === segment.id;
-          return <i key={segment.id} className={`${current ? 'is-current' : ''} ${segment.encounter.resolved ? 'is-resolved' : ''}`}>{nodeGlyph(segment.id, segment.encounter.content, visible, segment.encounter.resolved)}</i>;
-        })}</div>
-        <div className={`mini-room ${activeRoom === `room-${name}` ? 'is-current' : ''}`} />
-      </div>;
-    })}
+    <div className="mini-layout"><div className={`mini-room room-center ${activeRoom === 'room-center' ? 'is-current' : ''}`} />
+      {directions.map((direction) => {
+        const name = direction.toLowerCase();
+        return <div key={direction} className={`mini-branch is-${name}`}>
+          <div className="mini-corridor">{snapshot.tile.corridors[direction].map((segment) => {
+            const visible = isEncounterVisible(snapshot.tile, segment.id);
+            const current = snapshot.currentNodeId === segment.id;
+            return <i key={segment.id} className={`${current ? 'is-current' : ''} ${segment.encounter.resolved ? 'is-resolved' : ''}`}>{nodeGlyph(segment.id, segment.encounter.content, visible, segment.encounter.resolved)}</i>;
+          })}</div>
+          <div className={`mini-room ${activeRoom === `room-${name}` ? 'is-current' : ''}`} />
+        </div>;
+      })}
+    </div>
+    <div className="mini-next-tile" aria-label={snapshot.currentTileIndex === 3 ? '원정 종점' : `동쪽으로 월드 타일 ${snapshot.currentTileIndex + 2}`}><b>→</b><span>{snapshot.currentTileIndex === 3 ? '⚑' : snapshot.currentTileIndex + 2}</span></div>
   </aside>;
 }
 
@@ -278,7 +266,9 @@ function CombatStage({ snapshot, run, controller, encounter }: {
       <div className="stage-vignette" />
       <header className="slice2-combat-hud">
         <div className="slice2-party-bars">{party.map((unit) => <UnitBar key={unit.id} unit={unit} />)}</div>
-        <div className="encounter-title"><small>통로 인카운터</small><strong>{encounterTitle(encounter)}{enemies.some((enemy) => enemy.id.includes('patrol')) ? ' · 순찰 증원' : ''}</strong><span>TURN {snapshot.state.turn}</span></div>
+        {snapshot.mode === 'INTRO'
+          ? <div className="encounter-title"><small>통로 인카운터</small><strong>{encounterTitle(encounter)}{enemies.some((enemy) => enemy.id.includes('patrol')) ? ' · 순찰 증원' : ''}</strong></div>
+          : <div aria-hidden="true" />}
         <div className="enemy-bars">{enemies.map((unit) => <UnitBar key={unit.id} unit={unit} enemy />)}</div>
       </header>
       <IntentStack snapshot={snapshot} />
@@ -303,10 +293,10 @@ function CombatStage({ snapshot, run, controller, encounter }: {
 
 function CombatControls({ snapshot, controller }: { readonly snapshot: SliceSnapshot; readonly controller: Slice2RunController }) {
   const administrator = snapshot.previewState.units.find((unit) => unit.id === 'administrator-slice2');
-  const enemies = snapshot.previewState.units.filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0);
+  const enemies = snapshot.previewState.units.filter((unit) => snapshot.targetableEnemyIds.includes(unit.id));
   return (
     <section className={`player-controls ${snapshot.isBusy ? 'is-busy' : ''}`}>
-      <div className="plan-strip"><small>대상</small><div className="target-picker">{enemies.map((enemy) => <button key={enemy.id} type="button" className={snapshot.selectedTargetId === enemy.id ? 'is-selected' : ''} onClick={() => controller.selectTarget(enemy.id)}>{unitName(enemy)}</button>)}</div><div>{snapshot.plannedActions.length ? snapshot.plannedActions.map((action, index) => <span key={action.id} className="plan-chip"><i>{index + 1}</i>{action.label}</span>) : <span className="plan-empty">이동 또는 공격을 선택</span>}</div></div>
+      <div className="plan-strip">{enemies.length > 0 && <><small>대상</small><div className="target-picker">{enemies.map((enemy) => <button key={enemy.id} type="button" className={snapshot.selectedTargetId === enemy.id ? 'is-selected' : ''} onClick={() => controller.selectTarget(enemy.id)}>{unitName(enemy)}</button>)}</div></>}<div>{snapshot.plannedActions.length ? snapshot.plannedActions.map((action, index) => <span key={action.id} className="plan-chip"><i>{index + 1}</i>{action.label}</span>) : <span className="plan-empty">이동 또는 공격을 선택</span>}</div></div>
       <div className="movement-control"><span className="control-caption">이동 <small>AP 1</small></span><div className="wasd-grid"><button type="button" onClick={() => controller.move('UP')}>W</button><button type="button" onClick={() => controller.move('LEFT')}>A</button><button type="button" onClick={() => controller.move('DOWN')}>S</button><button type="button" onClick={() => controller.move('RIGHT')}>D</button></div></div>
       <div className="action-control"><span className="control-caption">공격</span><div className="skill-row">{snapshot.actions.map((action, index) => <ActionButton key={action.id} action={action} index={index} controller={controller} />)}</div></div>
       <div className="turn-control"><div className="ap-readout"><small>ACTION POINT</small><strong>{'◆'.repeat(administrator?.ap ?? 0)}<i>{'◇'.repeat(Math.max(0, (administrator?.maxAp ?? 0) - (administrator?.ap ?? 0)))}</i></strong></div><div className="plan-actions"><button type="button" className="undo-button" disabled={!snapshot.canUndo} onClick={controller.undoLastAction}><span>되돌리기</span><kbd>Z</kbd></button><button type="button" className="end-turn-button" disabled={!snapshot.canConfirm} onClick={controller.confirmPlan}><span>{snapshot.plannedActions.length ? '행동 확정' : '대기'}</span><kbd>SPACE</kbd></button></div></div>
@@ -320,9 +310,9 @@ function ActionButton({ action, index, controller }: { readonly action: SliceSna
 
 function IntentStack({ snapshot }: { readonly snapshot: SliceSnapshot }) {
   const hidden = new Set(snapshot.concealedIntentIds);
-  return <div className="intent-stack">{snapshot.previewState.intents.map((intent) => hidden.has(intent.id)
-    ? <article key={intent.id} className="enemy-intent-card is-concealed" tabIndex={0}><span className="concealed-glyph">?</span><div><small>{unitName(snapshot.previewState.units.find((unit) => unit.id === intent.sourceId))}</small><strong>{intent.direction === 'LEFT' ? '서쪽' : intent.direction === 'RIGHT' ? '동쪽' : intent.direction === 'UP' ? '북쪽' : '남쪽'}을 노림</strong></div><span>행동·범위 불명</span><span className="intent-card-tooltip" role="tooltip">어둠 때문에 행동 하나가 숨겨졌습니다. 휴대용 조명을 사용하면 이번 전투의 모든 Intent가 공개됩니다.</span></article>
-    : <article key={intent.id} className={`enemy-intent-card ${intent.anchor === 'GROUND' ? 'is-ground' : ''}`} tabIndex={0}><img src={`${BASE_URL}${intentIcon(intent.abilityId)}`} alt="" /><div><small>{unitName(snapshot.previewState.units.find((unit) => unit.id === intent.sourceId))}</small><strong>{intentName(intent.abilityId)}</strong></div><span>{intent.anchor} · {intent.effectCells.length}칸</span><span className="intent-card-tooltip" role="tooltip">{intentDetail(intent.abilityId)} · {intent.direction === 'LEFT' ? '서쪽' : intent.direction === 'RIGHT' ? '동쪽' : intent.direction === 'UP' ? '북쪽' : '남쪽'} 방향. 붉은 칸은 현재 고정된 피해 범위입니다.</span></article>)}</div>;
+  return <div className="intent-stack">{snapshot.previewState.intents.map((intent, index) => hidden.has(intent.id)
+    ? <article key={intent.id} className="enemy-intent-card is-concealed" tabIndex={0}><b className="intent-owner">{String.fromCharCode(65 + index)}</b><span className="concealed-glyph">?</span><div><small>{unitName(snapshot.previewState.units.find((unit) => unit.id === intent.sourceId))}</small><strong>{intent.direction === 'LEFT' ? '서쪽' : intent.direction === 'RIGHT' ? '동쪽' : intent.direction === 'UP' ? '북쪽' : '남쪽'}을 노림</strong></div><span>행동·범위 불명</span><span className="intent-card-tooltip" role="tooltip">{String.fromCharCode(65 + index)} 표식 적의 행동입니다. 어둠 때문에 행동 하나가 숨겨졌습니다.</span></article>
+    : <article key={intent.id} className={`enemy-intent-card ${intent.anchor === 'GROUND' ? 'is-ground' : ''}`} tabIndex={0}><b className="intent-owner">{String.fromCharCode(65 + index)}</b><img src={`${BASE_URL}${intentIcon(intent.abilityId)}`} alt="" /><div><small>{unitName(snapshot.previewState.units.find((unit) => unit.id === intent.sourceId))}</small><strong>{intentName(intent.abilityId)}</strong></div><span>{intent.anchor} · {intent.effectCells.length}칸</span><span className="intent-card-tooltip" role="tooltip">{String.fromCharCode(65 + index)} 표식 적 · {intentDetail(intent.abilityId)} · {intent.direction === 'LEFT' ? '서쪽' : intent.direction === 'RIGHT' ? '동쪽' : intent.direction === 'UP' ? '북쪽' : '남쪽'} 방향.</span></article>)}</div>;
 }
 
 function PolicyReadout({ snapshot }: { readonly snapshot: SliceSnapshot }) {
@@ -348,7 +338,27 @@ function CombatTurnBanner({ snapshot }: { readonly snapshot: SliceSnapshot }) {
 }
 
 function RunHud({ snapshot }: { readonly snapshot: ReturnType<Slice2RunController['getSnapshot']> }) {
-  return <aside className="run-hud"><div className="run-route">{snapshot.world.tiles.map((tile, index) => <span key={tile.id} className={`${index === snapshot.currentTileIndex ? 'is-current' : ''} ${tile.cleared ? 'is-cleared' : ''}`}><i>{index + 1}</i>{tile.name}</span>)}</div><div className="run-stats"><strong className={snapshot.isNight ? 'is-night' : ''}>{snapshot.worldTime}</strong><b>물 {snapshot.supplies.water}/2</b><b>식량 {snapshot.supplies.food}/2</b><b>조명 {snapshot.supplies.light}</b><small>이동 {snapshot.elapsedTravel} · 전투 {snapshot.elapsedBattleTurns}턴 · 사건 {snapshot.elapsedEventMinutes}분</small></div></aside>;
+  return <aside className="run-hud"><div className="run-route">{snapshot.world.tiles.map((tile, index) => <span key={tile.id} className={`${index === snapshot.currentTileIndex ? 'is-current' : ''} ${tile.cleared ? 'is-cleared' : ''}`}><i>{index + 1}</i>{tile.name}</span>)}</div><div className="run-stats"><strong className={snapshot.isNight ? 'is-night' : ''}>{snapshot.worldTime}</strong><b aria-label={`물 ${snapshot.supplies.water}/2`}><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="" />{snapshot.supplies.water}/2</b><b aria-label={`식량 ${snapshot.supplies.food}/2`}><img src={`${BASE_URL}assets/ui/supply-ration.svg`} alt="" />{snapshot.supplies.food}/2</b><b aria-label={`조명 ${snapshot.supplies.light}`}><img src={`${BASE_URL}assets/ui/supply-light.svg`} alt="" />{snapshot.supplies.light}</b><small>이동 {snapshot.elapsedTravel} · 전투 {snapshot.elapsedBattleTurns}턴 · 사건 {snapshot.elapsedEventMinutes}분</small></div></aside>;
+}
+
+function ExpeditionPartyPanel({ snapshot, controller }: {
+  readonly snapshot: ReturnType<Slice2RunController['getSnapshot']>;
+  readonly controller: Slice2RunController;
+}) {
+  const [open, setOpen] = useState(false);
+  return <aside className={`expedition-party ${open ? 'is-open' : ''}`}>
+    <button type="button" className="party-toggle" aria-label="파티 정보와 동료 전술 열기" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+      <img src={`${BASE_URL}assets/slice1/administrator-v2.png`} alt="관리자" />
+      <img src={`${BASE_URL}assets/slice1/archer-v2.png`} alt="원거리 동료" />
+      <span>☰</span>
+    </button>
+    {open && <div className="party-sheet">
+      <header><b>PARTY</b><button type="button" aria-label="닫기" onClick={() => setOpen(false)}>×</button></header>
+      <section className="party-member"><img src={`${BASE_URL}assets/slice1/administrator-v2.png`} alt="" /><div><strong>관리자</strong><span className="member-hp"><i style={{ width: `${snapshot.vitals.administratorHp / 14 * 100}%` }} /></span><small>{snapshot.vitals.administratorHp}/14</small><p><img src={`${BASE_URL}assets/ui/intent-push.svg`} alt="밀치기" /><img src={`${BASE_URL}assets/ui/intent-attack.svg`} alt="내려찍기" /><img src={`${BASE_URL}assets/ui/intent-intercept.svg`} alt="가로막기" /></p></div></section>
+      <section className="party-member ally"><img src={`${BASE_URL}assets/slice1/archer-v2.png`} alt="" /><div><strong>원거리 동료</strong><span className="member-hp"><i style={{ width: `${snapshot.vitals.allyHp / 12 * 100}%` }} /></span><small>{snapshot.vitals.allyHp}/12</small></div></section>
+      <ol className="policy-editor" aria-label="동료 전술 우선순위">{snapshot.policy.map((id, index) => <li key={id}><b>{index + 1}</b>{id === 'EMPTY' ? <span className="policy-empty">—</span> : <img src={`${BASE_URL}assets/ui/intent-${policyIcon(id)}.svg`} alt="" />}<span>{POLICY_COPY[id].name}</span><div><button type="button" disabled={index === 0} aria-label={`${POLICY_COPY[id].name} 위로`} onClick={() => controller.movePolicy(index, -1)}>↑</button><button type="button" disabled={index === snapshot.policy.length - 1} aria-label={`${POLICY_COPY[id].name} 아래로`} onClick={() => controller.movePolicy(index, 1)}>↓</button></div></li>)}</ol>
+    </div>}
+  </aside>;
 }
 
 function UnitBar({ unit, enemy = false }: { readonly unit: Unit; readonly enemy?: boolean }) {
@@ -356,11 +366,13 @@ function UnitBar({ unit, enemy = false }: { readonly unit: Unit; readonly enemy?
   return <article className={`slice2-unit-bar ${enemy ? 'is-enemy' : ''} ${unit.rank === 'ELITE' ? 'is-elite' : ''}`}><strong>{unit.rank === 'ELITE' ? `정예 · ${unitName(unit)}` : unitName(unit)}</strong><div><i style={{ width: `${ratio * 100}%` }} /></div><small>{unit.hp}/{unit.maxHp}</small></article>;
 }
 
-function PolicyChoice({ title, policy, onClick }: { readonly title: string; readonly policy: readonly (keyof typeof POLICY_COPY)[]; readonly onClick: () => void }) {
-  return <button type="button" onClick={onClick}><strong>{title}</strong><span>{policy.map((id, index) => <i key={`${id}-${index}`}>{index + 1}. {POLICY_COPY[id].name}</i>)}</span></button>;
+function policyIcon(id: keyof typeof POLICY_COPY): string {
+  if (id === 'SHOOT') return 'shoot';
+  if (id === 'PUSH') return 'push';
+  return 'move';
 }
 
-function nodeGlyph(nodeId: string, content: EncounterContent | undefined, visible: boolean, resolved: boolean): string {
+function nodeGlyph(nodeId: string, content: EncounterContent | undefined, visible: boolean, resolved: boolean): ReactNode {
   if (nodeId === 'room-center') return resolved ? '✓' : '⌂';
   if (nodeId === 'room-east') return '🚪';
   if (nodeId === 'room-west') return '↩';
@@ -368,8 +380,8 @@ function nodeGlyph(nodeId: string, content: EncounterContent | undefined, visibl
   if (!visible) return '?';
   if (resolved || content === 'NONE') return '·';
   if (content === 'RECOVERY_CACHE') return '+';
-  if (content === 'WATER_CACHE') return '水';
-  if (content === 'RATION_CACHE') return '食';
+  if (content === 'WATER_CACHE') return <img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="물 보급" />;
+  if (content === 'RATION_CACHE') return <img src={`${BASE_URL}assets/ui/supply-ration.svg`} alt="식량 보급" />;
   if (content === 'ROOT_SNARE') return '!';
   return '⚔';
 }

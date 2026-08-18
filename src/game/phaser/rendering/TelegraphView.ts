@@ -1,4 +1,5 @@
 import * as Phaser from 'phaser';
+import type { Direction } from '../../combat';
 import type { LogicalPosition } from './GridProjector';
 import { GridProjector } from './GridProjector';
 
@@ -8,7 +9,7 @@ export interface RenderableIntent {
   readonly id?: string;
   readonly sourceId: string;
   readonly abilityId?: string;
-  readonly direction: string;
+  readonly direction: Direction;
   readonly threat: ThreatVisual;
   readonly movementPath: readonly LogicalPosition[];
   readonly effectCells: readonly LogicalPosition[];
@@ -24,11 +25,13 @@ export class TelegraphView {
 
   public sync(intents: readonly RenderableIntent[]): void {
     const aliveKeys = new Set<string>();
+    const sourceOrder = [...new Set(intents.map((intent) => intent.sourceId))];
     for (const intent of intents) {
       const key = intent.id ?? intent.sourceId;
       aliveKeys.add(key);
       this.remove(key);
-      this.objects.set(key, this.draw(intent));
+      const sourceIndex = sourceOrder.indexOf(intent.sourceId);
+      this.objects.set(key, this.draw(intent, sourceIndex));
     }
     for (const key of this.objects.keys()) {
       if (!aliveKeys.has(key)) this.remove(key);
@@ -47,14 +50,16 @@ export class TelegraphView {
     }
   }
 
-  private draw(intent: RenderableIntent): Phaser.GameObjects.GameObject[] {
+  private draw(intent: RenderableIntent, sourceIndex: number): Phaser.GameObjects.GameObject[] {
     const result: Phaser.GameObjects.GameObject[] = [];
+    const sourceColor = INTENT_SOURCE_COLORS[sourceIndex % INTENT_SOURCE_COLORS.length] ?? 0xff8b6c;
+    const sourceMarker = String.fromCharCode(65 + sourceIndex);
     intent.movementPath.forEach((cell, index) => {
       const world = this.projector.gridToWorld(cell);
       const arrow = this.scene.add.text(world.x, world.y, movementArrow(intent.direction), {
         fontFamily: '"Pretendard Variable", system-ui, sans-serif',
         fontSize: '24px',
-        color: '#c48aff',
+        color: `#${sourceColor.toString(16).padStart(6, '0')}`,
         fontStyle: 'bold',
         stroke: '#24102f',
         strokeThickness: 4,
@@ -63,7 +68,7 @@ export class TelegraphView {
       if (index === intent.movementPath.length - 1) {
         const destination = this.scene.add
           .rectangle(world.x, world.y, this.projector.cellSize.width - 7, this.projector.cellSize.height - 7, 0xd84532, 0.13)
-          .setStrokeStyle(4, 0xff8b6c, 0.96)
+          .setStrokeStyle(4, sourceColor, 0.96)
           .setDepth(8);
         result.push(destination);
       }
@@ -82,7 +87,7 @@ export class TelegraphView {
           ground ? 0xd18a25 : wide ? 0xc83d24 : 0xe04a2f,
           ground ? 0.24 : wide ? 0.18 : 0.3,
         )
-        .setStrokeStyle(wide ? 2 : 3, ground ? 0xffdc75 : wide ? 0xffb04f : 0xffdf8e, wide ? 0.72 : 0.95)
+        .setStrokeStyle(wide ? 2 : 4, sourceColor, wide ? 0.8 : 0.98)
         .setDepth(9);
       this.scene.tweens.add({
         targets: zone,
@@ -99,16 +104,16 @@ export class TelegraphView {
       const topCell = intent.effectCells.reduce((left, right) => right.y < left.y ? right : left);
       const world = this.projector.gridToWorld(topCell);
       const label = this.scene.add
-        .text(world.x, world.y - this.projector.cellSize.height / 2 - 15, ground ? '◆  지면 고정' : wide ? '⚠  중단 가능' : '⚠  타격 예고', {
-          fontFamily: '"Pretendard Variable", system-ui, sans-serif',
-          fontSize: wide ? '14px' : '13px',
-          color: '#ffe8bf',
+        .text(world.x - this.projector.cellSize.width / 2 + 15, world.y - this.projector.cellSize.height / 2 + 15, sourceMarker, {
+          fontFamily: 'ui-monospace, monospace',
+          fontSize: '12px',
+          color: '#160a07',
           fontStyle: 'bold',
-          backgroundColor: '#521c16dd',
+          backgroundColor: `#${sourceColor.toString(16).padStart(6, '0')}`,
           stroke: '#210706',
-          strokeThickness: 2,
+          strokeThickness: 1,
         })
-        .setPadding(9, 4)
+        .setPadding(6, 4)
         .setOrigin(0.5)
         .setDepth(75);
       result.push(label);
@@ -124,6 +129,8 @@ export class TelegraphView {
     this.objects.delete(key);
   }
 }
+
+const INTENT_SOURCE_COLORS = [0xff725e, 0xffc857, 0xc58cff, 0x67d7ef] as const;
 
 function movementArrow(direction: string): string {
   return ({ UP: '↑', RIGHT: '→', DOWN: '↓', LEFT: '←' } as Record<string, string>)[direction] ?? '◇';

@@ -15,6 +15,7 @@ import {
   type CombatEvent,
   type Direction,
   type GridPosition,
+  type Unit,
 } from '../combat';
 import type { PresentationPort } from '../phaser/bridge/PresentationPort';
 import type { IntentIconKind } from '../phaser/bridge/PresentationPort';
@@ -103,6 +104,7 @@ export interface SliceSnapshot {
   readonly allyIntent?: UnitIntentPreview;
   readonly hoveredActionId?: SliceActionId;
   readonly selectedTargetId?: string;
+  readonly targetableEnemyIds: readonly string[];
   readonly canUndo: boolean;
   readonly canConfirm: boolean;
   readonly concealedIntentIds: readonly string[];
@@ -235,9 +237,8 @@ export class SliceController {
 
   public selectTarget = (unitId: string): void => {
     if (this.mode !== 'PLAYER_TURN' || this.isBusy) return;
-    const target = this.buildPlanProjection().state.units.find(
-      (unit) => unit.id === unitId && unit.faction === 'ENEMY' && unit.hp > 0,
-    );
+    const projectedState = this.buildPlanProjection().state;
+    const target = this.targetableEnemies(projectedState).find((unit) => unit.id === unitId);
     if (!target) return;
     if (this.selectedTargetId === target.id) return;
     this.selectedTargetId = target.id;
@@ -527,7 +528,7 @@ export class SliceController {
     if (actionId === 'INTERCEPT') {
       return { type: 'USE_ABILITY', actorId: administrator.id, abilityId: ABILITY_IDS.INTERCEPT, targetId: administrator.id };
     }
-    const target = this.currentTarget(state, administrator?.position);
+    const target = this.currentTarget(state, administrator?.position, true);
     if (!target) return null;
     const direction = directionBetween(administrator.position, target.position);
     if (!direction) return null;
@@ -536,13 +537,15 @@ export class SliceController {
       : slamAction(administrator.id, target.id, direction);
   }
 
-  private currentTarget(state: BattleState, origin?: GridPosition) {
+  private currentTarget(state: BattleState, origin?: GridPosition, targetableOnly = false) {
+    const candidates = targetableOnly
+      ? this.targetableEnemies(state)
+      : state.units.filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0);
     const selected = state.units.find(
-      (unit) => unit.id === this.selectedTargetId && unit.faction === 'ENEMY' && unit.hp > 0,
+      (unit) => unit.id === this.selectedTargetId && candidates.some((candidate) => candidate.id === unit.id),
     );
     if (selected) return selected;
-    return state.units
-      .filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0)
+    return candidates
       .slice()
       .sort((left, right) => {
         if (!origin) return left.spawnOrder - right.spawnOrder;
@@ -552,9 +555,20 @@ export class SliceController {
       })[0];
   }
 
+  private targetableEnemies(state: BattleState): Unit[] {
+    const administrator = state.units.find((unit) => unit.id === this.administratorId && unit.hp > 0);
+    if (!administrator) return [];
+    const cheapestAttack = Math.min(getAbility(ABILITY_IDS.PUSH)?.apCost ?? Infinity, getAbility(ABILITY_IDS.SLAM)?.apCost ?? Infinity);
+    if (administrator.ap < cheapestAttack) return [];
+    return state.units.filter((unit) =>
+      unit.faction === 'ENEMY' && unit.hp > 0 &&
+      Math.abs(unit.position.x - administrator.position.x) + Math.abs(unit.position.y - administrator.position.y) <= 1
+    );
+  }
+
   private buildActionCandidates(): readonly SliceActionCandidate[] {
     const plannedState = this.simulateActions(this.plannedActions).state;
-    const target = this.currentTarget(plannedState);
+    const target = this.currentTarget(plannedState, undefined, true);
     const targetName = target ? unitDisplayName(target) : '적';
     const definitions: readonly Omit<SliceActionCandidate, 'executable' | 'failureReason'>[] = [
       {
@@ -610,7 +624,8 @@ export class SliceController {
       })),
       allyIntent: projection.allyIntent,
       hoveredActionId: this.hoveredActionId,
-      selectedTargetId: this.currentTarget(projection.state)?.id,
+      selectedTargetId: this.currentTarget(projection.state, undefined, true)?.id,
+      targetableEnemyIds: this.targetableEnemies(projection.state).map((unit) => unit.id),
       canUndo: this.canAcceptPlayerInput() && this.plannedActions.length > 0,
       canConfirm: this.canAcceptPlayerInput(),
       concealedIntentIds: this.concealedIntentIds(projection.state),

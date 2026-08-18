@@ -243,12 +243,12 @@ function PlayerControls({
   readonly controller: SliceController;
 }) {
   const administrator = snapshot.previewState.units.find((unit) => unit.id === 'administrator-01');
-  const livingEnemies = snapshot.previewState.units.filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0);
+  const livingEnemies = snapshot.previewState.units.filter((unit) => snapshot.targetableEnemyIds.includes(unit.id));
   return (
     <section className={`player-controls ${snapshot.isBusy ? 'is-busy' : ''}`} aria-label="관리자 조작">
       <div className="plan-strip" aria-label="예정 행동">
         <small>예정 행동</small>
-        <div className="target-picker" aria-label="공격 대상">
+        {livingEnemies.length > 0 && <div className="target-picker" aria-label="공격 대상">
           <small>대상</small>
           {livingEnemies.map((enemy) => (
             <button
@@ -261,7 +261,7 @@ function PlayerControls({
               {unitName(enemy)}
             </button>
           ))}
-        </div>
+        </div>}
         <div>
           {snapshot.plannedActions.length === 0
             ? <span className="plan-empty">이동 또는 공격을 선택</span>

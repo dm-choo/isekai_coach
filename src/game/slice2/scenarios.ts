@@ -1,4 +1,4 @@
-import { ABILITY_IDS, type BattleScenario, type EnemyIntentPlan, type UnitDefinition } from '../combat';
+import { ABILITY_IDS, type BattleScenario, type UnitDefinition } from '../combat';
 import type { EncounterContent } from './world';
 
 export const SLICE2_ADMINISTRATOR_ID = 'administrator-slice2';
@@ -26,10 +26,6 @@ export function createSlice2EncounterScenario(
 ): BattleScenario {
   const spec = createEncounterSpec(encounterId);
   const enemyDefinitions = addPatrolReinforcement(applyEncounterSpec(enemiesFor(content), spec), options.worldMinute ?? 600);
-  const enemyPlans = Object.fromEntries(enemyDefinitions.map((unit) => [
-    unit.id,
-    plansFor(unit.id),
-  ]).filter(([, plans]) => plans.length > 0));
   return {
     id: `slice2:${encounterId}`,
     name: encounterName(content),
@@ -65,7 +61,6 @@ export function createSlice2EncounterScenario(
       },
       ...enemyDefinitions,
     ],
-    enemyPlans,
   };
 }
 
@@ -105,29 +100,6 @@ function enemiesFor(content: EncounterContent): UnitDefinition[] {
   return result;
 }
 
-function plansFor(enemyId: string): readonly EnemyIntentPlan[] {
-  if (enemyId.startsWith('goblin-archer')) {
-    return [];
-  }
-  if (enemyId.startsWith('goblin-warrior')) {
-    return [{ abilityId: ABILITY_IDS.GOBLIN_RUSH, direction: 'LEFT', anchor: 'BODY' }];
-  }
-  return [
-    {
-      abilityId: ABILITY_IDS.GOBLIN_BOMB,
-      direction: 'LEFT',
-      anchor: 'GROUND',
-      groundOrigin: enemyId.endsWith('-2') ? { x: 2, y: 2 } : { x: 3, y: 1 },
-    },
-    {
-      abilityId: ABILITY_IDS.GOBLIN_BOMB,
-      direction: 'LEFT',
-      anchor: 'GROUND',
-      groundOrigin: enemyId.endsWith('-2') ? { x: 3, y: 0 } : { x: 2, y: 2 },
-    },
-  ];
-}
-
 function archer(id: string, x: number, y: number, spawnOrder: number): UnitDefinition {
   return {
     id, faction: 'ENEMY', position: { x, y }, facing: 'LEFT', hp: 2, maxHp: 2,
@@ -138,14 +110,14 @@ function archer(id: string, x: number, y: number, spawnOrder: number): UnitDefin
 function warrior(id: string, x: number, y: number, spawnOrder: number): UnitDefinition {
   return {
     id, faction: 'ENEMY', position: { x, y }, facing: 'LEFT', hp: 3, maxHp: 3,
-    abilities: [ABILITY_IDS.GOBLIN_RUSH], spawnOrder, visualKey: 'goblin_warrior_slice_02', combatRole: 'FRONTLINE',
+    abilities: [ABILITY_IDS.GOBLIN_RUSH], spawnOrder, visualKey: 'goblin_warrior_slice_02', combatRole: 'FRONTLINE', behavior: 'MELEE_PURSUER',
   };
 }
 
 function bomber(id: string, x: number, y: number, spawnOrder: number): UnitDefinition {
   return {
     id, faction: 'ENEMY', position: { x, y }, facing: 'LEFT', hp: 2, maxHp: 2,
-    abilities: [ABILITY_IDS.GOBLIN_BOMB], spawnOrder, visualKey: 'goblin_bomber_slice_02', combatRole: 'RANGED',
+    abilities: [ABILITY_IDS.GOBLIN_BOMB], spawnOrder, visualKey: 'goblin_bomber_slice_02', combatRole: 'RANGED', behavior: 'AREA_BOMBER',
   };
 }
 

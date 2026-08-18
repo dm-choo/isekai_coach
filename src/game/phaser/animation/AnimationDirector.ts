@@ -97,12 +97,14 @@ export class AnimationDirector {
         await this.renderer.wait(duration, signal);
         break;
       case 'UNIT_MOVED':
+        this.renderer.setUnitFacing(event.unitId, movementDirection(event.from, event.to));
         await this.animateMove(event.unitId, event.to, 'move', duration, signal);
         break;
       case 'UNIT_KNOCKED_BACK':
         await this.animateMove(event.unitId, event.to, 'knockback', duration, signal);
         break;
       case 'ABILITY_USED': {
+        this.renderer.setUnitFacing(event.sourceId, event.direction);
         const state: UnitAnimationState = event.abilityId.toLowerCase().includes('defend')
           ? 'defend'
           : 'attack';
@@ -176,4 +178,9 @@ export class AnimationDirector {
   private syncTelegraphs(): void {
     this.renderer.syncTelegraphs([...this.intents.values()]);
   }
+}
+
+function movementDirection(from: Readonly<{ x: number; y: number }>, to: Readonly<{ x: number; y: number }>): 'UP' | 'RIGHT' | 'DOWN' | 'LEFT' {
+  if (to.x !== from.x) return to.x > from.x ? 'RIGHT' : 'LEFT';
+  return to.y > from.y ? 'DOWN' : 'UP';
 }

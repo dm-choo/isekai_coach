@@ -13,6 +13,14 @@ let blockedPreviewCaptured = false;
 let firstRestUsed = false;
 let traversalCaptured = false;
 let allyPlanCaptured = false;
+let partyPolicyVerified = false;
+let corridorScrollVerified = false;
+let targetPickerHiddenVerified = false;
+let targetPickerShownVerified = false;
+let intentOwnershipVerified = false;
+let expeditionPolicyTuned = false;
+let multiIntentCaptured = false;
+let bomberIntentCaptured = false;
 
 await mkdir(artifactDir, { recursive: true });
 
@@ -32,6 +40,21 @@ try {
   await capture(page, '00-intro');
   await page.keyboard.press('Space');
   await capture(page, '01-world-tile');
+
+  const resourceText = await page.locator('.run-stats').innerText();
+  if (/[水食]/u.test(resourceText)) throw new Error(`Resource HUD still contains language-substitute glyphs: ${resourceText}`);
+  if (await page.locator('.mini-next-tile').count() !== 1) throw new Error('Local mini-map does not show the next world-tile direction');
+  await page.locator('.party-toggle').click();
+  const initialPolicy = (await runSnapshot(page)).policy;
+  await page.getByRole('button', { name: /사격.*위로/ }).click();
+  const reorderedPolicy = (await runSnapshot(page)).policy;
+  if (JSON.stringify(initialPolicy) === JSON.stringify(reorderedPolicy)) throw new Error('Party policy editor did not reorder policy outside combat');
+  await capture(page, '01a-party-policy');
+  await page.getByRole('button', { name: /사격.*아래로/ }).click();
+  const restoredPolicy = (await runSnapshot(page)).policy;
+  if (JSON.stringify(initialPolicy) !== JSON.stringify(restoredPolicy)) throw new Error('Party policy editor did not restore policy order');
+  await page.getByRole('button', { name: '닫기' }).click();
+  partyPolicyVerified = true;
 
   let combatCount = 0;
   let retries = 0;
@@ -56,11 +79,6 @@ try {
     }
     if (step > 0 && step % 50 === 0) process.stderr.write(`verify:slice2 step ${step}: ${progress}\n`);
     if (run.mode === 'VICTORY') break;
-    if (run.mode === 'POLICY_REVIEW') {
-      await capture(page, 'policy-review');
-      await page.getByRole('button', { name: /사격 우선으로 변경/ }).click();
-      continue;
-    }
     if (run.mode === 'DEFEAT') {
       if (retries >= 4) throw new Error('Slice 2 heuristic exceeded retry budget');
       retries += 1;
@@ -68,6 +86,15 @@ try {
       continue;
     }
     if (run.mode === 'EXPLORE') {
+      if (run.currentTileIndex >= 1 && !expeditionPolicyTuned) {
+        await page.locator('.party-toggle').click();
+        while ((await runSnapshot(page)).policy[0] !== 'SHOOT') {
+          await page.getByRole('button', { name: /사격.*위로/ }).click();
+        }
+        await page.getByRole('button', { name: '닫기' }).click();
+        expeditionPolicyTuned = true;
+        continue;
+      }
       if (run.currentTileIndex === 0 && run.currentNodeId === 'room-center' && run.canRest && !firstRestUsed) {
         firstRestUsed = true;
         await page.locator('.rest-button').click();
@@ -77,6 +104,18 @@ try {
         if (!traversalCaptured) {
           traversalCaptured = true;
           await capture(page, '01b-corridor-traversal');
+        }
+        if (!corridorScrollVerified) {
+          const before = await corridorPresentation(page);
+          await page.keyboard.press('d');
+          await page.waitForTimeout(100);
+          const after = await corridorPresentation(page);
+          if (before.partyX !== after.partyX) throw new Error(`Corridor party drifted from ${before.partyX} to ${after.partyX}`);
+          if (before.depthPosition === after.depthPosition || before.groundPosition === after.groundPosition) {
+            throw new Error(`Corridor world did not scroll: ${JSON.stringify({ before, after })}`);
+          }
+          corridorScrollVerified = true;
+          continue;
         }
         await page.keyboard.press('d');
         continue;
@@ -98,6 +137,21 @@ try {
       if (combatCount === 1) await capture(page, '02-first-encounter');
       await page.keyboard.press('Space');
       await page.waitForTimeout(100);
+      const activeCombat = await combatSnapshot(page);
+      const markers = await page.locator('.intent-owner').allTextContents();
+      if (markers.length !== activeCombat.previewState.intents.length || markers.some((marker, index) => marker !== String.fromCharCode(65 + index))) {
+        throw new Error(`Intent ownership markers do not match intent order: ${JSON.stringify(markers)}`);
+      }
+      if (await page.locator('.encounter-title').count() !== 0) throw new Error('Encounter title persisted after combat introduction');
+      intentOwnershipVerified = true;
+      if (!multiIntentCaptured && activeCombat.previewState.intents.length >= 2) {
+        multiIntentCaptured = true;
+        await capture(page, '02c-multi-enemy-ownership');
+      }
+      if (!bomberIntentCaptured && activeCombat.previewState.intents.some((intent) => intent.abilityId === 'goblin-bomb')) {
+        bomberIntentCaptured = true;
+        await capture(page, '02d-bomber-ownership');
+      }
       continue;
     }
     if (combat.mode === 'VICTORY') {
@@ -122,6 +176,10 @@ try {
       await page.locator('.ally-intent-panel summary').click();
       await page.mouse.move(640, 360);
     }
+    const pickerCount = await page.locator('.target-picker button').count();
+    if (pickerCount !== combat.targetableEnemyIds.length) throw new Error(`Target picker exposed ${pickerCount} targets, expected ${combat.targetableEnemyIds.length}`);
+    if (pickerCount === 0) targetPickerHiddenVerified = true;
+    else targetPickerShownVerified = true;
     await playPlayerTurn(page, combat);
   }
 
@@ -132,6 +190,9 @@ try {
     throw new Error(`Slice 2 did not finish: ${final.mode} tile ${final.currentTileIndex + 1} ${final.currentNodeId}\n${JSON.stringify(combat, null, 2)}`);
   }
   if (!blockedPreviewCaptured) throw new Error('Blocked enemy movement preview was not exercised');
+  if (!multiIntentCaptured) throw new Error('Multi-enemy intent ownership was not captured');
+  if (!bomberIntentCaptured) throw new Error('Bomber intent ownership was not captured');
+  if (!targetPickerHiddenVerified || !targetPickerShownVerified) throw new Error('Target picker did not exercise both hidden and actionable states');
   await capture(page, '03-complete');
   const night = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   night.on('console', (message) => { if (message.type() === 'error') errors.push(`night ${message.text()}`); });
@@ -187,6 +248,14 @@ try {
     nightConcealmentVerified: concealedBeforeLight === 1 && concealedAfterLight === 0,
     corridorTraversalCaptured: traversalCaptured,
     allyPlanAndTooltipCaptured: allyPlanCaptured,
+    partyPolicyVerified,
+    corridorScrollVerified,
+    targetPickerHiddenVerified,
+    targetPickerShownVerified,
+    intentOwnershipVerified,
+    expeditionPolicyTuned,
+    multiIntentCaptured,
+    bomberIntentCaptured,
   };
   await writeFile(new URL('report.json', artifactDir), `${JSON.stringify(report, null, 2)}\n`);
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
@@ -208,6 +277,7 @@ async function playPlayerTurn(page, snapshot) {
     const slam = snapshot.actions.find((candidate) => candidate.id === 'SLAM');
     if (process.env.SLICE2_DEBUG === '1') {
       process.stderr.write(`player decision ${JSON.stringify({
+        scenarioId: snapshot.scenarioId,
         turn: snapshot.state.turn,
         actor: snapshot.previewState.units.find((unit) => unit.id === actor.id),
         target: snapshot.previewState.units.find((unit) => unit.id === target.id),
@@ -215,6 +285,18 @@ async function playPlayerTurn(page, snapshot) {
         actions: snapshot.actions,
         plannedActions: snapshot.plannedActions,
       })}\n`);
+    }
+    const escape = safestMove(snapshot.previewState, actor.id, target.id);
+    const currentDanger = dangerAt(snapshot.previewState, actor.position);
+    const currentGroundDanger = groundDangerAt(snapshot.previewState, actor.position);
+    const shouldEscape = escape && (
+      (currentGroundDanger > 0 && escape.groundDanger < currentGroundDanger) ||
+      (actor.hp <= 2 && currentDanger > 0 && escape.danger < currentDanger)
+    );
+    if (shouldEscape) {
+      await page.getByRole('button', { name: escape.key, exact: true }).click();
+      await page.waitForTimeout(30);
+      continue;
     }
     if (slam?.executable) {
       const slamButton = page.locator('.skill-button').filter({ hasText: '내려찍기' });
@@ -238,7 +320,7 @@ async function playPlayerTurn(page, snapshot) {
       }
       break;
     }
-    const move = bestMove(snapshot.previewState, actor.id, target.id);
+    const move = actor.hp <= 2 ? escape?.key : bestMove(snapshot.previewState, actor.id, target.id);
     if (!move) break;
     await page.getByRole('button', { name: move, exact: true }).click();
     await page.waitForTimeout(30);
@@ -267,8 +349,34 @@ function bestMove(state, actorId, targetId) {
   return candidates[0]?.[0] ?? null;
 }
 
+function safestMove(state, actorId, targetId) {
+  const actor = state.units.find((unit) => unit.id === actorId);
+  const target = state.units.find((unit) => unit.id === targetId);
+  if (!actor || !target) return null;
+  return [
+    ['W', { x: actor.position.x, y: actor.position.y - 1 }],
+    ['S', { x: actor.position.x, y: actor.position.y + 1 }],
+    ['A', { x: actor.position.x - 1, y: actor.position.y }],
+    ['D', { x: actor.position.x + 1, y: actor.position.y }],
+  ]
+    .filter(([, position]) => position.x >= 0 && position.x < state.map.width && position.y >= 0 && position.y < state.map.height && !state.units.some((unit) => unit.hp > 0 && unit.id !== actor.id && unit.position.x === position.x && unit.position.y === position.y))
+    .map(([key, position], order) => ({ key, position, order, danger: dangerAt(state, position), groundDanger: groundDangerAt(state, position) }))
+    .sort((left, right) => left.groundDanger - right.groundDanger || left.danger - right.danger || Math.abs(left.position.x - target.position.x) + Math.abs(left.position.y - target.position.y) - Math.abs(right.position.x - target.position.x) - Math.abs(right.position.y - target.position.y) || left.order - right.order)[0] ?? null;
+}
+
+function dangerAt(state, position) {
+  return state.intents.reduce((sum, intent) => sum + Number(
+    intent.effectCells.some((cell) => cell.x === position.x && cell.y === position.y) ||
+    intent.plannedMovementPath.some((cell) => cell.x === position.x && cell.y === position.y)
+  ), 0);
+}
+
+function groundDangerAt(state, position) {
+  return state.intents.reduce((sum, intent) => sum + Number(intent.anchor === 'GROUND' && intent.effectCells.some((cell) => cell.x === position.x && cell.y === position.y)), 0);
+}
+
 function moveScore(state, position, target) {
-  const danger = state.intents.reduce((sum, intent) => sum + Number(intent.effectCells.some((cell) => cell.x === position.x && cell.y === position.y)), 0);
+  const danger = dangerAt(state, position);
   // A deterministic smoke player must sometimes accept one forecast hit to
   // close distance; overweighting danger makes it oscillate forever outside a
   // long-shot lane after the ranged ally falls.
@@ -279,5 +387,17 @@ function distance(left, right) { return Math.abs(left.position.x - right.positio
 function unitName(unit) { if (unit.id.includes('archer')) return '고블린 궁수'; if (unit.id.includes('warrior')) return '고블린 전사'; return '고블린 투척병'; }
 async function runSnapshot(page) { return page.evaluate(() => window.__ISEKAI_COACH_SLICE2__?.snapshot); }
 async function combatSnapshot(page) { return page.evaluate(() => window.__ISEKAI_COACH_COMBAT__?.snapshot); }
+async function corridorPresentation(page) {
+  return page.evaluate(() => {
+    const party = document.querySelector('.travel-party')?.getBoundingClientRect();
+    const depth = document.querySelector('.corridor-depth');
+    const ground = document.querySelector('.corridor-ground');
+    return {
+      partyX: party?.x,
+      depthPosition: depth ? getComputedStyle(depth).backgroundPositionX : undefined,
+      groundPosition: ground ? getComputedStyle(ground).backgroundPositionX : undefined,
+    };
+  });
+}
 async function capture(page, name) { await page.waitForTimeout(150); await page.screenshot({ path: new URL(`${name}.png`, artifactDir).pathname }); }
 async function waitForServer(url, child) { const deadline = Date.now() + 15_000; while (Date.now() < deadline) { if (child.exitCode !== null) throw new Error(`Vite exited with ${child.exitCode}`); try { if ((await fetch(url)).ok) return; } catch {} await new Promise((resolve) => setTimeout(resolve, 120)); } throw new Error(`Timed out waiting for ${url}`); }

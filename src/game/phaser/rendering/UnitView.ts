@@ -9,6 +9,8 @@ import type { IntentIconKind } from '../bridge/PresentationPort';
 import type { LogicalPosition } from './GridProjector';
 import { createUnitVisual, type UnitVisualAdapter } from './UnitVisual';
 
+const INTENT_OWNER_COLORS = [0xff725e, 0xffc857, 0xc58cff, 0x67d7ef] as const;
+
 export interface RenderableUnit {
   readonly id: string;
   readonly faction: 'STUDENT' | 'ENEMY';
@@ -162,6 +164,10 @@ export class UnitView {
     this.selectionRing.setVisible(selected);
   }
 
+  public setFacing(direction: Direction): void {
+    this.unitVisual.setFacing(direction);
+  }
+
   public setAp(ap: number, maxAp: number, visible = true): void {
     this.apLabel.setText(visible && maxAp > 0 ? `${'◆'.repeat(ap)}${'◇'.repeat(Math.max(0, maxAp - ap))}` : '');
   }
@@ -193,10 +199,22 @@ export class UnitView {
     const width = 42;
     const gap = 7;
     const total = steps.length * width + Math.max(0, steps.length - 1) * gap;
+    const ownerMarker = steps[0]?.label.match(/^([A-Z]) ·/)?.[1];
+    const ownerIndex = ownerMarker ? ownerMarker.charCodeAt(0) - 65 : -1;
+    const ownerColor = INTENT_OWNER_COLORS[ownerIndex % INTENT_OWNER_COLORS.length] ?? 0xe8664d;
+    if (ownerMarker) {
+      const badgeX = -total / 2 - 15;
+      const badge = this.scene.add.circle(badgeX, 0, 11, ownerColor, 1)
+        .setStrokeStyle(2, 0x120b08, 0.95);
+      const badgeText = this.scene.add.text(badgeX, 0, ownerMarker, {
+        fontFamily: 'ui-monospace, monospace', fontSize: '11px', color: '#160a07', fontStyle: 'bold',
+      }).setOrigin(0.5);
+      this.intentContainer.add([badge, badgeText]);
+    }
     steps.forEach((step, index) => {
       const x = -total / 2 + width / 2 + index * (width + gap);
       const background = this.scene.add.rectangle(x, 0, width, 36, 0x11130d, 0.94)
-        .setStrokeStyle(2, this.faction === 'ENEMY' ? 0xe8664d : 0x65d7e4, 0.95)
+        .setStrokeStyle(2, this.faction === 'ENEMY' ? ownerColor : 0x65d7e4, 0.95)
         .setInteractive({ useHandCursor: true });
       const textureKey = INTENT_ICON_TEXTURES[step.icon].textureKey;
       const icon = this.scene.textures.exists(textureKey)

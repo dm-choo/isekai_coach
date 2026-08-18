@@ -17,7 +17,7 @@ export type EnemyRank = 'NORMAL' | 'ELITE' | 'BOSS';
 export type IntentAnchor = 'BODY' | 'GROUND';
 export type ThreatCategory = 'NORMAL_ATTACK' | 'UNBLOCKABLE_ATTACK';
 export type CombatRole = 'FRONTLINE' | 'RANGED' | 'BOSS' | 'MINION';
-export type UnitBehavior = 'RANGED_HUNTER' | 'RANGED_SKIRMISHER';
+export type UnitBehavior = 'RANGED_HUNTER' | 'RANGED_SKIRMISHER' | 'MELEE_PURSUER' | 'AREA_BOMBER';
 
 export interface UnitStatus {
   /** Remaining mitigation for the next blockable hit. */
@@ -408,6 +408,8 @@ export interface IntentChoice {
   readonly direction?: Direction;
   readonly groundOrigin?: GridPosition;
   readonly movementPath?: readonly GridPosition[];
+  /** Hidden enemy-planning budget. It is intentionally not player-facing AP. */
+  readonly internalCost?: number;
 }
 
 export interface StudentDecisionStrategy {
