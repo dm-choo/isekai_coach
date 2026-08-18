@@ -26,6 +26,8 @@ related:
 - 범용 stun effect가 별도로 존재하는 경우에는 확률이 아닌 확정 effect이며, interruptible Intent의 source가 stun을 받으면 해당 Intent를 취소한다.
 - 모든 공격이 interruptible인 것은 아니다. 적 행동 데이터가 중단 가능 여부를 명시한다.
 - 이동이 포함된 Intent의 공개 경로와 최종 shadow는 현재 점유를 반영한다. 플레이어·동료가 경로를 막으면 점유 cell 직전에서 경로를 끝내고, 실제 도착점에서 공격 범위를 다시 투영한다.
+- 관리자의 `가로막기`는 AP 2로 다음 일반 피해 1을 방어한다. 관리자가 적의 공개 이동 경로 cell을 먼저 점유해 실제로 이동을 끊고 그 공격의 방어가 소비되면, 해당 이동 적에게 피해 1로 한 번 반격한다. 경로를 막지 않은 일반 방어에는 반격이 발생하지 않는다.
+- 활 투사체는 최소 사거리 이전 cell을 포함해 첫 생존 전투원에서 차단된다. 그 전투원이 유효 사거리 밖이거나 같은 진영이면 피해 없이 사격이 막히며 뒤 대상을 맞히지 않는다.
 
 화면 신호의 소유자는 [Combat view UX](../../ux/views/combat-view.md)와 [Intent art](../../art/ui/combat-view/intent-and-ally-prediction.md)다.
 
@@ -46,4 +48,4 @@ related:
 
 ## Implementation alignment
 
-현재 Slice 1은 관리자와 동료를 domain faction `STUDENT`로 공유하되 controller에서 수동·자동 phase를 분리한다. 작업 후보별 전체 동료 미리보기는 현재 public combat view에 노출하지 않는다. 구현 사실은 [existing scaffold contract](../../development/architecture/existing-scaffold-contract.md)가 소유한다.
+현재 Slice 1·2는 관리자와 동료를 domain faction `STUDENT`로 공유하되 controller에서 수동·자동 phase를 분리한다. 내 턴에는 현재 계획을 반영한 동료 전체 sequence를 고정 패널과 청색 world preview로 노출한다. 구현 사실은 [existing scaffold contract](../../development/architecture/existing-scaffold-contract.md)가 소유한다.

@@ -15,4 +15,5 @@ related:
 - [Evade](./evade.md): **accepted**
 - [Positioning](./positioning.md): **accepted**
 - [Push](./push.md): 구조 **accepted**, 수치 **provisional**
+- [Intercept](./intercept.md): Slice 1·2 검증 규칙 **accepted**, 장기 수치 **provisional**
 - [Weapon actions](./weapon-actions.md): 형태·역할 **accepted**, 피해 수치 **provisional**, 창 관통 **under-validation**

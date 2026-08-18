@@ -38,7 +38,7 @@ related:
 - React와 Phaser는 typed bridge/event boundary로 통신한다. React가 Scene 내부 state를 직접 변경하지 않는다.
 - logical grid 좌표와 화면 projection을 분리한다. 카메라가 보여주는 영역과 `12 x 3` 논리 topology는 같은 계약이 아니다.
 - player plan은 authoritative `BattleState`와 분리된 preview projection이다. hover는 ally policy와 enemy Intent를 what-if로 계산하고, `Z`/`Space`가 각각 마지막 하나/전체 계획을 확정 경계로 보낸다.
-- `Slice2RunController`가 월드 타일, 현재 방·통로 구간, 지속 HP·시간·policy와 인카운터 체크포인트를 소유한다. React local map과 Phaser 전투 장면은 이 상태를 표현하고 typed command만 전달한다.
+- `Slice2RunController`가 월드 타일, 현재 방·통로 구간, 100m traversal 진행률, 지속 HP·시간·policy와 인카운터 체크포인트를 소유한다. React local map과 Phaser 전투 장면은 이 상태를 표현하고 typed command만 전달한다.
 - `SliceController`는 authored scenario, 관리자·동료 id와 policy 순서를 주입받아 여러 인카운터에 재사용한다. encounter 전환은 이전 presentation generation을 파기한 뒤 새 `BattleEngine`을 연결한다.
 
 ## Grid, units, and actions
@@ -49,7 +49,8 @@ related:
 - 적과 아군은 공통 unit model을 사용한다. 여러 아군·적을 수용하는 domain 경계는 유지한다.
 - 대상 선정과 effect 적용은 분리한다. 피해·밀치기·stun을 ability data의 effect 순서로 적용할 수 있으며 renderer가 결과를 결정하지 않는다.
 - 밀치기는 경계와 점유를 검사하는 강제 이동 primitive다. 막히면 unit이 겹치거나 맵 밖으로 나가지 않는다.
-- `사격`은 같은 행의 투사체이며 기본적으로 가장 앞의 적 하나에서 멈춘다. 포지셔닝은 기본적으로 이 앞선 적을 기준으로 한다.
+- `사격`은 같은 행 3~6칸 clear line의 투사체다. 최소 사거리 이전을 포함한 첫 생존 전투원에서 멈추며, 유효 사거리 밖 또는 같은 진영의 몸이면 피해 없이 차단된다.
+- 이동 후 공격 Intent는 `plannedMovementPath`와 현재 점유로 잘린 `movementPath`를 모두 보존한다. renderer와 resolution은 같은 잘린 경로·최종 공격 원점을 사용한다.
 
 ## Slice 1 turn pipeline
 
@@ -90,7 +91,7 @@ related:
 6. 타일 2 뒤 기존 5-slot policy를 유지하거나 `사격`을 첫 슬롯으로 한 번 재정렬한다.
 7. 타일 4 동쪽 경계 방을 통과하면 원정 요약을 표시한다.
 
-Slice 2 enemy intent는 장거리 BODY 사격, 4칸 ADVANCE 뒤 근접 공격, 고정 GROUND 폭탄을 사용한다. 전투원 밀치기는 BODY 사격 원점을 옮기지만 이미 잠긴 폭탄 footprint는 옮기지 않는다.
+Slice 2 enemy intent는 포지셔닝 뒤 장거리 BODY 사격, 4칸 ADVANCE 뒤 근접 공격, 고정 GROUND 폭탄을 사용한다. 전투원 밀치기는 BODY 사격 원점을 옮기지만 이미 잠긴 폭탄 footprint는 옮기지 않는다. 관리자의 가로막기 방어가 공개 경로를 실제로 차단한 이동 공격에 소비되면 engine이 피해 1 반격을 한 번 정산한다.
 
 ## Presentation contract
 
@@ -99,6 +100,7 @@ Slice 2 enemy intent는 장거리 BODY 사격, 4칸 ADVANCE 뒤 근접 공격, �
 - `<내 턴>`, `<아군 턴>`, `<적 턴>`은 배너·상태 변화·행동 애니메이션으로 명시한다. 텍스트만으로 현재 주체를 추측하게 하지 않는다.
 - `idle`, `move`, `attack`, `hit`, `knockback`, `stun`, `death`와 봉인 해제 연출은 서로 구별되어야 한다. 이동과 공격을 같은 tween으로 축약하지 않는다.
 - 투사체, wind-up, 타격, hit-stop·camera feedback과 죽음은 전투 인과를 시간 순서로 전달한다.
+- HP bar는 foot anchor에서 계산한 sprite 상단 밖에 둔다. idle은 sprite의 기준 위치를 옮기지 않으며, 같은 animation state 재설정은 무시해 death tween을 반복 시작하지 않는다.
 - asset manifest는 등록된 bitmap/spritesheet를 사용하되 fallback visual도 유지한다. simulation은 asset key나 clip 이름을 알지 않는다.
 
 ## Slice 1 authored surface
@@ -113,7 +115,8 @@ Slice 2 enemy intent는 장거리 BODY 사격, 4칸 ADVANCE 뒤 근접 공격, �
 ## Slice 2 authored surface
 
 - `src/game/slice2/world.ts`는 네 월드 타일과 각 타일의 중앙·경계 방, 방향별 4구간 통로, seed 기반 인카운터 생명주기를 정의한다.
-- `src/game/slice2/scenarios.ts`는 고블린 궁수·전사·투척병과 네 중앙 방의 학습 순서를 정의한다.
+- `src/game/slice2/scenarios.ts`는 고블린 궁수·전사·투척병, 네 중앙 방의 학습 순서와 encounter ID 기반 진형·정예 spec을 정의한다.
+- local map node command는 traversal을 시작할 뿐 위치를 즉시 바꾸지 않는다. `advanceTravel`이 100m에 도달했을 때만 node, 시간과 인카운터를 원자적으로 정산한다.
 - 필수 경로에는 통로 전투 2회와 중앙 방 전투 4회를 배치한다. 북·남 선택 통로의 추가 인카운터는 정찰 뒤 선택할 수 있다.
 - `/slice2/`가 Slice 2 build를 소유하며 `/`와 `/slice1/`을 보존한다.
 
@@ -133,5 +136,5 @@ Slice 2 enemy intent는 장거리 BODY 사격, 4칸 ADVANCE 뒤 근접 공격, �
 - Slice 1은 controller의 intro → plan/undo/confirm → ally positioning/shooting → `제압` 회피 → `내려찍기` interrupt → 하수인 소환/돌진 흐름을 테스트한다.
 - Chromium에서 desktop viewport의 initial, 각 턴 배너, Intent, plan preview, 타격·stun·소환·하수인과 console/page/request error를 기록한다. mobile viewport와 전투 완주·봉인 해제는 별도 검증 항목이다.
 - 배포 완료는 `/slice1/` 공개 검증과 기존 root 보존 검증을 별도로 통과해야 한다.
-- Slice 2는 seed/재침식/정찰/지속 상태 unit test, 1280×720 전체 4타일 완주, 960×720 overflow, 세 고블린 asset request와 console/page/request error를 검증한다.
+- Slice 2는 seed/재침식/정찰/지속 상태, 투사체 차폐, 가로막기 반격, 진형 spec과 100m 전진·후퇴 unit test, 1280×720 전체 4타일 완주, 960×720 overflow, ALLY PLAN/tooltip/traversal screenshot과 console/page/request error를 검증한다.
 - Slice 2 배포 완료는 `/`, `/slice1/`, `/slice2/`을 각각 검증해야 한다.

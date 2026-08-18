@@ -33,9 +33,10 @@ related:
 
 - `<아군 턴>`에는 궁수의 활시위 당김 → 투사체 → 첫 적 적중을 한 덩어리의 causality로 보여준다.
 - `사격`은 같은 행에서 가장 앞의 적 하나에 멈춘다. 먼 적을 임의로 맞히는 beam이나 다중 적 관통으로 표현하지 않는다.
-- 자동 policy는 항상 상시 dashboard로 펼치지 않는다. 현재 실행 슬롯의 아이콘·이름과 짧은 reason만 궁수 가까이에 잠깐 표시한다.
+- `<내 턴>`에는 작은 고정 `ALLY PLAN` 패널로 현재 상태에서 결정된 동료의 전체 행동 sequence를 항상 표시한다. 관리자 계획을 바꾸면 `내 계획 반영` 상태와 sequence가 함께 갱신된다. 패널은 행동 아이콘·순서·대상·피해만 담고 policy 편집 dashboard로 확장하지 않는다.
 - 계획 중에는 궁수의 최종 도착 cell에 청색 예정 silhouette, 고대비 외곽 silhouette, pulsing ground ring과 `도착`/`공격` label을 함께 표시한다. 반투명 복제 한 장만으로 실제 unit과 구별하게 하지 않으며, 이어지는 공격 pose와 effect cells를 함께 표시한다.
 - `회피`, `포지셔닝`, `사격`, `밀치기`의 tag는 tooltip metadata로만 보조한다. 태그가 전투의 주된 문장이 되지 않는다.
+- 아군 effect cell은 청색 면·stroke, 적 effect cell은 적색 면·stroke를 사용하고 색 외에도 panel 위치와 silhouette 방향으로 구분한다.
 
 ## Layer priority
 

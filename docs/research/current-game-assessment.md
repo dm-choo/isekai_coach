@@ -311,3 +311,30 @@ Anti-target을 배제한다는 뜻은 아니다. 핵심을 흐리지 않는 접�
 ## Scope note for current build
 
 이 문서의 policy editing, replay, 물류와 장기 복구에 대한 비평은 전체 게임의 후속 가설이다. 현재 public Slice 1에 policy reorder·동일 상태 재전투·분석 dashboard가 없다고 해서 해당 장기 아이디어가 승인되거나 폐기된 것은 아니다. Slice 1에서는 먼저 장면 우선 전투가 성립하는지 검증하고, 그 결과를 바탕으로 후속 policy UX의 필요와 정보량을 다시 결정한다.
+
+## Slice 2 dynamic-combat diagnosis — 2026-08-18
+
+### Why the choices became obvious
+
+피드백에서 나온 여섯 가지 다이내믹 문제는 별개 콘텐츠 부족이 아니라 같은 구조적 원인을 가리켰다.
+
+1. 적 Intent는 완전히 공개되지만 플레이어가 그 Intent에 개입하는 동사는 이동·밀치기뿐이었다. 위험은 읽히지만 대응의 결과 벡터가 대부분 `맞음/피함` 둘로 수렴했다.
+2. 동료 궁수의 사격 조건이 넓고 차폐가 없어 policy가 공간을 읽기보다 사격 가능 여부를 거의 항상 `true`로 반환했다.
+3. 적 궁수는 고정된 자리에서 같은 직선을 반복해, 적 종류가 달라도 플레이어가 바꾸는 상태 변수가 적었다.
+4. 적 조합 이름은 달라도 시작 위치와 HP가 고정되어 encounter state space가 실질적으로 반복됐다.
+5. 지도 node 클릭은 통로의 거리·위험·시간을 결과 숫자로만 정산해, 전투 사이의 긴장을 플레이로 만들지 못했다.
+
+### Adopted mechanisms and intended state-space effect
+
+| 변경 | 새로 충돌하는 상태 | 아직 검증할 위험 |
+|---|---|---|
+| 가로막기 AP 2 | 경로 점유, 피해 경감, 반격, 공격 포기, 아군 사선 차폐 | 매번 최선의 방어가 되는가 |
+| 동료 활 3~6칸 + 몸 차폐 | 행, 거리, 앞 전투원, 이동 후 AP | 사격 불가가 답답함만 늘리는가 |
+| 적 궁수 포지셔닝→사격 | 표적 행, 이동 목적지, 새 BODY 원점 | 동료 우선 표적이 지나치게 고정적인가 |
+| 결정론적 진형·정예 spec | 시작 행·열, HP, 처리 순서 | HP +1이 의미 없는 소모전인가 |
+| 100m hold traversal | 실제 진행 거리, 후퇴, 인카운터 예상, 시간 정산 시점 | 반복 입력이 새 마찰이 되는가 |
+| 고정 ALLY PLAN | 현재 baseline, 관리자 계획 반영 후 sequence 차이 | 완전 예측이 정답 계산기로 변하는가 |
+
+이 변경들의 목표는 행동 수를 무작정 늘리는 것이 아니다. 같은 AP 3 안에서 `이동 1 + 공격 2`, `이동 1 + 가로막기 2`, `이동 3`이 서로 다른 아군·적 상태를 만들게 하는 것이다. 특히 가로막기는 [Into the Breach](https://www.gamedeveloper.com/game-platforms/road-to-the-igf-subset-games-i-into-the-breach-i-)의 공개 공격과 다목적 공간 개입에서 문제 해결 방식을 참고했지만, 이 게임에서는 자동 동료의 사선과 policy 결과까지 함께 바꾸는 차이를 검증한다.
+
+통로 이동은 [Darkest Dungeon의 room/hallway 구조](https://darkestdungeon.wiki.gg/wiki/Dungeon_Map)를 참고해 `방 선택 → 통로를 실제 이동 → 구간 조우`의 시간적 연결을 복구했다. 다만 횃불·stress·랜덤 복도 이벤트 전체를 복제하지 않고 이 slice에서는 100m 진행, 후퇴와 자동 조우 정지만 검증한다.

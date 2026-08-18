@@ -14,7 +14,7 @@ Slice 1의 아래 관리자/동료 수치와 public 이름은 accepted다. Slice
 
 | 무기 / 정책 | Accepted shape and behavior | Provisional damage |
 | --- | --- | --- |
-| 활 / 사격 | 같은 행 전방 2~5칸의 투사체. 가장 앞의 적 하나에서 멈춘다 | 피해 1 / AP 2 |
+| 활 / 사격 | 같은 행 전방 3~6칸, clear line의 투사체. 최소 사거리 이전을 포함한 첫 전투원에서 막힌다 | 피해 1 / AP 2 |
 | 검 / 베기 | 전방 1열 × 세로 3칸 | Slice 1 밖: provisional |
 | 둔기 / 내려찍기 | 전방 `1 × 1`, `#근거리공격` | 피해 2 / AP 2 |
 | 창 / 찌르기 | 같은 행 전방 3칸 | Slice 1 밖: provisional |
