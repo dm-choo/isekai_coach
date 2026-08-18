@@ -16,8 +16,8 @@ try {
   if (!suppliedUrl) {
     server = spawn(
       process.execPath,
-      ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', String(port), '--strictPort'],
-      { stdio: ['ignore', 'pipe', 'pipe'] },
+      ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', String(port), '--strictPort', '--base', '/slice1/'],
+      { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, VITE_SLICE: '1' } },
     );
     await waitForServer(baseUrl, server);
   }

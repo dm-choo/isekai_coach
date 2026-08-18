@@ -9,6 +9,7 @@ const baseUrl = suppliedUrl ?? `http://127.0.0.1:${port}/slice2/?verify=1`;
 const artifactDir = new URL('../artifacts/slice2/', import.meta.url);
 let server;
 let browser;
+let blockedPreviewCaptured = false;
 
 await mkdir(artifactDir, { recursive: true });
 
@@ -32,8 +33,26 @@ try {
   const route = ['room-west', 'west-4', 'west-3', 'west-2', 'west-1', 'room-center', 'east-1', 'east-2', 'east-3', 'east-4', 'room-east'];
   let combatCount = 0;
   let retries = 0;
+  let lastProgress = '';
+  let repeatedProgress = 0;
   for (let step = 0; step < 500; step += 1) {
     const run = await runSnapshot(page);
+    const combat = run.mode === 'COMBAT' ? await combatSnapshot(page) : null;
+    const progress = JSON.stringify([
+      run.mode,
+      run.currentTileIndex,
+      run.currentNodeId,
+      combat?.mode,
+      combat?.state?.turn,
+      combat?.state?.units?.map((unit) => [unit.id, unit.hp, unit.ap, unit.position.x, unit.position.y]),
+    ]);
+    repeatedProgress = progress === lastProgress ? repeatedProgress + 1 : 0;
+    lastProgress = progress;
+    if (repeatedProgress > 120) {
+      await capture(page, 'stalled-state');
+      throw new Error(`Slice 2 stalled without state progress: ${progress}`);
+    }
+    if (step > 0 && step % 50 === 0) process.stderr.write(`verify:slice2 step ${step}: ${progress}\n`);
     if (run.mode === 'VICTORY') break;
     if (run.mode === 'POLICY_REVIEW') {
       await capture(page, 'policy-review');
@@ -59,7 +78,6 @@ try {
       continue;
     }
     if (run.mode !== 'COMBAT') throw new Error(`Unexpected run mode ${run.mode}`);
-    const combat = await combatSnapshot(page);
     if (combat.mode === 'INTRO') {
       combatCount += 1;
       if (combatCount === 1) await capture(page, '02-first-encounter');
@@ -90,6 +108,7 @@ try {
     await capture(page, 'failure-state');
     throw new Error(`Slice 2 did not finish: ${final.mode} tile ${final.currentTileIndex + 1} ${final.currentNodeId}\n${JSON.stringify(combat, null, 2)}`);
   }
+  if (!blockedPreviewCaptured) throw new Error('Blocked enemy movement preview was not exercised');
   await capture(page, '03-complete');
   const compact = await browser.newPage({ viewport: { width: 960, height: 720 } });
   compact.on('console', (message) => { if (message.type() === 'error') errors.push(`4:3 ${message.text()}`); });
@@ -114,6 +133,7 @@ try {
     vitals: final.vitals,
     policy: final.policy,
     browserErrors: errors,
+    blockedPreviewCaptured,
   };
   await writeFile(new URL('report.json', artifactDir), `${JSON.stringify(report, null, 2)}\n`);
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
@@ -123,7 +143,7 @@ try {
 }
 
 async function playPlayerTurn(page, snapshot) {
-  for (let action = 0; action < 2; action += 1) {
+  for (let action = 0; action < 3; action += 1) {
     snapshot = await combatSnapshot(page);
     const actor = snapshot.previewState.units.find((unit) => unit.id === 'administrator-slice2');
     const enemies = snapshot.previewState.units.filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0);
@@ -133,14 +153,48 @@ async function playPlayerTurn(page, snapshot) {
     if (await targetButton.count()) await targetButton.click();
     snapshot = await combatSnapshot(page);
     const slam = snapshot.actions.find((candidate) => candidate.id === 'SLAM');
+    if (process.env.SLICE2_DEBUG === '1') {
+      process.stderr.write(`player decision ${JSON.stringify({
+        turn: snapshot.state.turn,
+        actor: snapshot.previewState.units.find((unit) => unit.id === actor.id),
+        target: snapshot.previewState.units.find((unit) => unit.id === target.id),
+        selectedTargetId: snapshot.selectedTargetId,
+        actions: snapshot.actions,
+        plannedActions: snapshot.plannedActions,
+      })}\n`);
+    }
     if (slam?.executable) {
-      await page.locator('.skill-button').filter({ hasText: '내려찍기' }).click();
+      const slamButton = page.locator('.skill-button').filter({ hasText: '내려찍기' });
+      if (process.env.SLICE2_DEBUG === '1') {
+        const box = await slamButton.boundingBox();
+        const hit = box ? await page.evaluate(({ x, y }) => {
+          const element = document.elementFromPoint(x, y);
+          return element ? { tag: element.tagName, className: element.className, text: element.textContent?.slice(0, 40) } : null;
+        }, { x: box.x + box.width / 2, y: box.y + box.height / 2 }) : null;
+        process.stderr.write(`attack button hit ${JSON.stringify({ box, hit })}\n`);
+      }
+      await slamButton.click();
+      await page.waitForTimeout(30);
+      if (process.env.SLICE2_DEBUG === '1') {
+        const afterAttackClick = await combatSnapshot(page);
+        process.stderr.write(`after attack click ${JSON.stringify({
+          turn: afterAttackClick.state.turn,
+          plannedActions: afterAttackClick.plannedActions,
+          notice: afterAttackClick.notice,
+        })}\n`);
+      }
       break;
     }
     const move = bestMove(snapshot.previewState, actor.id, target.id);
     if (!move) break;
     await page.getByRole('button', { name: move, exact: true }).click();
     await page.waitForTimeout(30);
+    const afterMove = await combatSnapshot(page);
+    const warriorIntent = afterMove.previewState.intents.find((intent) => intent.sourceId === 'goblin-warrior');
+    if (!blockedPreviewCaptured && warriorIntent && warriorIntent.movementPath.length < 4) {
+      blockedPreviewCaptured = true;
+      await capture(page, '02-blocked-warrior-preview');
+    }
   }
   await page.locator('.end-turn-button').click();
   await page.waitForTimeout(120);
@@ -162,7 +216,10 @@ function bestMove(state, actorId, targetId) {
 
 function moveScore(state, position, target) {
   const danger = state.intents.reduce((sum, intent) => sum + Number(intent.effectCells.some((cell) => cell.x === position.x && cell.y === position.y)), 0);
-  return Math.abs(position.x - target.x) + Math.abs(position.y - target.y) + danger * 2.5;
+  // A deterministic smoke player must sometimes accept one forecast hit to
+  // close distance; overweighting danger makes it oscillate forever outside a
+  // long-shot lane after the ranged ally falls.
+  return Math.abs(position.x - target.x) + Math.abs(position.y - target.y) + danger * 1.5;
 }
 
 function distance(left, right) { return Math.abs(left.position.x - right.position.x) + Math.abs(left.position.y - right.position.y); }

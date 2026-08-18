@@ -717,19 +717,19 @@ function intentGlyph(abilityId: string): string {
 function intentIcon(abilityId: string): IntentIconKind {
   if (abilityId === 'guardian-summon') return 'SUMMON';
   if (abilityId === 'shoot') return 'SHOOT';
-  if (abilityId === 'slam') return 'STUN';
+  if (abilityId === 'slam') return 'ATTACK';
   if (abilityId === 'push' || abilityId === 'minion-charge') return 'PUSH';
   return 'ATTACK';
 }
 
 function intentDescription(abilityId: string, damage?: number): string {
   if (abilityId === 'guardian-crush') return `제압: 2칸 이동한 뒤 전방 1칸에 피해 ${damage ?? 6}. 중단할 수 없습니다.`;
-  if (abilityId === 'guardian-rupture') return `외침: 전방 5칸과 3개 행에 피해 ${damage ?? 2}. 스턴으로 중단할 수 있습니다.`;
+  if (abilityId === 'guardian-rupture') return `외침: 전방 5칸과 3개 행에 피해 ${damage ?? 2}. 차징 중 #근거리공격에 적중하면 중단됩니다.`;
   if (abilityId === 'guardian-summon') return '하수인 소환: 빈 인접 칸에 원거리 동료를 추적하는 적 하수인을 소환합니다.';
   if (abilityId === 'minion-charge') return `돌진: 목표 방향으로 최대 3칸 이동하며 처음 만난 대상에게 피해 ${damage ?? 2}.`;
   if (abilityId === 'shoot') return `사격: 같은 행 2~5칸 안의 가장 가까운 적에게 피해 ${damage ?? 1}. 관통하지 않습니다.`;
   if (abilityId === 'push') return `밀치기: 인접한 적에게 피해 ${damage ?? 1}을 주고 1칸 밀어냅니다.`;
-  if (abilityId === 'slam') return `내려찍기: 인접한 적에게 피해 ${damage ?? 1}과 스턴을 적용해 중단 가능한 행동을 취소합니다.`;
+  if (abilityId === 'slam') return `내려찍기: 인접한 적에게 피해 ${damage ?? 2}를 줍니다. 차징 중인 결계 수호자에게 적중하면 해당 행동을 중단합니다.`;
   return `공격: 대상에게 피해 ${damage ?? 0}을 줍니다.`;
 }
 

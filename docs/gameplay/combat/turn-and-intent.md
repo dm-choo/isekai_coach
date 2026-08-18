@@ -22,8 +22,10 @@ related:
 - 밀린 짧은 공격은 빗나갈 수 있고, 같은 이동 뒤 긴 찌르기는 여전히 닿을 수 있다.
 - Slice 1의 public threat는 `제압`과 `외침`이다. 머리 위에는 적/아군 모두 동일한 `sequence icon + damage` 문법을 사용하고, label은 보조한다. `제압`은 2칸 이동 뒤 1×1에 피해 6, 중단 불가; `외침`은 5×3에 피해 2, 중단 가능이다.
 - 세 번째 보스 Intent는 원거리 동료를 추적하는 하수인 소환이다. authored spawn candidate를 순서대로 검사해 첫 빈칸에 소환하며, 선호 칸이 점유됐다는 이유만으로 취소하지 않는다. 모든 후보가 막힌 경우에만 실패한다. 하수인 소환에는 cap이 없고, 하수인은 HP 1의 `돌진`(3×1, 피해 2)을 수행한다. 대상이 있으면 피해 후 대상 바로 앞에 정지하고, 없으면 경로 끝까지 이동한다.
-- stun은 확률이 아닌 확정 effect다. interruptible Intent의 source가 stun을 받으면 해당 Intent를 취소한다.
+- Slice 1 수호자의 `외침`은 차징 중 `#근거리공격`에 적중하면 해당 Intent만 취소된다. 이 반응은 범용 stun 상태를 부여하지 않는다.
+- 범용 stun effect가 별도로 존재하는 경우에는 확률이 아닌 확정 effect이며, interruptible Intent의 source가 stun을 받으면 해당 Intent를 취소한다.
 - 모든 공격이 interruptible인 것은 아니다. 적 행동 데이터가 중단 가능 여부를 명시한다.
+- 이동이 포함된 Intent의 공개 경로와 최종 shadow는 현재 점유를 반영한다. 플레이어·동료가 경로를 막으면 점유 cell 직전에서 경로를 끝내고, 실제 도착점에서 공격 범위를 다시 투영한다.
 
 화면 신호의 소유자는 [Combat view UX](../../ux/views/combat-view.md)와 [Intent art](../../art/ui/combat-view/intent-and-ally-prediction.md)다.
 

@@ -4,6 +4,7 @@ import type {
   BattlePredictionPresentation,
   PresentationPort,
 } from '../phaser/bridge/PresentationPort';
+import { createSlice2EncounterScenario } from '../slice2/scenarios';
 import { SliceController } from './SliceController';
 
 class InstantPresentation implements PresentationPort {
@@ -101,7 +102,7 @@ describe('SliceController barrier-guardian encounter', () => {
     expect(snapshot.state.intents[0]?.abilityId).toBe('guardian-rupture');
   });
 
-  it('recomputes a hover preview and only interrupts the wide attack after confirmation', async () => {
+  it('recomputes a hover preview and only interrupts the charged attack after confirmation', async () => {
     const controller = new SliceController();
     const presentation = new InstantPresentation();
     controller.attachPresentation(presentation);
@@ -119,7 +120,7 @@ describe('SliceController barrier-guardian encounter', () => {
     expect(preview.state.intents[0]?.abilityId).toBe('guardian-rupture');
     expect(preview.previewState.intents).toHaveLength(0);
     expect(preview.state.units.find((unit) => unit.id === 'barrier-guardian-01')?.hp).toBe(14);
-    expect(preview.previewState.units.find((unit) => unit.id === 'barrier-guardian-01')?.hp).toBe(13);
+    expect(preview.previewState.units.find((unit) => unit.id === 'barrier-guardian-01')?.hp).toBe(12);
     expect(presentation.predictions.at(-1)?.previewIntents).toHaveLength(0);
 
     controller.setActionHover();
@@ -143,9 +144,9 @@ describe('SliceController barrier-guardian encounter', () => {
     expect(snapshot.state.turn).toBe(3);
     expect(snapshot.state.units.find((unit) => unit.id === 'administrator-01')?.hp).toBe(10);
     expect(snapshot.eventHistory).toEqual(expect.arrayContaining([
-      expect.objectContaining({ type: 'STATUS_APPLIED', status: 'STUN' }),
-      expect.objectContaining({ type: 'INTENT_CANCELLED', reason: 'SOURCE_STUNNED' }),
+      expect.objectContaining({ type: 'INTENT_CANCELLED', reason: 'MELEE_HIT' }),
     ]));
+    expect(snapshot.eventHistory.some((event) => event.type === 'STATUS_APPLIED' && event.status === 'STUN')).toBe(false);
     expect(snapshot.state.intents[0]?.abilityId).toBe('guardian-summon');
   });
 
@@ -210,6 +211,35 @@ describe('SliceController barrier-guardian encounter', () => {
 
     controller.restart();
     expect(controller.getSnapshot().selectedTargetId).toBe('barrier-guardian-01');
+  });
+
+  it('commits a lethal attack from plan state even when hover preview removed the target', async () => {
+    const source = createSlice2EncounterScenario(
+      'lethal-hover-test',
+      'GOBLIN_ARCHER',
+      { administratorHp: 14, allyHp: 12 },
+    );
+    const scenario = {
+      ...source,
+      units: source.units.map((unit) => unit.id === 'goblin-archer'
+        ? { ...unit, position: { x: 4, y: 1 } }
+        : unit),
+    };
+    const controller = new SliceController({
+      scenarioFactory: () => scenario,
+      administratorId: 'administrator-slice2',
+      allyId: 'archer-companion-slice2',
+    });
+    controller.startEncounter();
+    await flushPromises();
+
+    controller.setActionHover('SLAM');
+    expect(controller.getSnapshot().previewState.units.find((unit) => unit.id === 'goblin-archer')?.hp).toBe(0);
+
+    controller.useAction('SLAM');
+    expect(controller.getSnapshot().plannedActions).toEqual([
+      expect.objectContaining({ label: '내려찍기', action: expect.objectContaining({ targetId: 'goblin-archer' }) }),
+    ]);
   });
 });
 

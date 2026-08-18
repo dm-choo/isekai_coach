@@ -6,3 +6,4 @@ artifacts/
 .DS_Store
 .vscode/
 npm-debug.log*
+answer.md

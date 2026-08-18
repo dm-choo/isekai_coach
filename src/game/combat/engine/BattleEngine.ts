@@ -226,6 +226,10 @@ export class BattleEngine {
       this.executeStudentAbility(action, ability);
     }
 
+    // Student movement, displacement, death, and summons can all change how far
+    // a locked BODY movement intent can actually travel. Keep the public
+    // telegraph aligned with the same occupancy rules used at resolution time.
+    this.refreshAllBodyIntents();
     this.recomputeOutcome();
     return {
       executable: true,
@@ -444,7 +448,7 @@ export class BattleEngine {
     const movementPath = action.type === 'MOVE'
       ? inBounds(this.map, action.to) ? [{ ...action.to }] : []
       : ability?.sourceMovement
-        ? projectMovementPath(declaredOrigin, direction, ability.sourceMovement.distance, this.map)
+        ? this.projectTraversableMovementPath(source, direction, ability.sourceMovement.distance)
         : [];
     const effectOrigin = ability?.sourceMovement?.type === 'ADVANCE'
       ? movementPath.at(-1) ?? declaredOrigin
@@ -566,6 +570,17 @@ export class BattleEngine {
         applySummon: (sourceId, templateId, cells) => this.applySummon(sourceId, templateId, cells),
       },
     });
+    if (ability.tags?.includes('#근거리공격')) {
+      for (const targetId of targetIds) this.interruptMeleeReactiveIntent(targetId);
+    }
+  }
+
+  private interruptMeleeReactiveIntent(targetId: string): void {
+    const intent = this.intents.find((candidate) => candidate.sourceId === targetId);
+    const intentAbility = intent?.abilityId ? getAbility(intent.abilityId) : undefined;
+    if (intent && intentAbility?.interruptOnMeleeHit) {
+      this.cancelIntent(intent.id, 'MELEE_HIT');
+    }
   }
 
   private resolveAdvanceDestination(source: Unit, path: readonly GridPosition[]): GridPosition {
@@ -762,6 +777,13 @@ export class BattleEngine {
     }
   }
 
+  private refreshAllBodyIntents(): void {
+    const sourceIds = new Set(this.intents
+      .filter((intent) => intent.anchor === 'BODY')
+      .map((intent) => intent.sourceId));
+    for (const sourceId of sourceIds) this.refreshBodyIntents(sourceId);
+  }
+
   private calculateBodyProjection(
     intent: Intent,
     source: Unit,
@@ -771,7 +793,7 @@ export class BattleEngine {
     }
     const ability = getAbility(intent.action.abilityId);
     const movementPath = ability?.sourceMovement
-      ? projectMovementPath(source.position, intent.direction, ability.sourceMovement.distance, this.map)
+      ? this.projectTraversableMovementPath(source, intent.direction, ability.sourceMovement.distance)
       : [];
     const effectOrigin = ability?.sourceMovement?.type === 'ADVANCE'
       ? movementPath.at(-1) ?? source.position
@@ -782,6 +804,20 @@ export class BattleEngine {
     return { movementPath, effectCells };
   }
 
+  private projectTraversableMovementPath(
+    source: Unit,
+    direction: Direction,
+    distance: number,
+  ): GridPosition[] {
+    const projected = projectMovementPath(source.position, direction, distance, this.map);
+    const traversable: GridPosition[] = [];
+    for (const cell of projected) {
+      if (isOccupied(this.units, cell, source.id)) break;
+      traversable.push(cell);
+    }
+    return traversable;
+  }
+
   private effectiveIntentCells(intent: Intent): readonly GridPosition[] {
     if (intent.anchor === 'GROUND') return intent.effectCells.map(clonePosition);
     const source = this.findUnit(intent.sourceId);
@@ -790,7 +826,7 @@ export class BattleEngine {
 
   private cancelIntent(
     intentId: string,
-    reason: 'SOURCE_DIED' | 'SOURCE_STUNNED' | 'BATTLE_ENDED',
+    reason: 'SOURCE_DIED' | 'SOURCE_STUNNED' | 'MELEE_HIT' | 'BATTLE_ENDED',
   ): void {
     const intent = this.intents.find((candidate) => candidate.id === intentId);
     if (!intent) return;

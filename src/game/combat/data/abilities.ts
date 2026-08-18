@@ -122,15 +122,14 @@ export const ABILITIES: Readonly<Record<string, AbilityDefinition>> = {
   [ABILITY_IDS.SLAM]: {
     id: ABILITY_IDS.SLAM,
     name: '내려찍기',
-    apCost: 1,
+    apCost: 2,
     targeting: 'UNIT',
     range: 1,
     effects: [
-      { type: 'DAMAGE', amount: 1 },
-      { type: 'STUN', turns: 1 },
+      { type: 'DAMAGE', amount: 2 },
     ],
     threat: 'NORMAL_ATTACK',
-    tags: ['#근거리공격', '#스턴'],
+    tags: ['#근거리공격'],
   },
   [ABILITY_IDS.SHOOT]: {
     id: ABILITY_IDS.SHOOT,
@@ -168,6 +167,7 @@ export const ABILITIES: Readonly<Record<string, AbilityDefinition>> = {
     intentAnchor: 'BODY',
     threat: 'NORMAL_ATTACK',
     interruptible: true,
+    interruptOnMeleeHit: true,
   },
   [ABILITY_IDS.GUARDIAN_SUMMON]: {
     id: ABILITY_IDS.GUARDIAN_SUMMON,

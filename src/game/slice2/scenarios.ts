@@ -32,7 +32,7 @@ export function createSlice2EncounterScenario(
         hp: vitals.administratorHp,
         maxHp: 14,
         ap: 0,
-        maxAp: 2,
+        maxAp: 3,
         abilities: [ABILITY_IDS.PUSH, ABILITY_IDS.SLAM],
         spawnOrder: 0,
         visualKey: 'administrator_slice_01',
@@ -82,7 +82,7 @@ function enemiesFor(content: EncounterContent): UnitDefinition[] {
   if (content === 'GOBLIN_WARRIOR' || content === 'GOBLIN_ARCHER_WARRIOR' || content === 'GOBLIN_TRIO') {
     result.push({
       id: 'goblin-warrior', faction: 'ENEMY', position: { x: 8, y: 2 }, facing: 'LEFT',
-      hp: 2, maxHp: 2, abilities: [ABILITY_IDS.GOBLIN_RUSH], spawnOrder: 3,
+      hp: 3, maxHp: 3, abilities: [ABILITY_IDS.GOBLIN_RUSH], spawnOrder: 3,
       visualKey: 'goblin_warrior_slice_02', combatRole: 'FRONTLINE',
     });
   }

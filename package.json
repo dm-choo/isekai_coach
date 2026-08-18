@@ -9,8 +9,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "build:slice": "npm run build",
-    "build:slice2": "npm run build",
+    "build:slice": "VITE_SLICE=1 npm run build -- --base /slice1/",
+    "build:slice2": "VITE_SLICE=2 npm run build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

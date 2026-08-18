@@ -130,6 +130,8 @@ export interface AbilityDefinition {
   readonly sourceMovement?: SourceMovement;
   /** Explicit false means a stun does not cancel the already locked intent. */
   readonly interruptible?: boolean;
+  /** A successful #근거리공격 hit cancels this locked wind-up without applying stun. */
+  readonly interruptOnMeleeHit?: boolean;
   /** Agreed design metadata. Tags explain an action; they do not gate execution. */
   readonly tags?: readonly string[];
   /** Developer scaffolding, not a player-facing combat-design commitment. */
@@ -280,7 +282,7 @@ export interface IntentCancelledEvent extends EventBase {
   readonly type: 'INTENT_CANCELLED';
   readonly sourceId: UnitId;
   readonly intentId: string;
-  readonly reason: 'SOURCE_DIED' | 'SOURCE_STUNNED' | 'BATTLE_ENDED';
+  readonly reason: 'SOURCE_DIED' | 'SOURCE_STUNNED' | 'MELEE_HIT' | 'BATTLE_ENDED';
 }
 
 export interface IntentResolvedEvent extends EventBase {

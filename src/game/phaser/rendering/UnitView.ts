@@ -110,7 +110,13 @@ export class UnitView {
       const hitHeight = this.visual.displaySize?.height ?? 110;
       const hitZone = scene.add.rectangle(0, -hitHeight / 2, hitWidth, hitHeight, 0xffffff, 0.001)
         .setInteractive({ useHandCursor: true })
-        .on('pointerdown', () => onSelected(unit.id));
+        .on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+          // Phaser may receive a window-level pointer while an HTML HUD control
+          // overlays the canvas. Only world clicks that originated on this
+          // game's canvas are allowed to change the selected combat target.
+          if (!(pointer.event?.target instanceof HTMLCanvasElement)) return;
+          onSelected(unit.id);
+        });
       this.container.add(hitZone);
       this.container.bringToTop(hitZone);
     }

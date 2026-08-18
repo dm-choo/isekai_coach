@@ -26,7 +26,8 @@ related:
 - 수호자의 `제압`과 `외침`은 머리 위 sequence icon/damage, body wind-up, 바닥 effect area를 함께 사용한다.
 - Intent는 선언 시점에 고정되며, 관리자 `밀치기`로 BODY source가 이동하면 공격 origin과 affected cells가 함께 이동한다. 이 변화는 이동 arc와 짧은 camera emphasis로 보여준다.
 - `외침`은 3개 행의 위험을 굵은 패턴과 깨진 원형 경계로 표현하되, 이동 목적지와 혼동하지 않는다.
-- `내려찍기`로 중단될 때 수호자의 wind-up이 끊기고 stun pose, 짧은 hit-stop과 `중단` icon을 순서대로 보여준다. 공격 effect가 실행되지 않았다는 사실을 animation이 증명해야 한다.
+- `#근거리공격`으로 차징을 중단할 때 수호자의 wind-up이 끊기고 stagger pose, 짧은 hit-stop과 `중단` icon을 순서대로 보여준다. 지속 스턴이 아니라 현재 Intent만 취소됐으며 공격 effect가 실행되지 않았다는 사실을 animation이 증명해야 한다.
+- 이동 경로가 유닛 점유로 막히면 화살표는 점유 cell 직전에서 끝나고, 적 shadow와 이어지는 공격 pose는 실제 최종 도착 cell에 표시한다. 막힌 뒤에도 원래 목적지에 shadow를 남기지 않는다.
 
 ## Ally action
 

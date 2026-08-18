@@ -399,7 +399,7 @@ function intentTooltip(abilityId: string | undefined): string {
     return '제압 · 이동 후 공격\n왼쪽으로 2칸 이동한 뒤 전방 1칸에 피해 6을 줍니다. 이 행동은 스턴으로 중단할 수 없습니다.';
   }
   if (abilityId === 'guardian-rupture') {
-    return '외침 · 광역 공격\n현재 위치에서 왼쪽 5칸과 3개 행에 피해 2를 줍니다. 내려찍기의 스턴으로 중단할 수 있습니다.';
+    return '외침 · 차징 광역 공격\n현재 위치에서 왼쪽 5칸과 3개 행에 피해 2를 줍니다. 차징 중 #근거리공격에 적중하면 중단됩니다.';
   }
   if (abilityId === 'guardian-summon') {
     return '하수인 소환\n빈 인접 칸에 원거리 동료를 추적하는 적 하수인을 소환합니다.';

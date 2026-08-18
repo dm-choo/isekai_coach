@@ -66,7 +66,7 @@ related:
 - `BODY` Intent는 source의 현재 body 위치에서 같은 direction으로 footprint를 다시 계산한다. 따라서 수호자를 `밀치기`하면 `제압`·`외침`의 공격 원점과 범위도 함께 이동한다.
 - `GROUND` 계약은 선언 당시 origin과 footprint를 유지한다. Slice 1의 보스 공격은 BODY anchor다.
 - `제압`은 2칸 이동 뒤 1×1 BODY 공격, 피해 6, 중단 불가다.
-- `외침`은 5×3 BODY Intent, 피해 2, `내려찍기`의 확정 stun으로 중단할 수 있다.
+- `외침`은 5×3 BODY Intent, 피해 2이며 차징 중 `#근거리공격`에 적중하면 현재 Intent만 취소된다.
 - 세 번째 pattern은 원거리 동료 추적 하수인 소환이며, 하수인 cap은 없다. 하수인은 HP 1, `돌진` 3×1 피해 2를 사용하고 대상이 있으면 피해 후 바로 앞에 정지한다.
 - source가 실행 전에 죽거나 stun으로 interrupt되면 Intent를 취소하고 공격 effect를 실행하지 않는다.
 - 이동 경로와 공격 effect cell은 별도 의미다. 이동 목적지를 빨간 공격 threat처럼 표시하지 않는다.

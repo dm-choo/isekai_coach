@@ -200,14 +200,16 @@ export class SliceController {
 
   public move = (direction: Direction): void => {
     if (!this.canAcceptPlayerInput()) return;
-    const administrator = this.buildPlanProjection().state.units.find((unit) => unit.id === this.administratorId);
+    const administrator = this.simulateActions(this.plannedActions).state.units.find((unit) => unit.id === this.administratorId);
     if (!administrator) return;
     this.appendPlannedAction(moveAction(administrator.id, step(administrator.position, direction)));
   };
 
   public useAction = (actionId: SliceActionId): void => {
     if (!this.canAcceptPlayerInput()) return;
-    const action = this.actionFor(actionId, this.buildPlanProjection().state);
+    // Hover prediction may include a lethal candidate and remove its target.
+    // Input must branch from committed plan state, never from that what-if state.
+    const action = this.actionFor(actionId, this.simulateActions(this.plannedActions).state);
     if (action) this.appendPlannedAction(action);
   };
 
@@ -223,6 +225,7 @@ export class SliceController {
       (unit) => unit.id === unitId && unit.faction === 'ENEMY' && unit.hp > 0,
     );
     if (!target) return;
+    if (this.selectedTargetId === target.id) return;
     this.selectedTargetId = target.id;
     this.hoveredActionId = undefined;
     this.notice = `${unitDisplayName(target)}을 공격 대상으로 지정했다.`;
@@ -540,8 +543,8 @@ export class SliceController {
         description: `인접한 ${targetName}에게 피해 1을 주고 1칸 밀어냅니다.`,
       },
       {
-        id: 'SLAM', label: '내려찍기', glyph: '↓', icon: 'STUN', tags: ['#근거리공격', '#스턴'], apCost: 1,
-        description: `인접한 ${targetName}에게 피해 1과 스턴을 적용해 중단 가능한 Intent를 취소합니다.`,
+        id: 'SLAM', label: '내려찍기', glyph: '↓', icon: 'ATTACK', tags: ['#근거리공격'], apCost: 2,
+        description: `인접한 ${targetName}에게 피해 2를 줍니다. 차징 중인 결계 수호자에게 적중하면 해당 Intent를 취소합니다.`,
       },
     ];
     return definitions.map((definition) => {

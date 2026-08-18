@@ -126,6 +126,8 @@ Slice 1이 단일 보스방의 전투 판독과 조작 마찰을 찾았다면, S
 - 고정 world seed가 최초 통로 구성을 만들고 `encounterGeneration` 기반 재침식 재추첨을 pure TypeScript로 검증한다.
 - 필수 선형 경로에는 통로 전투 2회와 중앙 방 전투 4회가 있다. 북·남 선택 통로에는 사건·회복·추가 전투가 추첨될 수 있다.
 - 고블린 궁수는 2칸 blind spot 뒤 전장 끝까지 이어지는 BODY 사격, 전사는 4칸 ADVANCE 뒤 근접 타격, 투척병은 3행 GROUND 폭탄을 사용한다.
+- 관리자와 동료는 최대 AP 3, 이동 AP 1, 공격 AP 2 문법을 공유한다. 내려찍기는 피해 2의 순수 `#근거리공격`이며 고블린 전사는 HP 3이다.
+- 이동형 적의 공개 경로는 현재 점유를 반영해 점유 cell 직전에서 끝나며, 최종 shadow와 공격 effect는 실제 도착점에서 다시 투영한다.
 - built-in ImageGen으로 제작하고 chroma-key alpha cleanup을 거친 세 RGBA goblin cutout을 manifest/preload pipeline으로 사용한다.
 - 타일 2 뒤 기존 policy 유지 또는 `사격 → 회피 → 포지셔닝 → 밀치기 → 빈 슬롯` 재정렬을 한 번 선택한다.
 - Vite production base는 `/slice2/`이며 원자 배포 script가 기존 `/`와 `/slice1/`을 보존한다.
@@ -134,10 +136,11 @@ Slice 1이 단일 보스방의 전투 판독과 조작 마찰을 찾았다면, S
 
 2026-08-18 구현 milestone:
 
-- Vitest: 8 files, 47 tests pass.
+- Vitest: 8 files, 51 tests pass.
 - TypeScript: `tsc --noEmit`.
 - Vite production `/slice2/` build.
-- scripted Chromium 1280×720 전체 원정: 4 tiles cleared, 6 combats, 31 combat turns, retries 0, administrator HP 8/14, ally HP 3/12.
+- scripted Chromium 1280×720 전체 원정: 4 tiles cleared, 6 combats, 22 combat turns, retries 0, administrator HP 3/14, ally HP 10/12.
+- 근접 적 이동 경로를 플레이어가 점유한 상태를 자동 재현해 점유 직전 최종 shadow, 축약된 이동 화살표와 재투영된 공격 cell을 screenshot으로 확인했다.
 - policy는 타일 2 뒤 `SHOOT → EVADE → POSITION → PUSH → EMPTY`로 변경되고 타일 3·4에서 유지됐다.
 - 960×720: horizontal overflow 0.
 - console, page와 failed request error: 0건.
