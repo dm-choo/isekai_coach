@@ -226,7 +226,11 @@ export class BattleRenderer {
     signal: AbortSignal,
   ): Promise<void> {
     const source = this.unitViews.get(sourceId);
-    const target = targetId ? this.unitViews.get(targetId) : undefined;
+    const intent = this.currentState?.intents.find((candidate) => candidate.sourceId === sourceId);
+    const inferredTargetId = intent
+      ? this.currentState?.units.find((unit) => unit.faction === 'STUDENT' && unit.hp > 0 && intent.effectCells.some((cell) => cell.x === unit.position.x && cell.y === unit.position.y))?.id
+      : undefined;
+    const target = targetId ? this.unitViews.get(targetId) : inferredTargetId ? this.unitViews.get(inferredTargetId) : undefined;
     if (!source || signal.aborted) return;
     const camera = this.scene.cameras.main;
     const focusX = target ? (source.container.x + target.container.x) / 2 : source.container.x;
@@ -234,7 +238,7 @@ export class BattleRenderer {
     camera.pan(focusX, focusY, Math.min(180, duration / 2), 'Sine.easeOut');
     camera.zoomTo(1.065, Math.min(180, duration / 2), 'Sine.easeOut');
 
-    if (abilityId === 'shoot' && target) {
+    if ((abilityId === 'shoot' || abilityId === 'goblin-long-shot') && target) {
       await this.animateProjectile(source, target, Math.max(320, duration), signal);
     } else if (abilityId === 'slam' && target) {
       await this.animateSlam(source, target, Math.max(390, duration), signal);
@@ -251,6 +255,19 @@ export class BattleRenderer {
       const tween = this.scene.tweens.add({ targets: rupture, scaleX: 1.14, scaleY: 1.18, alpha: 0, duration: Math.max(430, duration) });
       camera.shake(320, 0.014);
       await this.awaitTween(tween, signal, () => rupture.destroy());
+    } else if (abilityId === 'goblin-bomb' && intent) {
+      this.telegraphs.pulse();
+      const blasts = intent.effectCells.map((cell) => {
+        const world = this.projector.gridToWorld(cell);
+        return this.scene.add.circle(world.x, world.y, 25, 0xe39b31, 0.38)
+          .setStrokeStyle(5, 0xffdc75, 0.92)
+          .setDepth(80);
+      });
+      const tweens = blasts.map((blast) => this.scene.tweens.add({
+        targets: blast, scale: 2.2, alpha: 0, duration: Math.max(360, duration), ease: 'Cubic.Out',
+      }));
+      this.scene.cameras.main.shake(260, 0.012);
+      await Promise.all(tweens.map((tween, index) => this.awaitTween(tween, signal, () => blasts[index].destroy())));
     } else {
       await this.pulseUnit(sourceId, duration, signal);
     }

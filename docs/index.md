@@ -1,7 +1,7 @@
 ---
 title: Isekai Coach Canonical Documentation
 status: accepted
-last_updated: 2026-08-17
+last_updated: 2026-08-18
 related:
   - _meta/documentation-governance.md
   - submission/scope.md
@@ -29,8 +29,8 @@ related:
 
 ## Status summary
 
-- **accepted**: 전투 공간·Intent·결정론, action-policy 우선순위 계약, 섹터 탐색, 본대/별동대, 공유 월드 시간, 작전 채널, 첫 섹터 제출 구조, Slice 1 scene-first UX·아트 방향
-- **under-validation**: Slice 1 실제 전투 UX·타격감, 총 플레이 시간, 재침식 시간, 창 관통, 작업 프리셋 UI와 결계 수호자 수치
+- **accepted**: 전투 공간·Intent·결정론, action-policy 우선순위 계약, 중앙 방·네 경계 방·분절 통로 월드 타일, 재침식 인카운터 재추첨, 본대/별동대, 공유 월드 시간, Slice 1과 Slice 2 제작 범위
+- **under-validation**: Slice 1 실제 전투 UX·타격감, Slice 2 탐색 판독·선택 충돌·정책 전이, 총 플레이 시간, 재침식 시간과 개별 전투 수치
 - **provisional**: 맵 크기·거리, 피해/AP, 자원·적재 슬롯 수와 scaffold 샘플 값
 - **deferred**: 장기 정책 언어 구현, 고급 리플레이 편집, 행동 모델 추론, 다음 섹터와 완제품 시스템
 

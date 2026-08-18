@@ -10,10 +10,13 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "build:slice": "npm run build",
+    "build:slice2": "npm run build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "verify:combat-ux": "node scripts/verify-combat-ux.mjs",
+    "verify:slice2": "node scripts/verify-slice2.mjs",
+    "verify:slice2:public": "node scripts/verify-slice2-public.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

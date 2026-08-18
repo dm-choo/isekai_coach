@@ -70,6 +70,7 @@ export class TelegraphView {
     });
 
     const wide = intent.abilityId === 'guardian-rupture';
+    const ground = intent.abilityId === 'goblin-bomb';
     for (const cell of intent.effectCells) {
       const world = this.projector.gridToWorld(cell);
       const zone = this.scene.add
@@ -78,10 +79,10 @@ export class TelegraphView {
           world.y,
           this.projector.cellSize.width,
           this.projector.cellSize.height,
-          wide ? 0xc83d24 : 0xe04a2f,
-          wide ? 0.18 : 0.3,
+          ground ? 0xd18a25 : wide ? 0xc83d24 : 0xe04a2f,
+          ground ? 0.24 : wide ? 0.18 : 0.3,
         )
-        .setStrokeStyle(wide ? 2 : 3, wide ? 0xffb04f : 0xffdf8e, wide ? 0.72 : 0.95)
+        .setStrokeStyle(wide ? 2 : 3, ground ? 0xffdc75 : wide ? 0xffb04f : 0xffdf8e, wide ? 0.72 : 0.95)
         .setDepth(9);
       this.scene.tweens.add({
         targets: zone,
@@ -98,7 +99,7 @@ export class TelegraphView {
       const topCell = intent.effectCells.reduce((left, right) => right.y < left.y ? right : left);
       const world = this.projector.gridToWorld(topCell);
       const label = this.scene.add
-        .text(world.x, world.y - this.projector.cellSize.height / 2 - 15, wide ? '⚠  중단 가능' : '⚠  타격 예고', {
+        .text(world.x, world.y - this.projector.cellSize.height / 2 - 15, ground ? '◆  지면 고정' : wide ? '⚠  중단 가능' : '⚠  타격 예고', {
           fontFamily: '"Pretendard Variable", system-ui, sans-serif',
           fontSize: wide ? '14px' : '13px',
           color: '#ffe8bf',

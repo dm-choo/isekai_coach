@@ -7,6 +7,7 @@ implementation:
   - src/game/phaser/assets/VisualAssetLoader.ts
   - src/game/phaser/rendering/UnitVisual.ts
   - public/assets/slice1/
+  - public/assets/slice2/
 related:
   - ../../../art/index.md
   - ../../../art/character/animation-and-weapon-layering.md
@@ -34,7 +35,7 @@ related:
 1. [Art canonical docs](../../../art/index.md), [combat view](../../../art/ui/combat-view/index.md)와 대상 `AssetSpec`을 읽는다.
 2. ImageGen을 사용할 때 distinct asset마다 한 번의 명시적 prompt를 만든다. 위 공통 style과 각 asset의 silhouette/pose를 prompt에 포함하고 transparent character는 투명 배경을 직접 요구한다.
 3. 출력물을 먼저 시각 검사하고 silhouette, crop, alpha, artifact와 text/watermark를 확인한다.
-4. 승인한 seed만 `public/assets/slice1/`에 복사한다. 생성 중간 파일은 canonical asset directory에 남기지 않는다.
+4. 승인한 seed만 해당 slice의 `public/assets/` 하위 디렉터리에 복사한다. 생성 중간 파일은 canonical asset directory에 남기지 않는다.
 5. `AssetManifest.ts`에 logical key, source와 display size를 등록한다. domain code에 파일 경로를 넣지 않는다.
 6. `VisualAssetLoader`/visual adapter가 등록 bitmap을 사용하고, 누락 시 같은 상태 계약의 fallback silhouette를 사용하게 한다.
 7. 실제 Phaser 장면에서 idle, 이동, 사격, 밀치기, 내려찍기, hit, stun, death와 봉인 해제를 검증한다.
@@ -56,6 +57,18 @@ v2 character seed는 ImageGen으로 생성한 원본을 mechanical alpha cleanup
 | `public/assets/slice1/jungle-background-v3.png` | `Repaint the existing Amazon jungle barrier-room background around a separately rendered opaque 12x3 dirt tilemap; lush layered rainforest, mist, warm shafts of light and a readable ancient ruin gate; calm low-contrast center gameplay band; no characters, UI, grid, tiles, bridge or competing floor` | built-in ImageGen edit of v2; 1672×941 RGB; active background layer behind tilemap |
 
 These are prompt summaries, not a claim that the generated image itself is a production sprite sheet. The exact source request and generation metadata belong in the asset handoff; this ledger keeps the reproducible intent and final repository path in the canonical documentation.
+
+### Slice 2 goblin prompt and path ledger
+
+세 고블린은 built-in ImageGen으로 reference의 거친 애니메이션풍 brush와 세 단계 명암만 참조해 새 캐릭터로 생성했다. 녹색 피부와 충돌하지 않는 단색 `#ff00ff` 배경을 사용하고 공식 chroma-key helper의 soft matte와 despill로 RGBA cutout을 만들었다.
+
+| Asset path | ImageGen prompt summary | Post-processing |
+| --- | --- | --- |
+| `public/assets/slice2/goblin-archer-v1.png` | `lean olive-green goblin archer, unusually tall recurved longbow and oversized long-arrow quiver, left-facing full-body silhouette, rough three-value anime brush rendering, flat magenta key background` | built-in ImageGen; chroma-key removal; 1099×1431 RGBA; transparent corners; runtime foot anchor |
+| `public/assets/slice2/goblin-warrior-v1.png` | `compact athletic goblin dagger warrior, forward sprinter lean and swept-back cloth, single jagged dagger, left-facing full-body silhouette, rough three-value anime brush rendering, flat magenta key background` | built-in ImageGen; chroma-key removal; 1099×1431 RGBA; transparent corners; runtime foot anchor |
+| `public/assets/slice2/goblin-bomber-v1.png` | `wiry goblin bomb thrower, raised opaque clay spore bomb and sealed belt bombs, left-facing full-body throwing pose, rough three-value anime brush rendering, flat magenta key background` | built-in ImageGen; chroma-key removal; 1100×1430 RGBA; transparent corners; runtime foot anchor |
+
+세 asset은 text·watermark가 없고 corner alpha `(0,0,0,0)`, 유효 subject bounding box와 in-engine preload를 검증한 뒤 `AssetManifest`에 연결한다.
 
 ## Animation contract
 

@@ -1,13 +1,14 @@
 ---
 title: Research and Design Critique
 status: under-validation
-last_updated: 2026-08-17
+last_updated: 2026-08-18
 related:
   - ../index.md
   - ../_meta/documentation-governance.md
   - current-game-assessment.md
   - reference-insights.md
   - validation-agenda.md
+  - validation-agenda-slice-2.md
 ---
 
 # Research and design critique
@@ -19,7 +20,8 @@ related:
 1. [Current game assessment](./current-game-assessment.md): 현재 아이디어 브리핑, 목표 사용자·Aesthetic 가설, 강점과 위험
 2. [Reference insights](./reference-insights.md): Darkest Dungeon, DNF, One Step From Eden 등에서 가져온 인사이트와 적용 한계
 3. [Validation agenda](./validation-agenda.md): Slice 1 보스방에서 장면·턴·이동·공격·Intent 마찰을 반증할 테스트 순서와 임시 기준
-4. [Reference screenshots](../images/reference_screenshot/README.md): 출처와 분석 목적이 기록된 비교 이미지 보관소
+4. [Slice 2 validation agenda](./validation-agenda-slice-2.md): 네 월드 타일의 공간 판독, 정찰, 선택 충돌과 정책 전이 검증
+5. [Reference screenshots](../images/reference_screenshot/README.md): 출처와 분석 목적이 기록된 비교 이미지 보관소
 
 ## Evidence labels
 

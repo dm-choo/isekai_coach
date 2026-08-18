@@ -1,9 +1,10 @@
 ---
 title: Web Build Submission Scope
 status: accepted
-last_updated: 2026-08-17
+last_updated: 2026-08-18
 related:
   - vertical-slice.md
+  - vertical-slice-2-four-world-tiles.md
   - first-15-minutes.md
   - sector-1-golden-run.md
   - acceptance-criteria.md
@@ -27,6 +28,8 @@ related:
 보조 경험은 주인공과 동료의 공간 협동, 본대·별동대를 위임하는 관리자 감각, 작전 기록을 분석해 정책을 개선하는 유능감, 비콘과 횃불로 진척을 세계에 고정하는 복원감이다. 각 규칙은 아래 포함 범위의 canonical owner가 소유한다.
 
 첫 구현 milestone은 전체 범위를 동시에 만드는 대신 [Core vertical slice](./vertical-slice.md)에서 보스방 장면, 턴 주체, 이동·공격 분리, Intent·애니메이션 인과와 관리자 봉인 해제를 먼저 검증한다. Slice 1에서는 policy 편집·정책 수정 전이를 구현하거나 검증하지 않는다. 이 제작 순서는 승인됐지만 목표 경험의 성립 여부는 플레이테스트 전까지 under-validation이다.
+
+두 번째 milestone은 [Four world tile expedition](./vertical-slice-2-four-world-tiles.md)에서 중앙 방과 네 통로, 통로 구간 인카운터, 누적 HP·시간, 세 고블린 Intent와 한 번의 policy 재정렬을 검증한다. Slice 2의 월드 타일 연결은 선형이며 전체 섹터 simulation, 경제와 별동대는 포함하지 않는다.
 
 ## Included canonical systems
 

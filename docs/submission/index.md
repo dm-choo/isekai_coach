@@ -1,10 +1,11 @@
 ---
 title: Submission Canonical Index
 status: accepted
-last_updated: 2026-08-17
+last_updated: 2026-08-18
 related:
   - scope.md
   - vertical-slice.md
+  - vertical-slice-2-four-world-tiles.md
   - first-15-minutes.md
   - sector-1-golden-run.md
   - acceptance-criteria.md
@@ -20,13 +21,14 @@ OpenAI Game Builders Seoul 제출용 Web Build가 전체 게임 설계에서 선
 
 - [Scope](./scope.md): 제출 콘텐츠와 제외 범위
 - [Core vertical slice](./vertical-slice.md): 전체 구현 전에 검증할 승인된 좁은 제작 범위, 목표 경험과 가설
+- [Slice 2 — Four world tiles](./vertical-slice-2-four-world-tiles.md): 방·통로·정찰과 누적 상태를 검증하는 네 타일 원정
 - [First 15 minutes](./first-15-minutes.md): 코어 체험형 데모 범위
 - [Sector 1 golden run](./sector-1-golden-run.md): 첫 섹터의 대표 진행 순서
 - [Acceptance criteria](./acceptance-criteria.md): 제출본 완료 판정
 
 ## Status summary
 
-- **accepted**: Amazon Barrier Guardian 수직 슬라이스 우선 구현, scene-first 전투 UX, 관리자·궁수·수호자 역할과 턴 흐름
-- **under-validation**: 실제 사용성·타격감·보스 패턴의 정확한 밸런스, 첫 섹터 총 플레이 시간
+- **accepted**: Slice 1 보스방 계약, Slice 2의 선형 4타일·중앙 방 정찰·세 고블린 역할과 누적 원정 범위
+- **under-validation**: 실제 사용성·선택 충돌·정책 수정 전이, 세 적의 정확한 밸런스와 첫 섹터 총 플레이 시간
 - **provisional**: 개별 거리·피해·AP·적재 수치
 - **deferred**: 다음 섹터, 장기 정책 언어, 고급 분석·진행 시스템과 최종 타이틀

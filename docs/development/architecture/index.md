@@ -1,10 +1,11 @@
 ---
 title: Architecture Canonical Index
 status: accepted
-last_updated: 2026-08-17
+last_updated: 2026-08-18
 implementation:
   - src/game/combat/
   - src/game/slice/
+  - src/game/slice2/
   - src/game/phaser/
   - src/game/assets/
 related:

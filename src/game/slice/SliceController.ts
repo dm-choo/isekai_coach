@@ -8,6 +8,7 @@ import {
   slamAction,
   step,
   type ActionFailureReason,
+  type BattleScenario,
   type BattleState,
   type CombatAction,
   type CombatEvent,
@@ -107,8 +108,26 @@ export interface SliceSnapshot {
 
 type SnapshotListener = () => void;
 
+export interface SliceControllerOptions {
+  readonly scenarioFactory?: () => BattleScenario;
+  readonly administratorId?: string;
+  readonly allyId?: string;
+  readonly initialTargetId?: string;
+  readonly policy?: readonly SlicePolicyId[];
+  readonly introNotice?: string;
+  readonly playbackSpeed?: number;
+  readonly phaseDelayScale?: number;
+}
+
 export class SliceController {
-  private engine = new BattleEngine(createSliceScenario());
+  private engine: BattleEngine;
+  private readonly scenarioFactory: () => BattleScenario;
+  private readonly administratorId: string;
+  private readonly allyId: string;
+  private readonly policyOrder: readonly SlicePolicyId[];
+  private readonly introNotice: string;
+  private readonly playbackSpeed: number;
+  private readonly phaseDelayScale: number;
   private presentation: PresentationPort | null = null;
   private readonly listeners = new Set<SnapshotListener>();
   private mode: SliceMode = 'INTRO';
@@ -120,11 +139,25 @@ export class SliceController {
   private playbackAbortController = new AbortController();
   private lastPolicyTrace: PolicyExecutionStep[] = [];
   private activePolicyStep: PolicyExecutionStep | undefined;
-  private notice = '결계문 앞을 지키는 존재가 길을 막고 있다.';
+  private notice: string;
   private plannedActions: CombatAction[] = [];
   private hoveredActionId: SliceActionId | undefined;
-  private selectedTargetId: string | undefined = GUARDIAN_ID;
-  private snapshot = this.buildSnapshot();
+  private selectedTargetId: string | undefined;
+  private snapshot: SliceSnapshot;
+
+  public constructor(options: SliceControllerOptions = {}) {
+    this.scenarioFactory = options.scenarioFactory ?? createSliceScenario;
+    this.administratorId = options.administratorId ?? ADMINISTRATOR_ID;
+    this.allyId = options.allyId ?? ARCHER_ID;
+    this.policyOrder = [...(options.policy ?? DEFAULT_SLICE_POLICY)];
+    this.introNotice = options.introNotice ?? '결계문 앞을 지키는 존재가 길을 막고 있다.';
+    this.playbackSpeed = options.playbackSpeed ?? 1;
+    this.phaseDelayScale = options.phaseDelayScale ?? 1;
+    this.notice = this.introNotice;
+    this.engine = new BattleEngine(this.scenarioFactory());
+    this.selectedTargetId = options.initialTargetId ?? this.firstLivingEnemyId();
+    this.snapshot = this.buildSnapshot();
+  }
 
   public getSnapshot = (): SliceSnapshot => this.snapshot;
 
@@ -136,7 +169,7 @@ export class SliceController {
   public attachPresentation(presentation: PresentationPort): () => void {
     this.abortPresentation();
     this.presentation = presentation;
-    presentation.setSpeed(1);
+    presentation.setSpeed(this.playbackSpeed);
     presentation.reset(this.engine.getState());
     presentation.setSelection?.(this.selectedTargetId ?? null);
     this.presentedEventCount = this.engine.getEvents().length;
@@ -155,7 +188,7 @@ export class SliceController {
     this.mode = 'PLAYER_TURN';
     this.isBusy = true;
     this.phaseSerial += 1;
-    this.notice = '수호자의 첫 타격이 고정됐다.';
+    this.notice = '첫 적 행동의 이동과 타격 범위가 고정됐다.';
     this.publish();
     void this.pumpEvents().then(() => {
       if (this.mode === 'PLAYER_TURN') {
@@ -167,7 +200,7 @@ export class SliceController {
 
   public move = (direction: Direction): void => {
     if (!this.canAcceptPlayerInput()) return;
-    const administrator = this.buildPlanProjection().state.units.find((unit) => unit.id === ADMINISTRATOR_ID);
+    const administrator = this.buildPlanProjection().state.units.find((unit) => unit.id === this.administratorId);
     if (!administrator) return;
     this.appendPlannedAction(moveAction(administrator.id, step(administrator.position, direction)));
   };
@@ -246,7 +279,7 @@ export class SliceController {
   public restart = (): void => {
     this.abortPresentation();
     this.generation += 1;
-    this.engine = new BattleEngine(createSliceScenario());
+    this.engine = new BattleEngine(this.scenarioFactory());
     this.mode = 'INTRO';
     this.isBusy = false;
     this.phaseSerial += 1;
@@ -255,9 +288,9 @@ export class SliceController {
     this.activePolicyStep = undefined;
     this.plannedActions = [];
     this.hoveredActionId = undefined;
-    this.selectedTargetId = GUARDIAN_ID;
+    this.selectedTargetId = this.firstLivingEnemyId();
     this.attempt += 1;
-    this.notice = '결계문 앞을 지키는 존재가 길을 막고 있다.';
+    this.notice = this.introNotice;
     this.presentation?.reset(this.engine.getState());
     this.publish();
   };
@@ -297,9 +330,9 @@ export class SliceController {
 
     for (let cycle = 1; cycle <= 8 && runGeneration === this.generation; cycle += 1) {
       const state = this.engine.getState();
-      const ally = state.units.find((unit) => unit.id === ARCHER_ID);
+      const ally = state.units.find((unit) => unit.id === this.allyId);
       if (!ally || ally.hp <= 0 || ally.ap <= 0 || state.outcome !== 'ONGOING') break;
-      const decision = evaluatePolicy(state, ARCHER_ID);
+      const decision = evaluatePolicy(state, this.allyId, this.policyOrder);
       const selected = decision.selected;
       const trace: PolicyExecutionStep = {
         cycle,
@@ -335,7 +368,7 @@ export class SliceController {
     this.phaseSerial += 1;
     this.notice = this.engine.getState().intents.length
       ? '고정된 공격 범위와 현재 점유자를 판정한다.'
-      : '수호자의 행동이 중단됐다.';
+      : '적의 행동이 중단됐다.';
     this.publish();
     await this.phaseDelay(650, runGeneration);
     if (runGeneration !== this.generation) return;
@@ -352,9 +385,7 @@ export class SliceController {
     this.mode = 'PLAYER_TURN';
     this.isBusy = true;
     this.phaseSerial += 1;
-    this.notice = this.engine.getState().turn === 2
-      ? '광범위 공격이 준비됐다. 중단할 수 있다.'
-      : '새로운 적 행동이 고정됐다.';
+    this.notice = '새로운 적 행동이 고정됐다.';
     this.publish();
     await this.pumpEvents();
     if (runGeneration !== this.generation) return;
@@ -369,7 +400,7 @@ export class SliceController {
     this.hoveredActionId = undefined;
     if (this.engine.getState().outcome === 'STUDENT_VICTORY') {
       this.mode = 'VICTORY';
-      this.notice = '결계 수호자가 무너졌다. 관리자만 봉인을 해제할 수 있다.';
+      this.notice = '현재 조우의 모든 적이 무너졌다.';
     } else {
       this.mode = 'DEFEAT';
       this.notice = '원정대가 행동 불능 상태가 됐다.';
@@ -410,7 +441,7 @@ export class SliceController {
         resolve();
       };
       const abort = () => finish();
-      const timer = globalThis.setTimeout(finish, duration);
+      const timer = globalThis.setTimeout(finish, Math.max(1, duration * this.phaseDelayScale));
       signal.addEventListener('abort', abort, { once: true });
     });
   }
@@ -460,20 +491,20 @@ export class SliceController {
       const steps: IntentPreviewStep[] = [];
       for (let cycle = 0; cycle < 8; cycle += 1) {
         const state = engine.getState();
-        const ally = state.units.find((unit) => unit.id === ARCHER_ID && unit.hp > 0);
+      const ally = state.units.find((unit) => unit.id === this.allyId && unit.hp > 0);
         if (!ally || ally.ap <= 0) break;
-        const selected = evaluatePolicy(state, ARCHER_ID).selected;
+        const selected = evaluatePolicy(state, this.allyId, this.policyOrder).selected;
         if (!selected?.action) break;
         steps.push(previewStep(selected.policyId, selected.action, state));
         if (!engine.performStudentAction(selected.action).executable) break;
       }
       return steps;
     });
-    return preview.value.length > 0 ? { unitId: ARCHER_ID, steps: preview.value } : undefined;
+    return preview.value.length > 0 ? { unitId: this.allyId, steps: preview.value } : undefined;
   }
 
   private actionFor(actionId: SliceActionId, state: BattleState): CombatAction | null {
-    const administrator = state.units.find((unit) => unit.id === ADMINISTRATOR_ID);
+    const administrator = state.units.find((unit) => unit.id === this.administratorId);
     const target = this.currentTarget(state, administrator?.position);
     if (!administrator || !target) return null;
     const direction = directionBetween(administrator.position, target.position);
@@ -528,7 +559,7 @@ export class SliceController {
     const eventHistory = this.engine.getEvents();
     const projection = this.buildPlanProjection();
     return {
-      scenarioId: SLICE_SCENARIO_ID,
+      scenarioId: this.engine.getState().scenarioId,
       mode: this.mode,
       state: this.engine.getState(),
       previewState: projection.state,
@@ -541,7 +572,7 @@ export class SliceController {
       isBusy: this.isBusy,
       phaseSerial: this.phaseSerial,
       actions: this.buildActionCandidates(),
-      policy: DEFAULT_SLICE_POLICY,
+      policy: this.policyOrder,
       activePolicyStep: this.activePolicyStep,
       lastPolicyTrace: this.lastPolicyTrace,
       notice: this.notice,
@@ -589,11 +620,20 @@ export class SliceController {
     this.playbackAbortController.abort();
     this.playbackAbortController = new AbortController();
   }
+
+  private firstLivingEnemyId(): string | undefined {
+    return this.engine.getState().units
+      .filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0)
+      .sort((left, right) => left.spawnOrder - right.spawnOrder)[0]?.id;
+  }
 }
 
 function unitDisplayName(unit: BattleState['units'][number]): string {
   if (unit.id === GUARDIAN_ID) return '결계 수호자';
   if (unit.combatRole === 'MINION') return '추적 하수인';
+  if (unit.visualKey === 'goblin_archer_slice_02') return '고블린 궁수';
+  if (unit.visualKey === 'goblin_warrior_slice_02') return '고블린 전사';
+  if (unit.visualKey === 'goblin_bomber_slice_02') return '고블린 투척병';
   return '적';
 }
 

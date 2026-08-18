@@ -5,9 +5,11 @@ last_updated: 2026-08-18
 implementation:
   - src/game/combat/
   - src/game/slice/
+  - src/game/slice2/
   - src/game/phaser/
   - src/game/assets/AssetManifest.ts
   - src/app/App.tsx
+  - src/app/Slice2App.tsx
   - deploy/
   - .github/workflows/ci.yml
 related:
@@ -17,12 +19,14 @@ related:
   - ../../ux/views/combat-view.md
   - ../../art/ui/combat-view/index.md
   - ../../submission/vertical-slice.md
+  - ../../submission/vertical-slice-2-four-world-tiles.md
   - ../deployment/slice1.md
+  - ../deployment/slice2.md
 ---
 
 # Existing scaffold contract
 
-이 문서는 현재 전투 runtime과 Slice 1 public scene이 의존하는 기술 계약을 소유한다. 게임 전체의 최종 수치나 콘텐츠를 잠그는 문서가 아니다. 구현과 문서가 어긋나면 숨은 관례를 만들지 말고 같은 변경에서 함께 갱신한다.
+이 문서는 현재 전투 runtime과 Slice 1·2 public scene이 의존하는 기술 계약을 소유한다. 게임 전체의 최종 수치나 콘텐츠를 잠그는 문서가 아니다. 구현과 문서가 어긋나면 숨은 관례를 만들지 말고 같은 변경에서 함께 갱신한다.
 
 ## Architecture
 
@@ -34,6 +38,8 @@ related:
 - React와 Phaser는 typed bridge/event boundary로 통신한다. React가 Scene 내부 state를 직접 변경하지 않는다.
 - logical grid 좌표와 화면 projection을 분리한다. 카메라가 보여주는 영역과 `12 x 3` 논리 topology는 같은 계약이 아니다.
 - player plan은 authoritative `BattleState`와 분리된 preview projection이다. hover는 ally policy와 enemy Intent를 what-if로 계산하고, `Z`/`Space`가 각각 마지막 하나/전체 계획을 확정 경계로 보낸다.
+- `Slice2RunController`가 월드 타일, 현재 방·통로 구간, 지속 HP·시간·policy와 인카운터 체크포인트를 소유한다. React local map과 Phaser 전투 장면은 이 상태를 표현하고 typed command만 전달한다.
+- `SliceController`는 authored scenario, 관리자·동료 id와 policy 순서를 주입받아 여러 인카운터에 재사용한다. encounter 전환은 이전 presentation generation을 파기한 뒤 새 `BattleEngine`을 연결한다.
 
 ## Grid, units, and actions
 
@@ -71,6 +77,20 @@ related:
 - `Math.random()`은 domain에서 사용하지 않는다. 미래 확률 시스템은 seed 가능한 경계를 먼저 만든 뒤 별도 결정으로 추가한다.
 - event history는 턴, Intent, AP 회복·소비, 이동, 능력 사용, 상태, 피해, 밀치기, 취소와 사망 등 의미 있는 transition을 보존한다.
 - 죽은 unit은 이후 행동·Intent를 실행하지 않는다.
+- Slice 2 통로 인카운터 추첨은 seed와 `encounterGeneration`을 사용하는 월드 계층에만 존재한다. 추첨 결과를 state에 저장하며 전투, 왕복과 체크포인트 재시도는 다시 추첨하지 않는다.
+- 재침식은 encounter generation을 증가시키지만 시설·지형과 소비한 일회성 보상 key를 보존한다.
+
+## Slice 2 expedition pipeline
+
+1. 서쪽 경계 방에서 현재 월드 타일에 진입하고 4구간 서쪽 통로를 따라 이동한다.
+2. 통로 전투 구간 또는 중앙 방 위협에 진입하면 같은 stage에서 12×3 combat presentation을 활성화한다.
+3. 중앙 방 전투 승리는 타일의 네 통로 종류·위치를 정찰한다.
+4. 동쪽 통로의 위협을 해결해 안전 경로를 만들고 동쪽 경계 방에서 다음 타일로 이동한다.
+5. 관리자·동료 HP, 이동 수, 전투 턴과 policy 순서는 네 타일 동안 유지한다.
+6. 타일 2 뒤 기존 5-slot policy를 유지하거나 `사격`을 첫 슬롯으로 한 번 재정렬한다.
+7. 타일 4 동쪽 경계 방을 통과하면 원정 요약을 표시한다.
+
+Slice 2 enemy intent는 장거리 BODY 사격, 4칸 ADVANCE 뒤 근접 공격, 고정 GROUND 폭탄을 사용한다. 전투원 밀치기는 BODY 사격 원점을 옮기지만 이미 잠긴 폭탄 footprint는 옮기지 않는다.
 
 ## Presentation contract
 
@@ -90,12 +110,19 @@ related:
 - 승리 화면의 다음 행동은 `봉인 해제`이며, 이것이 관리자 특수성의 전장 표현이다.
 - 배포는 `/slice1/` path만 소유하고 기존 `openai.ktwome.cc/` root application을 보존한다.
 
+## Slice 2 authored surface
+
+- `src/game/slice2/world.ts`는 네 월드 타일과 각 타일의 중앙·경계 방, 방향별 4구간 통로, seed 기반 인카운터 생명주기를 정의한다.
+- `src/game/slice2/scenarios.ts`는 고블린 궁수·전사·투척병과 네 중앙 방의 학습 순서를 정의한다.
+- 필수 경로에는 통로 전투 2회와 중앙 방 전투 4회를 배치한다. 북·남 선택 통로의 추가 인카운터는 정찰 뒤 선택할 수 있다.
+- `/slice2/`가 Slice 2 build를 소유하며 `/`와 `/slice1/`을 보존한다.
+
 ## Deferred
 
 - 범용 조건·target·동료별 preset을 편집하는 policy editor와 자연어·node graph 정책 언어
-- tracking/re-targeting 적, pull·dash·charge·swap·관통·폭발 같은 확장 effect
+- tracking/re-targeting 적, pull·dash·swap·관통 같은 확장 effect
 - 완성 enemy AI, intent deck/weight와 보스 authoring tool
-- 탐색, 본대·별동대, 월드 시간, 작전 채널, 경제, 성장·장비·직업·기벽의 runtime
+- 본대·별동대, 전체 월드 시간, 작전 채널, 경제, 성장·장비·직업·기벽의 runtime
 - 최종 캐릭터 family, 전체 sprite sheet, 모든 배경·VFX와 완전한 replay/coaching UI
 - backend, DB, authentication, multiplayer와 networking
 
@@ -106,3 +133,5 @@ related:
 - Slice 1은 controller의 intro → plan/undo/confirm → ally positioning/shooting → `제압` 회피 → `내려찍기` interrupt → 하수인 소환/돌진 흐름을 테스트한다.
 - Chromium에서 desktop viewport의 initial, 각 턴 배너, Intent, plan preview, 타격·stun·소환·하수인과 console/page/request error를 기록한다. mobile viewport와 전투 완주·봉인 해제는 별도 검증 항목이다.
 - 배포 완료는 `/slice1/` 공개 검증과 기존 root 보존 검증을 별도로 통과해야 한다.
+- Slice 2는 seed/재침식/정찰/지속 상태 unit test, 1280×720 전체 4타일 완주, 960×720 overflow, 세 고블린 asset request와 console/page/request error를 검증한다.
+- Slice 2 배포 완료는 `/`, `/slice1/`, `/slice2/`을 각각 검증해야 한다.

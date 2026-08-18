@@ -11,6 +11,9 @@ export const ABILITY_IDS = {
   GUARDIAN_RUPTURE: 'guardian-rupture',
   GUARDIAN_SUMMON: 'guardian-summon',
   MINION_CHARGE: 'minion-charge',
+  GOBLIN_LONG_SHOT: 'goblin-long-shot',
+  GOBLIN_RUSH: 'goblin-rush',
+  GOBLIN_BOMB: 'goblin-bomb',
   SIGNAL_THRUST: 'signal-thrust',
   DEBUG_KNOCKBACK: 'debug-knockback',
   DEBUG_STRIKE_PUSH: 'debug-strike-push',
@@ -59,6 +62,20 @@ export const WIDE_RUPTURE_PATTERN: AttackPattern = {
 export const CHARGE_PATTERN: AttackPattern = {
   id: 'charge-forward-3',
   cells: Array.from({ length: 3 }, (_, index) => ({ forward: index + 1, lateral: 0 })),
+};
+
+export const GOBLIN_LONG_SHOT_PATTERN: AttackPattern = {
+  id: 'goblin-projectile-forward-11',
+  cells: Array.from({ length: 10 }, (_, index) => ({ forward: index + 2, lateral: 0 })),
+};
+
+export const GOBLIN_BOMB_PATTERN: AttackPattern = {
+  id: 'goblin-ground-column-3',
+  cells: [
+    { forward: 0, lateral: -1 },
+    { forward: 0, lateral: 0 },
+    { forward: 0, lateral: 1 },
+  ],
 };
 
 export const ABILITIES: Readonly<Record<string, AbilityDefinition>> = {
@@ -184,6 +201,41 @@ export const ABILITIES: Readonly<Record<string, AbilityDefinition>> = {
     sourceMovement: { type: 'CHARGE', distance: 3 },
     intentAnchor: 'BODY',
     threat: 'NORMAL_ATTACK',
+    interruptible: true,
+  },
+  [ABILITY_IDS.GOBLIN_LONG_SHOT]: {
+    id: ABILITY_IDS.GOBLIN_LONG_SHOT,
+    name: '장거리 사격',
+    apCost: 0,
+    targeting: 'PATTERN',
+    pattern: GOBLIN_LONG_SHOT_PATTERN,
+    patternTargetMode: 'FIRST_IN_PATTERN',
+    effects: [{ type: 'DAMAGE', amount: 1 }],
+    intentAnchor: 'BODY',
+    threat: 'NORMAL_ATTACK',
+    interruptible: true,
+  },
+  [ABILITY_IDS.GOBLIN_RUSH]: {
+    id: ABILITY_IDS.GOBLIN_RUSH,
+    name: '단검 쇄도',
+    apCost: 0,
+    targeting: 'PATTERN',
+    pattern: SHORT_STRIKE_PATTERN,
+    effects: [{ type: 'DAMAGE', amount: 2 }],
+    sourceMovement: { type: 'ADVANCE', distance: 4 },
+    intentAnchor: 'BODY',
+    threat: 'NORMAL_ATTACK',
+    interruptible: true,
+  },
+  [ABILITY_IDS.GOBLIN_BOMB]: {
+    id: ABILITY_IDS.GOBLIN_BOMB,
+    name: '포자 폭탄',
+    apCost: 0,
+    targeting: 'PATTERN',
+    pattern: GOBLIN_BOMB_PATTERN,
+    effects: [{ type: 'DAMAGE', amount: 2 }],
+    intentAnchor: 'GROUND',
+    threat: 'UNBLOCKABLE_ATTACK',
     interruptible: true,
   },
   [ABILITY_IDS.SIGNAL_THRUST]: {

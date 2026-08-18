@@ -132,7 +132,8 @@ function evaluateShoot(state: BattleState, ally: Unit): PolicyEvaluation {
 
 function evaluatePush(state: BattleState, ally: Unit): PolicyEvaluation {
   const target = frontmostEnemy(state, ally);
-  if (!target || ally.ap < 1) return blocked('PUSH', target ? 'AP 부족' : '표적 없음');
+  const ability = getAbility(ABILITY_IDS.PUSH);
+  if (!target || !ability || ally.ap < ability.apCost) return blocked('PUSH', target ? 'AP 부족' : '표적 없음');
   if (distanceBetween(target.position, ally.position) !== 1) {
     return blocked('PUSH', '인접한 적이 없음');
   }

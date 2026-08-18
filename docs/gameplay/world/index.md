@@ -1,7 +1,7 @@
 ---
 title: World Exploration Index
 status: accepted
-last_updated: 2026-08-17
+last_updated: 2026-08-18
 related:
   - ../../ux/views/map-view.md
   - ../../ux/views/local-view.md
@@ -15,6 +15,6 @@ related:
 - [Sector map](./sector-map.md): **accepted**, 크기·거리 **provisional**
 - [Tile states](./tile-states.md): **accepted**, 재침식 시간 **under-validation**
 - [Beacon and magic torch](./beacon-and-magic-torch.md): **accepted**
-- [Local area and scouting](./local-area-and-scouting.md): **accepted**
+- [Local area and scouting](./local-area-and-scouting.md): **accepted**, 중앙 방·네 경계 방·분절 통로·재침식 재추첨 계약
 
 길 건설은 **deferred**다.
