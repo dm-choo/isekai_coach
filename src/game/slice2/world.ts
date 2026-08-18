@@ -126,20 +126,6 @@ export function resolveNodeEncounter(tile: WorldTileState, nodeId: string): Worl
   return { ...next, cleared: isRequiredRouteSafe(next) };
 }
 
-export function availableNodeIds(tile: WorldTileState, nodeId: string): readonly string[] {
-  if (nodeId === 'room-center') return DIRECTIONS.map((direction) => `${direction.toLowerCase()}-1`);
-  const boundary = /^room-(north|east|south|west)$/.exec(nodeId);
-  if (boundary) return [`${boundary[1]}-4`];
-  const segment = /^(north|east|south|west)-([1-4])$/.exec(nodeId);
-  if (!segment) return [];
-  const direction = segment[1];
-  const index = Number(segment[2]);
-  return [
-    index === 1 ? 'room-center' : `${direction}-${index - 1}`,
-    index === 4 ? `room-${direction}` : `${direction}-${index + 1}`,
-  ];
-}
-
 export function isEncounterVisible(tile: WorldTileState, nodeId: string): boolean {
   return nodeId === 'room-center' || tile.corridorsScouted || encounterAt(tile, nodeId)?.resolved === true;
 }

@@ -5,12 +5,10 @@ import {
   Slice2RunController,
   SLICE2_LATE_START_MINUTE,
   PATROL_RETURN_MINUTE,
-  TRAVEL_MINUTES_PER_SEGMENT,
-  encounterAt,
   formatWorldTime,
   isEncounterVisible,
   type EncounterContent,
-  type WorldTileState,
+  type WorldDirection,
 } from '../game/slice2';
 import { PhaserCanvas } from './PhaserCanvas';
 
@@ -43,7 +41,21 @@ export function Slice2App() {
   }, [snapshot.combat]);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.repeat || snapshot.mode !== 'COMBAT' || !snapshot.combat) return;
+      if (event.repeat) return;
+      if (event.key === ' ') {
+        if (snapshot.mode === 'INTRO') controller.startRun();
+        else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'INTRO') controller.startEncounter();
+        else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'PLAYER_TURN') controller.confirmPlan();
+        else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'VICTORY') controller.completeEncounter();
+        else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'DEFEAT') controller.retryEncounter();
+        else if (snapshot.mode === 'EXPLORE' && snapshot.canAdvanceTile) controller.advanceTile();
+        else if (snapshot.mode === 'DEFEAT') controller.retryEncounter();
+        else if (snapshot.mode === 'VICTORY') controller.restartRun();
+        else return;
+        event.preventDefault();
+        return;
+      }
+      if (snapshot.mode !== 'COMBAT' || !snapshot.combat || snapshot.combat.mode !== 'PLAYER_TURN') return;
       const directions = { w: 'UP', ArrowUp: 'UP', a: 'LEFT', ArrowLeft: 'LEFT', s: 'DOWN', ArrowDown: 'DOWN', d: 'RIGHT', ArrowRight: 'RIGHT' } as const;
       const direction = directions[event.key as keyof typeof directions];
       if (direction) {
@@ -61,9 +73,6 @@ export function Slice2App() {
         event.preventDefault();
         const action = snapshot.combat.actions[2];
         if (action) controller.useAction(action.id as SliceActionId);
-      } else if (event.key === ' ') {
-        event.preventDefault();
-        controller.confirmPlan();
       } else if (event.key.toLowerCase() === 'z') {
         event.preventDefault();
         controller.undoLastAction();
@@ -99,7 +108,7 @@ function ExplorationStage({ snapshot, controller }: {
           <div className="enemy-brief">
             <b>장거리 사격</b><b>고속 접근</b><b>고정 지면 폭격</b>
           </div>
-          <button type="button" onClick={controller.startRun}>원정 시작</button>
+          <button type="button" onClick={controller.startRun}>원정 시작 <kbd>SPACE</kbd></button>
         </div>
       </div>
     );
@@ -143,11 +152,12 @@ function ExplorationStage({ snapshot, controller }: {
       </div>
       {snapshot.traversal
         ? <CorridorTraversalScene snapshot={snapshot} controller={controller} />
-        : <WorldTileMap tile={snapshot.tile} currentNodeId={snapshot.currentNodeId} currentMinute={snapshot.worldMinute} available={snapshot.availableNodeIds} onMove={controller.moveTo} />}
-      <div className="local-notice" role="status">{snapshot.notice}</div>
-      <button type="button" className="rest-button" disabled={!snapshot.canRest} onClick={controller.rest}>
+        : <RoomScene currentNodeId={snapshot.currentNodeId} doors={snapshot.availableDoorDirections} onEnter={controller.enterCorridor} />}
+      <DungeonMiniMap snapshot={snapshot} />
+      {!snapshot.traversal && <div className="local-notice" role="status">{snapshot.notice}</div>}
+      {!snapshot.traversal && <button type="button" className="rest-button" disabled={!snapshot.canRest} onClick={controller.rest}>
         휴식 20분 · 물 1 · 식량 1 · HP +3
-      </button>
+      </button>}
       {snapshot.canAdvanceTile && (
         <button type="button" className="advance-world-button" onClick={controller.advanceTile}>
           {snapshot.currentTileIndex === 3 ? '원정 완료' : `월드 타일 ${snapshot.currentTileIndex + 2}로 이동`} →
@@ -188,7 +198,6 @@ function CorridorTraversalScene({ snapshot, controller }: {
     return () => { stop(); window.removeEventListener('keydown', keyDown); window.removeEventListener('keyup', keyUp); window.removeEventListener('blur', stop); };
   }, [controller]);
   if (!traversal) return null;
-  const encounter = encounterAt(snapshot.tile, traversal.toNodeId);
   const progress = traversal.progressMeters / traversal.distanceMeters;
   const startPointer = (direction: 'FORWARD' | 'BACK') => {
     if (activeTimer.current !== undefined) window.clearInterval(activeTimer.current);
@@ -196,57 +205,63 @@ function CorridorTraversalScene({ snapshot, controller }: {
     activeTimer.current = window.setInterval(() => controller.advanceTravel(direction), 85);
   };
   const stopPointer = () => { if (activeTimer.current !== undefined) window.clearInterval(activeTimer.current); activeTimer.current = undefined; };
-  return <section className="corridor-traversal" aria-label="100미터 통로 이동">
+  const remaining = traversal.distanceMeters - traversal.progressMeters;
+  return <section className="corridor-traversal" aria-label="400미터 통로 이동">
     <div className="corridor-depth" style={{ backgroundPositionX: `${progress * -180}px` }} />
     <div className="travel-party" style={{ left: `${14 + progress * 66}%` }}><img src={`${BASE_URL}assets/slice1/administrator-v2.png`} alt="관리자" /><img src={`${BASE_URL}assets/slice1/archer-v2.png`} alt="원거리 동료" /></div>
-    <div className={`travel-destination ${encounter && !encounter.resolved ? 'has-encounter' : ''}`}><span>{encounter && !encounter.resolved ? encounter.kind === 'BATTLE' ? '⚔' : '!' : traversal.toNodeId.startsWith('room-') ? '🚪' : '◇'}</span><small>{100 - traversal.progressMeters}m</small></div>
-    <div className="travel-progress"><i style={{ width: `${progress * 100}%` }} /><span>{traversal.progressMeters} / 100m</span></div>
-    <div className="travel-controls"><button type="button" onPointerDown={() => startPointer('BACK')} onPointerUp={stopPointer} onPointerLeave={stopPointer}><kbd>A</kbd> 후퇴</button><p>D를 누르는 동안 경계 이동 · 조우 지점에서 자동 정지</p><button type="button" onPointerDown={() => startPointer('FORWARD')} onPointerUp={stopPointer} onPointerLeave={stopPointer}>전진 <kbd>D</kbd></button></div>
+    <div className="travel-destination"><span aria-hidden="true">▯</span><small>{remaining}m</small></div>
+    <div className="travel-progress"><i style={{ width: `${progress * 100}%` }} />{[1, 2, 3].map((tick) => <b key={tick} style={{ left: `${tick * 25}%` }} />)}<span>{traversal.progressMeters} / 400m</span></div>
+    <div className="travel-controls"><button type="button" onPointerDown={() => startPointer('BACK')} onPointerUp={stopPointer} onPointerLeave={stopPointer}><kbd>A</kbd> 후퇴</button><p role="status">{snapshot.notice}</p><button type="button" onPointerDown={() => startPointer('FORWARD')} onPointerUp={stopPointer} onPointerLeave={stopPointer}>전진 <kbd>D</kbd></button></div>
   </section>;
 }
 
-function WorldTileMap({ tile, currentNodeId, currentMinute, available, onMove }: {
-  readonly tile: WorldTileState;
+function RoomScene({ currentNodeId, doors, onEnter }: {
   readonly currentNodeId: string;
-  readonly currentMinute: number;
-  readonly available: readonly string[];
-  readonly onMove: (nodeId: string) => void;
+  readonly doors: readonly WorldDirection[];
+  readonly onEnter: (direction: WorldDirection) => void;
 }) {
-  const nodeIds = [
-    'room-center', 'room-north', 'room-east', 'room-south', 'room-west',
-    ...(['north', 'east', 'south', 'west'] as const).flatMap((direction) => [1, 2, 3, 4].map((index) => `${direction}-${index}`)),
-  ];
+  useEffect(() => {
+    const keys: Record<string, WorldDirection> = { w: 'NORTH', ArrowUp: 'NORTH', d: 'EAST', ArrowRight: 'EAST', s: 'SOUTH', ArrowDown: 'SOUTH', a: 'WEST', ArrowLeft: 'WEST' };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat) return;
+      const direction = keys[event.key] ?? keys[event.key.toLowerCase()];
+      if (!direction || !doors.includes(direction)) return;
+      event.preventDefault();
+      onEnter(direction);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [doors, onEnter]);
   return (
-    <div className="world-tile-map" aria-label="월드 타일 방과 통로">
-      <div className="map-cross" />
-      {nodeIds.map((nodeId) => {
-        const encounter = encounterAt(tile, nodeId);
-        const visible = isEncounterVisible(tile, nodeId);
-        const isRoom = nodeId.startsWith('room-');
-        const isCurrent = nodeId === currentNodeId;
-        const canMove = available.includes(nodeId);
-        const label = nodeLabel(nodeId, encounter?.content, visible);
-        return (
-          <button
-            key={nodeId}
-            type="button"
-            className={`map-node node-${nodeId} ${isRoom ? 'is-room' : 'is-segment'} ${isCurrent ? 'is-current' : ''} ${encounter?.resolved ? 'is-resolved' : ''}`}
-            disabled={!canMove}
-            onClick={() => onMove(nodeId)}
-            aria-label={label}
-            title={canMove ? `${label} · 이동 2분 · 예상 ${formatWorldTime(currentMinute + TRAVEL_MINUTES_PER_SEGMENT)}` : label}
-          >
-            <span>{nodeGlyph(nodeId, encounter?.content, visible, encounter?.resolved ?? true)}</span>
-            {isCurrent && <i>현재</i>}
-            {canMove && !isCurrent && <em>+2분</em>}
-          </button>
-        );
-      })}
-      <span className="map-direction north">북</span><span className="map-direction east">동 · 다음</span>
-      <span className="map-direction south">남</span><span className="map-direction west">서 · 진입</span>
-    </div>
+    <section className="room-scene" aria-label={currentNodeId === 'room-center' ? '중앙 방' : '경계 방'}>
+      <div className="room-floor" />
+      <div className="room-party"><img src={`${BASE_URL}assets/slice1/administrator-v2.png`} alt="관리자" /><img src={`${BASE_URL}assets/slice1/archer-v2.png`} alt="원거리 동료" /></div>
+      {doors.map((direction) => <button key={direction} type="button" data-direction={direction} className={`room-door is-${direction.toLowerCase()}`} onClick={() => onEnter(direction)} aria-label={`${direction} 문으로 통로 진입`}><i aria-hidden="true" /><span>{directionArrow(direction)}</span><kbd>{directionKey(direction)}</kbd></button>)}
+    </section>
   );
 }
+
+function DungeonMiniMap({ snapshot }: { readonly snapshot: ReturnType<Slice2RunController['getSnapshot']> }) {
+  const directions: readonly WorldDirection[] = ['NORTH', 'EAST', 'SOUTH', 'WEST'];
+  const activeRoom = snapshot.traversal ? undefined : snapshot.currentNodeId;
+  return <aside className="dungeon-minimap" aria-label="현재 월드 타일 구조. 조작할 수 없는 상태 지도">
+    <div className={`mini-room room-center ${activeRoom === 'room-center' ? 'is-current' : ''}`} />
+    {directions.map((direction) => {
+      const name = direction.toLowerCase();
+      return <div key={direction} className={`mini-branch is-${name}`}>
+        <div className="mini-corridor">{snapshot.tile.corridors[direction].map((segment) => {
+          const visible = isEncounterVisible(snapshot.tile, segment.id);
+          const current = snapshot.currentNodeId === segment.id;
+          return <i key={segment.id} className={`${current ? 'is-current' : ''} ${segment.encounter.resolved ? 'is-resolved' : ''}`}>{nodeGlyph(segment.id, segment.encounter.content, visible, segment.encounter.resolved)}</i>;
+        })}</div>
+        <div className={`mini-room ${activeRoom === `room-${name}` ? 'is-current' : ''}`} />
+      </div>;
+    })}
+  </aside>;
+}
+
+function directionArrow(direction: WorldDirection): string { return ({ NORTH: '↑', EAST: '→', SOUTH: '↓', WEST: '←' })[direction]; }
+function directionKey(direction: WorldDirection): string { return ({ NORTH: 'W', EAST: 'D', SOUTH: 'S', WEST: 'A' })[direction]; }
 
 function CombatStage({ snapshot, run, controller, encounter }: {
   readonly snapshot: SliceSnapshot;
@@ -274,13 +289,13 @@ function CombatStage({ snapshot, run, controller, encounter }: {
       {snapshot.mode === 'ALLY_TURN' && <PolicyReadout snapshot={snapshot} />}
       {snapshot.mode === 'PLAYER_TURN' && <CombatControls snapshot={snapshot} controller={controller} />}
       {snapshot.mode === 'INTRO' && (
-        <div className="encounter-overlay"><div className="encounter-rule" /><p>SCOUTED ENCOUNTER</p><h1>{encounterTitle(encounter)}</h1><span>Intent를 확인하고 진형을 결정하십시오.</span><button type="button" onClick={controller.startEncounter}>전투 시작</button></div>
+        <div className="encounter-overlay"><div className="encounter-rule" /><p>SCOUTED ENCOUNTER</p><h1>{encounterTitle(encounter)}</h1><span>Intent를 확인하고 진형을 결정하십시오.</span><button type="button" onClick={controller.startEncounter}>전투 시작 <kbd>SPACE</kbd></button></div>
       )}
       {snapshot.mode === 'VICTORY' && (
-        <div className="result-overlay"><p>PATH SECURED</p><h2>인카운터 해결</h2><span>현재 HP와 소요 턴이 원정에 유지됩니다.</span><button type="button" onClick={controller.completeEncounter}>통로로 복귀</button></div>
+        <div className="result-overlay"><p>PATH SECURED</p><h2>인카운터 해결</h2><span>현재 HP와 소요 턴이 원정에 유지됩니다.</span><button type="button" onClick={controller.completeEncounter}>통로로 복귀 <kbd>SPACE</kbd></button></div>
       )}
       {snapshot.mode === 'DEFEAT' && (
-        <div className="result-overlay"><p>EXPEDITION BROKEN</p><h2>전투 불능</h2><span>인카운터 진입 직전 상태로 복원합니다.</span><button type="button" onClick={controller.retryEncounter}>같은 인카운터 재시도</button></div>
+        <div className="result-overlay"><p>EXPEDITION BROKEN</p><h2>전투 불능</h2><span>인카운터 진입 직전 상태로 복원합니다.</span><button type="button" onClick={controller.retryEncounter}>같은 인카운터 재시도 <kbd>SPACE</kbd></button></div>
       )}
     </div>
   );
@@ -316,13 +331,14 @@ function PolicyReadout({ snapshot }: { readonly snapshot: SliceSnapshot }) {
 
 function AllyIntentPanel({ snapshot }: { readonly snapshot: SliceSnapshot }) {
   const steps = snapshot.allyIntent?.steps ?? [];
-  return <aside className="ally-intent-panel" aria-label="동료 예정 행동">
+  return <details className="ally-intent-panel">
+    <summary aria-label="동료 예정 행동 펼치기"><span>ALLY</span><div>{steps.length ? steps.map((step, index) => <img key={`${step.id}-${index}`} src={`${BASE_URL}assets/ui/intent-${step.icon.toLowerCase()}.svg`} alt={step.label} />) : <b>—</b>}</div><i aria-hidden="true">⌄</i></summary>
     <header><div><small>ALLY PLAN · LOCKED FORECAST</small><strong>원거리 동료</strong></div><span>{snapshot.plannedActions.length ? '내 계획 반영' : '현재 상태 기준'}</span></header>
     <div className="ally-intent-sequence">{steps.length
       ? steps.map((step, index) => <div key={`${step.id}-${index}`} className="ally-intent-step" tabIndex={0}><i>{index + 1}</i><img src={`${BASE_URL}assets/ui/intent-${step.icon.toLowerCase()}.svg`} alt="" /><div><strong>{step.label}</strong><small>{step.description}</small></div>{step.damage !== undefined && <b>피해 {step.damage}</b>}</div>)
       : <p>실행 가능한 전술이 없어 대기합니다.</p>}
     </div>
-  </aside>;
+  </details>;
 }
 
 function CombatTurnBanner({ snapshot }: { readonly snapshot: SliceSnapshot }) {
@@ -356,14 +372,6 @@ function nodeGlyph(nodeId: string, content: EncounterContent | undefined, visibl
   if (content === 'RATION_CACHE') return '食';
   if (content === 'ROOT_SNARE') return '!';
   return '⚔';
-}
-
-function nodeLabel(nodeId: string, content: EncounterContent | undefined, visible: boolean): string {
-  if (nodeId === 'room-east') return '동쪽 출구, 다음 월드 타일로 향하는 문';
-  if (nodeId === 'room-west') return '서쪽 입구, 이전 월드 타일에서 들어온 문';
-  if (nodeId === 'room-center') return '중앙 방, 통로 정찰 거점';
-  if (!visible) return `${nodeId}, 미정찰`;
-  return `${nodeId}, ${content === 'NONE' ? '안전' : content === 'WATER_CACHE' ? '물 보급' : content === 'RATION_CACHE' ? '식량 보급' : content === 'RECOVERY_CACHE' || content === 'ROOT_SNARE' ? '사건' : '전투'}`;
 }
 
 function encounterTitle(content?: EncounterContent): string {

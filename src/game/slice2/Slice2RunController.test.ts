@@ -7,12 +7,12 @@ import {
 } from './Slice2RunController';
 
 describe('Slice2RunController exploration', () => {
-  it('starts in the west room and only exposes adjacent travel', () => {
+  it('starts in the west room and exposes one physical door instead of 100m nodes', () => {
     const controller = new Slice2RunController();
     controller.startRun();
     const snapshot = controller.getSnapshot();
     expect(snapshot.currentNodeId).toBe('room-west');
-    expect(snapshot.availableNodeIds).toEqual(['west-4']);
+    expect(snapshot.availableDoorDirections).toEqual(['EAST']);
     controller.destroy();
   });
 
@@ -28,15 +28,22 @@ describe('Slice2RunController exploration', () => {
   it('advances two minutes per 100m segment from a 10:00 departure', () => {
     const controller = new Slice2RunController();
     controller.startRun();
-    travel(controller, 'west-4');
+    controller.enterCorridor('EAST');
+    advance(controller, 100);
     expect(controller.getSnapshot()).toMatchObject({ worldMinute: 602, worldTime: '10:02', elapsedTravel: 1 });
+    expect(controller.getSnapshot().traversal).toMatchObject({
+      fromRoomId: 'room-west',
+      toRoomId: 'room-center',
+      progressMeters: 100,
+      distanceMeters: 400,
+    });
     controller.destroy();
   });
 
   it('lets the party retreat to 0m without changing node or world time', () => {
     const controller = new Slice2RunController();
     controller.startRun();
-    controller.moveTo('west-4');
+    controller.enterCorridor('EAST');
     controller.advanceTravel('FORWARD');
     controller.advanceTravel('FORWARD');
     controller.advanceTravel('BACK');
@@ -65,9 +72,10 @@ describe('Slice2RunController exploration', () => {
   it('conceals one night intent and spends one light to restore it', () => {
     const controller = new Slice2RunController({ startMinute: SLICE2_LATE_START_MINUTE + 58 });
     controller.startRun();
-    travel(controller, 'west-4');
-    travel(controller, 'west-3');
+    controller.enterCorridor('EAST');
+    advance(controller, 200);
     expect(controller.getSnapshot()).toMatchObject({ mode: 'COMBAT', worldTime: '18:02', isNight: true });
+    expect(controller.getSnapshot().traversal).toMatchObject({ progressMeters: 200, toRoomId: 'room-center' });
     controller.startEncounter();
     expect(controller.getSnapshot().combat?.concealedIntentIds).toHaveLength(1);
     expect(controller.getSnapshot().canUseLight).toBe(true);
@@ -82,8 +90,6 @@ describe('Slice2RunController exploration', () => {
   });
 });
 
-function travel(controller: Slice2RunController, nodeId: string): void {
-  controller.moveTo(nodeId);
-  expect(controller.getSnapshot().traversal).toMatchObject({ toNodeId: nodeId, progressMeters: 0, distanceMeters: 100 });
-  for (let distance = 0; distance < 100; distance += 5) controller.advanceTravel('FORWARD');
+function advance(controller: Slice2RunController, meters: number): void {
+  for (let distance = 0; distance < meters; distance += 5) controller.advanceTravel('FORWARD');
 }

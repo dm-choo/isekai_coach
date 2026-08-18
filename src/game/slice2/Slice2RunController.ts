@@ -16,12 +16,12 @@ import {
   type ExpeditionVitals,
 } from './scenarios';
 import {
-  availableNodeIds,
   createSlice2World,
   encounterAt,
   resolveNodeEncounter,
   type Slice2WorldState,
   type WorldEncounter,
+  type WorldDirection,
   type WorldTileState,
 } from './world';
 
@@ -46,7 +46,7 @@ export interface Slice2RunSnapshot {
   readonly tile: WorldTileState;
   readonly currentTileIndex: number;
   readonly currentNodeId: string;
-  readonly availableNodeIds: readonly string[];
+  readonly availableDoorDirections: readonly WorldDirection[];
   readonly vitals: ExpeditionVitals;
   readonly elapsedTravel: number;
   readonly elapsedBattleTurns: number;
@@ -70,10 +70,13 @@ export interface Slice2RunSnapshot {
 }
 
 export interface CorridorTraversal {
-  readonly fromNodeId: string;
-  readonly toNodeId: string;
+  readonly corridorDirection: WorldDirection;
+  readonly heading: WorldDirection;
+  readonly fromRoomId: string;
+  readonly toRoomId: string;
+  readonly segmentIds: readonly string[];
   readonly progressMeters: number;
-  readonly distanceMeters: 100;
+  readonly distanceMeters: 400;
 }
 
 type Listener = () => void;
@@ -142,38 +145,70 @@ export class Slice2RunController {
     this.publish();
   };
 
-  public moveTo = (nodeId: string): void => {
-    if (this.mode !== 'EXPLORE' || this.traversal || !availableNodeIds(this.currentTile(), this.currentNodeId).includes(nodeId)) return;
-    this.traversal = { fromNodeId: this.currentNodeId, toNodeId: nodeId, progressMeters: 0, distanceMeters: 100 };
-    this.notice = `${nodeId} 방향 통로에 진입했다. D를 누르고 이동하십시오.`;
+  public enterCorridor = (heading: WorldDirection): void => {
+    if (this.mode !== 'EXPLORE' || this.traversal) return;
+    const journey = corridorForDoor(this.currentNodeId, heading);
+    if (!journey) return;
+    this.traversal = journey;
+    this.notice = '통로에 진입했다. D로 전진하고 A로 출발 방까지 후퇴할 수 있다.';
     this.publish();
   };
 
   public advanceTravel = (direction: 'FORWARD' | 'BACK'): void => {
     if (this.mode !== 'EXPLORE' || !this.traversal) return;
     const delta = direction === 'FORWARD' ? 5 : -5;
-    const progressMeters = Math.max(0, Math.min(100, this.traversal.progressMeters + delta));
+    const previousProgress = this.traversal.progressMeters;
+    const progressMeters = Math.max(0, Math.min(400, previousProgress + delta));
     if (progressMeters === 0 && direction === 'BACK') {
+      this.currentNodeId = this.traversal.fromRoomId;
       this.traversal = undefined;
       this.notice = '출발 지점으로 돌아왔다.';
       this.publish();
       return;
     }
     this.traversal = { ...this.traversal, progressMeters };
-    if (progressMeters < 100) {
+    const crossedForwardMilestone = direction === 'FORWARD'
+      && Math.floor(previousProgress / 100) < Math.floor(progressMeters / 100);
+    const crossedBackwardMilestone = direction === 'BACK'
+      && Math.ceil(previousProgress / 100) > Math.ceil(progressMeters / 100);
+    if (crossedForwardMilestone || crossedBackwardMilestone) {
+      this.elapsedTravel += 1;
+      this.worldMinute += TRAVEL_MINUTES_PER_SEGMENT;
+    }
+    if (!crossedForwardMilestone) {
+      if (crossedBackwardMilestone) {
+        const segmentIndex = Math.max(0, Math.ceil(progressMeters / 100) - 1);
+        this.currentNodeId = this.traversal.segmentIds[segmentIndex];
+      }
       this.publish();
       return;
     }
-    const destination = this.traversal.toNodeId;
-    this.traversal = undefined;
-    this.arriveAtNode(destination);
+    const segmentIndex = Math.floor(progressMeters / 100) - 1;
+    const segmentId = this.traversal.segmentIds[segmentIndex];
+    this.currentNodeId = segmentId;
+    const encounter = encounterAt(this.currentTile(), segmentId);
+    if (encounter && !encounter.resolved && encounter.kind === 'BATTLE') {
+      this.beginCombat(encounter);
+      return;
+    }
+    if (encounter && !encounter.resolved && encounter.kind === 'EVENT') {
+      this.resolveEvent(encounter);
+      if (this.vitals.administratorHp <= 0) return;
+    }
+    if (progressMeters === 400) {
+      this.arriveAtDestinationRoom();
+      return;
+    }
+    this.notice = `${progressMeters}m 지점을 통과했다.`;
+    this.publish();
   };
 
-  private arriveAtNode(nodeId: string): void {
-    this.currentNodeId = nodeId;
-    this.elapsedTravel += 1;
-    this.worldMinute += TRAVEL_MINUTES_PER_SEGMENT;
-    const encounter = encounterAt(this.currentTile(), nodeId);
+  private arriveAtDestinationRoom(): void {
+    if (!this.traversal) return;
+    const destination = this.traversal.toRoomId;
+    this.traversal = undefined;
+    this.currentNodeId = destination;
+    const encounter = encounterAt(this.currentTile(), destination);
     if (encounter && !encounter.resolved && encounter.kind === 'BATTLE') {
       this.beginCombat(encounter);
       return;
@@ -182,9 +217,9 @@ export class Slice2RunController {
       this.resolveEvent(encounter);
       return;
     }
-    this.notice = nodeId === 'room-center'
+    this.notice = destination === 'room-center'
       ? '중앙 방은 확보됐다. 네 통로의 위험 위치가 드러났다.'
-      : '통로를 이동했다.';
+      : '다음 방에 도착했다.';
     this.publish();
   }
 
@@ -260,6 +295,10 @@ export class Slice2RunController {
     this.replaceCurrentTile(resolveNodeEncounter(this.currentTile(), this.currentNodeId));
     this.releaseCombat();
     this.mode = 'EXPLORE';
+    if (this.traversal?.progressMeters === 400) {
+      this.arriveAtDestinationRoom();
+      return;
+    }
     this.notice = centerCleared
       ? '중앙 방 확보. 네 통로의 인카운터 종류와 위치를 정찰했다.'
       : '통로의 위협을 제거했다. 같은 구간으로 복귀했다.';
@@ -435,7 +474,7 @@ export class Slice2RunController {
       tile,
       currentTileIndex: this.currentTileIndex,
       currentNodeId: this.currentNodeId,
-      availableNodeIds: this.mode === 'EXPLORE' && !this.traversal ? availableNodeIds(tile, this.currentNodeId) : [],
+      availableDoorDirections: this.mode === 'EXPLORE' && !this.traversal ? doorDirectionsForRoom(this.currentNodeId) : [],
       vitals: this.vitals,
       elapsedTravel: this.elapsedTravel,
       elapsedBattleTurns: this.elapsedBattleTurns,
@@ -479,4 +518,37 @@ export function formatWorldTime(minute: number): string {
 export function isNightMinute(minute: number): boolean {
   const normalized = ((minute % (24 * 60)) + 24 * 60) % (24 * 60);
   return normalized >= NIGHT_START_MINUTE || normalized < 6 * 60;
+}
+
+const OPPOSITE_DIRECTION: Readonly<Record<WorldDirection, WorldDirection>> = {
+  NORTH: 'SOUTH',
+  EAST: 'WEST',
+  SOUTH: 'NORTH',
+  WEST: 'EAST',
+};
+
+export function doorDirectionsForRoom(roomId: string): readonly WorldDirection[] {
+  if (roomId === 'room-center') return ['NORTH', 'EAST', 'SOUTH', 'WEST'];
+  const match = /^room-(north|east|south|west)$/.exec(roomId);
+  if (!match) return [];
+  return [OPPOSITE_DIRECTION[match[1].toUpperCase() as WorldDirection]];
+}
+
+function corridorForDoor(roomId: string, heading: WorldDirection): CorridorTraversal | undefined {
+  if (!doorDirectionsForRoom(roomId).includes(heading)) return undefined;
+  const fromCenter = roomId === 'room-center';
+  const corridorDirection = fromCenter
+    ? heading
+    : roomId.replace('room-', '').toUpperCase() as WorldDirection;
+  const directionName = corridorDirection.toLowerCase();
+  const indexes = fromCenter ? [1, 2, 3, 4] : [4, 3, 2, 1];
+  return {
+    corridorDirection,
+    heading,
+    fromRoomId: roomId,
+    toRoomId: fromCenter ? `room-${directionName}` : 'room-center',
+    segmentIds: indexes.map((index) => `${directionName}-${index}`),
+    progressMeters: 0,
+    distanceMeters: 400,
+  };
 }

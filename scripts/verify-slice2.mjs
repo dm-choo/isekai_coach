@@ -11,12 +11,8 @@ let server;
 let browser;
 let blockedPreviewCaptured = false;
 let firstRestUsed = false;
-let supplyDetourStarted = false;
-let supplyDetourCompleted = false;
-let secondRestUsed = false;
 let traversalCaptured = false;
 let allyPlanCaptured = false;
-const supplyDetour = ['north-1', 'north-2', 'north-3', 'north-2', 'north-1', 'room-center', 'south-1', 'south-2', 'south-3', 'south-2', 'south-1', 'room-center'];
 
 await mkdir(artifactDir, { recursive: true });
 
@@ -34,15 +30,14 @@ try {
 
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   await capture(page, '00-intro');
-  await page.getByRole('button', { name: '원정 시작' }).click();
+  await page.keyboard.press('Space');
   await capture(page, '01-world-tile');
 
-  const route = ['room-west', 'west-4', 'west-3', 'west-2', 'west-1', 'room-center', 'east-1', 'east-2', 'east-3', 'east-4', 'room-east'];
   let combatCount = 0;
   let retries = 0;
   let lastProgress = '';
   let repeatedProgress = 0;
-  for (let step = 0; step < 500; step += 1) {
+  for (let step = 0; step < 2_000; step += 1) {
     const run = await runSnapshot(page);
     const combat = run.mode === 'COMBAT' ? await combatSnapshot(page) : null;
     const progress = JSON.stringify([
@@ -78,42 +73,35 @@ try {
         await page.locator('.rest-button').click();
         continue;
       }
-      if (run.currentTileIndex === 1 && run.tile.corridorsScouted && !supplyDetourCompleted) {
-        supplyDetourStarted = true;
-        const nextDetourNode = supplyDetour[0];
-        if (nextDetourNode && run.availableNodeIds.includes(nextDetourNode)) {
-          supplyDetour.shift();
-          await traverse(page, nextDetourNode);
-          if (supplyDetour.length === 0) supplyDetourCompleted = true;
-          continue;
+      if (run.traversal) {
+        if (!traversalCaptured) {
+          traversalCaptured = true;
+          await capture(page, '01b-corridor-traversal');
         }
-      }
-      if (run.currentTileIndex === 1 && supplyDetourCompleted && run.currentNodeId === 'room-center' && run.canRest && !secondRestUsed) {
-        if (run.supplies.water < 1 || run.supplies.food < 1) throw new Error(`Supply detour did not yield both rest resources: ${JSON.stringify(run.supplies)}`);
-        secondRestUsed = true;
-        await page.locator('.rest-button').click();
+        await page.keyboard.press('d');
         continue;
       }
       if (run.canAdvanceTile) {
         await page.locator('.advance-world-button').click();
         continue;
       }
-      const routeIndex = route.indexOf(run.currentNodeId);
-      const next = route[routeIndex + 1];
-      if (!next || !run.availableNodeIds.includes(next)) throw new Error(`No authored route from ${run.currentNodeId}: ${JSON.stringify(run.availableNodeIds)}`);
-      await traverse(page, next);
+      if (run.currentNodeId === 'room-west' || run.currentNodeId === 'room-center') {
+        await page.locator('.room-door[data-direction="EAST"]').click();
+        continue;
+      }
+      throw new Error(`No authored room route from ${run.currentNodeId}: ${JSON.stringify(run.availableDoorDirections)}`);
       continue;
     }
     if (run.mode !== 'COMBAT') throw new Error(`Unexpected run mode ${run.mode}`);
     if (combat.mode === 'INTRO') {
       combatCount += 1;
       if (combatCount === 1) await capture(page, '02-first-encounter');
-      await page.getByRole('button', { name: '전투 시작' }).click();
+      await page.keyboard.press('Space');
       await page.waitForTimeout(100);
       continue;
     }
     if (combat.mode === 'VICTORY') {
-      await page.getByRole('button', { name: '통로로 복귀' }).click();
+      await page.keyboard.press('Space');
       continue;
     }
     if (combat.mode === 'DEFEAT') {
@@ -129,7 +117,9 @@ try {
     if (!allyPlanCaptured) {
       allyPlanCaptured = true;
       await page.locator('.enemy-intent-card').first().hover();
+      await page.locator('.ally-intent-panel summary').click();
       await capture(page, '02b-ally-plan-and-intent-tooltip');
+      await page.locator('.ally-intent-panel summary').click();
       await page.mouse.move(640, 360);
     }
     await playPlayerTurn(page, combat);
@@ -150,10 +140,13 @@ try {
   nightUrl.searchParams.set('verify', '1');
   nightUrl.searchParams.set('start', String(17 * 60 + 58));
   await night.goto(nightUrl.toString(), { waitUntil: 'networkidle' });
-  await night.getByRole('button', { name: '원정 시작' }).click();
-  await traverse(night, 'west-4');
-  await traverse(night, 'west-3');
-  await night.getByRole('button', { name: '전투 시작' }).click();
+  await night.keyboard.press('Space');
+  await night.locator('.room-door[data-direction="EAST"]').click();
+  for (let step = 0; step < 40; step += 1) {
+    if ((await runSnapshot(night)).mode !== 'EXPLORE') break;
+    await night.keyboard.press('d');
+  }
+  await night.keyboard.press('Space');
   await night.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot.mode === 'PLAYER_TURN' && !window.__ISEKAI_COACH_COMBAT__?.snapshot.isBusy);
   const concealedBeforeLight = await night.evaluate(() => window.__ISEKAI_COACH_COMBAT__?.snapshot.concealedIntentIds.length ?? 0);
   if (concealedBeforeLight !== 1) throw new Error(`Night encounter concealed ${concealedBeforeLight} intents instead of one`);
@@ -167,7 +160,7 @@ try {
   compact.on('console', (message) => { if (message.type() === 'error') errors.push(`4:3 ${message.text()}`); });
   compact.on('pageerror', (error) => errors.push(`4:3 ${error.message}`));
   await compact.goto(baseUrl, { waitUntil: 'networkidle' });
-  await compact.getByRole('button', { name: '원정 시작' }).click();
+  await compact.keyboard.press('Space');
   const compactOverflow = await compact.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   if (compactOverflow > 1) throw new Error(`4:3 layout overflows horizontally by ${compactOverflow}px`);
   await compact.screenshot({ path: new URL('04-world-tile-4x3.png', artifactDir).pathname });
@@ -189,8 +182,6 @@ try {
     worldTime: final.worldTime,
     supplies: final.supplies,
     restCount: final.restCount,
-    supplyDetourStarted,
-    supplyDetourCompleted,
     browserErrors: errors,
     blockedPreviewCaptured,
     nightConcealmentVerified: concealedBeforeLight === 1 && concealedAfterLight === 0,
@@ -260,17 +251,6 @@ async function playPlayerTurn(page, snapshot) {
   }
   await page.locator('.end-turn-button').click();
   await page.waitForTimeout(120);
-}
-
-async function traverse(page, nodeId) {
-  await page.locator(`.node-${nodeId}`).click();
-  await page.locator('.corridor-traversal').waitFor();
-  if (!traversalCaptured) {
-    traversalCaptured = true;
-    await capture(page, '01b-corridor-traversal');
-  }
-  for (let step = 0; step < 20; step += 1) await page.keyboard.press('d');
-  await page.waitForFunction(() => !window.__ISEKAI_COACH_SLICE2__?.snapshot.traversal, null, { timeout: 5_000 });
 }
 
 function bestMove(state, actorId, targetId) {
