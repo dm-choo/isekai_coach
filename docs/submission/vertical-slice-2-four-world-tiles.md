@@ -1,7 +1,7 @@
 ---
 title: Slice 2 — Four World Tile Expedition
 status: under-validation
-last_updated: 2026-08-18
+last_updated: 2026-08-19
 related:
   - scope.md
   - vertical-slice.md
@@ -31,7 +31,7 @@ Slice 1이 단일 보스방의 전투 판독과 조작 마찰을 찾았다면, S
 2. 중앙 방 클리어가 모든 통로 정찰의 원인으로 읽힌다.
 3. 매우 긴 사거리의 고블린 궁수, 빠르게 접근하는 고블린 전사와 고정 지면을 폭격하는 고블린 투척병이 서로 다른 대응을 요구한다.
 4. 최소 두 상황에서 동료 보호, 플레이어 체력, 사격선과 소요 시간 중 하나를 포기해야 한다.
-5. 타일 2 뒤 정책 순서를 한 번 바꾸면 타일 3에서 동료 행동과 결과의 변화가 보인다.
+5. 비전투 중 캐릭터 정보에서 정책 순서를 바꾸면 다음 전투에서 동료 행동과 결과의 변화가 보인다.
 6. 타일 4의 처음 보는 적 조합에서 외운 답이 아니라 Intent anchor와 위치 규칙을 전이한다.
 
 ## Route contract
@@ -72,18 +72,21 @@ Slice 1이 단일 보스방의 전투 판독과 조작 마찰을 찾았다면, S
 - 최소 사거리 안이나 사선 중간에 전투원이 있으면 뒤 대상을 관통해 맞히지 않는다.
 - BODY anchor이므로 밀려나면 잠긴 방향을 유지한 채 사격선의 원점과 범위가 이동한다.
 - 근접 압박에는 약하지만 방치하면 지속 체력을 깎는다.
+- 선언한 `이동 → 사격`은 simulation event와 presentation에서도 반드시 같은 순서로 재생한다.
 
 ### 고블린 전사 — accepted role, provisional tuning
 
 - 단검을 들고 한 Intent 안에서 여러 칸을 빠르게 전진한 뒤 근접 공격한다.
 - 원거리 동료를 빠르게 압박하므로 즉시 차단, 밀치기 또는 화력 유지가 충돌한다.
 - BODY anchor와 이동 경로를 모두 미리 보여준다.
+- 매 턴 숨은 행동 예산 3 안에서 네 방향의 실제 점유·도착점·명중 여부를 평가한다. 파티의 왼쪽을 지나친 뒤에도 가장 가까운 방향으로 다시 돌아선다.
 
 ### 고블린 투척병 — accepted Slice 2 addition, provisional tuning
 
 - 플레이어 또는 동료의 현재 위치를 중심으로 폭탄 착탄 지점을 잠근다.
 - GROUND anchor이므로 투척병을 밀어도 착탄 지점은 움직이지 않는다.
 - 궁수·전사와 함께 등장했을 때 `적을 밀어 Intent를 바꾸기`와 `아군을 이동해 피하기`가 서로 다른 해법임을 드러낸다.
+- 살아 있는 파티원을 결정론적으로 순환 표적화해 같은 빈 지면만 반복 폭격하지 않는다.
 
 정확한 HP, 피해, 전진 거리와 출현 수는 자동 시뮬레이션과 플레이테스트로 조정한다.
 
@@ -102,7 +105,7 @@ Slice 1이 단일 보스방의 전투 판독과 조작 마찰을 찾았다면, S
 |---|---|---|
 | 1 | 구조와 규칙 소개 | 중앙 방 확보 → 모든 통로 정찰, 고블린 전사의 이동 경로 판독 |
 | 2 | 선택 충돌 노출 | 긴 사거리 궁수와 빠른 전사 사이에서 동료 보호·화력·HP가 충돌 |
-| 정책 검토 | 원인 확인 | 실행된 정책과 상위 슬롯 실패 이유를 보고 슬롯 한 번 재정렬 |
+| 비전투 정책 편집 | 원인 확인 | 강제 중간 화면 없이 캐릭터 정보에서 실행 우선순위를 재정렬 |
 | 3 | 수정 인과 확인 | 비슷하지만 배치가 다른 전투에서 동료의 선택과 한 결과 지표가 변화 |
 | 4 | 전이 시험 | 궁수·전사·투척병의 처음 보는 조합을 추가 설명과 정책 수정 없이 해결 |
 
@@ -120,11 +123,15 @@ Slice 1이 단일 보스방의 전투 판독과 조작 마찰을 찾았다면, S
 - 11:30 순찰 증원, 18:00 야간 Intent 제한과 휴대용 조명
 - 고블린 궁수, 고블린 전사, 고블린 투척병
 - 공개 Intent, 이동 경로, BODY/GROUND anchor 차이와 최종 상태 preview
-- 항상 보이는 동료 행동 sequence와 관리자 계획 반영 여부, 적색/청색 공격 예고 분리
+- 기본은 아이콘 요약이고 요청할 때만 펼쳐지는 동료 행동 sequence, 관리자 계획 반영 여부, 적색/청색 공격 예고 분리
 - `가로막기`(AP 2): 예고 이동 경로에 선 관리자가 피해 1을 막고 해당 이동 적에게 피해 1로 한 번 반격
 - encounter ID 기반 결정론적 시작 진형과 일반/정예 내구도 변화
 - 문 선택 한 번 뒤 A/D hold로 이어지는 400m 통로 이동, 100m 내부 판정과 인카운터 자동 정지·재개
-- 타일 2 뒤 한 번의 policy 순서 변경과 이유 표시
+- 모든 비전투 장면에서 열 수 있는 파티 정보와 동료 policy 순서 편집
+- 현재 공격으로 실제 적중 가능한 적이 있을 때만 나타나는 대상 전환 UI
+- 다수 적의 Intent 카드·sprite 표식·그림자를 잇는 A/B/C ownership 표식
+- 캐릭터의 이동·공격 방향 반전과 `이동 → 공격` event 순서 보존
+- 고정 파티와 뒤로 흐르는 통로 배경·지면, 조우 시 같은 stage에서 이어지는 짧은 전환
 - 인카운터 체크포인트 재시도와 원정 결과 요약
 - `/slice2/` 독립 build와 공개 배포 검증
 
@@ -145,30 +152,33 @@ Slice 1이 단일 보스방의 전투 판독과 조작 마찰을 찾았다면, S
 - 모든 타일은 중앙 방·네 경계 방·방향별 4구간 통로를 같은 data contract로 생성한다.
 - 고정 world seed가 최초 통로 구성을 만들고 `encounterGeneration` 기반 재침식 재추첨을 pure TypeScript로 검증한다.
 - 필수 선형 경로에는 통로 전투 2회와 중앙 방 전투 4회가 있다. 북·남 선택 통로에는 사건·회복·추가 전투가 추첨될 수 있다.
-- 고블린 궁수는 원거리 동료 행으로 한 칸 포지셔닝한 뒤 BODY 사격을 사용한다. 최소 사거리 안의 전투원과 중간의 아군·적은 사선을 막는다. 전사는 4칸 ADVANCE 뒤 근접 타격, 투척병은 3행 GROUND 폭탄을 사용한다.
+- 고블린 궁수는 원거리 동료 행으로 한 칸 포지셔닝한 뒤 BODY 사격을 사용한다. 최소 사거리 안의 전투원과 중간의 아군·적은 사선을 막는다. 전사는 현재 점유를 반영한 네 방향 후보 중 실제 명중과 잔여 거리를 기준으로 4칸 ADVANCE 방향을 고른다. 투척병은 살아 있는 파티원을 순환해 GROUND 폭탄 위치를 바꾼다.
 - 관리자와 동료는 최대 AP 3, 이동 AP 1, 공격 AP 2 문법을 공유한다. 내려찍기는 피해 2의 순수 `#근거리공격`이며 고블린 전사는 HP 3이다.
 - 동료 활은 같은 행 3~6칸, clear line에서만 발사한다. 인접 적에게 쏘거나 전투원을 관통하지 않으므로 포지셔닝 조건이 강화됐다.
 - 실제 encounter ID는 후방·전진·교차 진형 중 하나와 일반·정예 강도를 고정한다. 동일 체크포인트 재시도에서는 이 spec이 바뀌지 않는다.
 - 방의 문 선택은 다음 방까지 400m 통로 진입이다. A/D hold가 각 100m 경계를 넘을 때 시간 2분과 판정 위치를 정산하며 인카운터 해결 뒤 같은 traversal을 유지한다.
 - 타일 2 북쪽과 남쪽 선택 통로에는 각각 식량과 물을 확정 배치해 우회 시간과 추가 휴식의 교환을 재현한다.
+- 선택 입력 없이 밟는 필수 경로의 뿌리 덫은 HP를 1 아래로 낮추지 않는다. 누적 체력 압박은 남기되 회피 불가능한 사건이 원정을 즉사시키지 않는다.
 - 이동형 적의 공개 경로는 현재 점유를 반영해 점유 cell 직전에서 끝나며, 최종 shadow와 공격 effect는 실제 도착점에서 다시 투영한다.
 - built-in ImageGen으로 제작하고 chroma-key alpha cleanup을 거친 세 RGBA goblin cutout을 manifest/preload pipeline으로 사용한다.
-- 타일 2 뒤 기존 policy 유지 또는 `사격 → 회피 → 포지셔닝 → 밀치기 → 빈 슬롯` 재정렬을 한 번 선택한다.
+- 캐릭터 정보는 모든 비전투 장면에서 열 수 있고, 동료 5-slot policy를 그 자리에서 재정렬한다. 전투 중에는 locked forecast와의 인과 보존을 위해 편집하지 않는다.
 - Vite production base는 `/slice2/`이며 원자 배포 script가 기존 `/`와 `/slice1/`을 보존한다.
 
 ## Local verification completed
 
-2026-08-18 구현 milestone:
+2026-08-19 구현 milestone:
 
-- Vitest: 9 files, 64 tests pass.
+- Vitest: 9 files, 69 tests pass.
 - TypeScript: `tsc --noEmit`.
-- Vite production `/slice2/` build.
-- scripted Chromium 1280×720 전체 원정: 4 tiles cleared, 6 combats, 40 combat turns, retries 0, administrator HP 4/14, ally HP 10/12, 도착 13:24.
-- 400m 통로 연속 이동, 100m 인카운터 자동 정지·재개, 접힌 ALLY PLAN과 intent tooltip을 별도 screenshot으로 확인한다.
-- 근접 적 이동 경로를 플레이어가 점유한 상태를 자동 재현해 점유 직전 최종 shadow, 축약된 이동 화살표와 재투영된 공격 cell을 screenshot으로 확인했다.
-- policy는 타일 2 뒤 `SHOOT → EVADE → POSITION → PUSH → EMPTY`로 변경되고 타일 3·4에서 유지됐다.
+- scripted Chromium 1280×720 전체 원정: 4 tiles cleared, 6 combats, 43 combat turns, retries 0, administrator HP 1/14, ally HP 10/12, 도착 12:17.
+- 400m 통로에서 party X 고정과 depth/ground background-position 변화를 수치로 비교했다. 100m 인카운터 자동 정지·재개도 전체 원정에서 통과했다.
+- 비전투 파티 정보에서 policy를 실제 재정렬·복원한 뒤, 타일 2부터 `SHOOT → EVADE → POSITION → PUSH → EMPTY`로 바꿔 이후 전투에서 유지했다.
+- 유효 대상 ID와 DOM target button 수, 적 Intent 수와 A/B/C card 표식 수·순서를 비교했다. 전투 시작 뒤 encounter title이 제거되는 것도 확인했다.
+- 근접 적 이동 경로를 플레이어가 점유한 상태, 접힌 ALLY PLAN과 tooltip, 다수 적 ownership 및 투척병 GROUND ownership을 별도 screenshot으로 남겼다.
+- 야간 Intent 1개 은폐와 조명 사용 뒤 공개를 별도 경로로 확인했다.
 - 960×720: horizontal overflow 0.
 - console, page와 failed request error: 0건.
+- Slice 1/2 production build는 최종 커밋 전 verification gate에서 다시 실행한다.
 
 이 수치는 자동 heuristic 한 경로의 회귀 증거다. 의미 있는 선택, 공간 이해와 체감 난도는 외부 플레이테스트 전까지 `under-validation`이다.
 
@@ -180,7 +190,7 @@ Slice 2는 단순히 네 타일을 이동할 수 있을 때 완료되지 않는�
 2. 중앙 방 클리어 전후 통로 정보가 정확히 변한다.
 3. 세 적의 Intent가 서로 다른 공간 대응을 실제 전투 결과로 만든다.
 4. HP·시간·정책과 해결 상태가 타일 전환 뒤 유지된다.
-5. policy 수정 전후 동료 행동의 인과가 기록된다.
+5. 비전투 캐릭터 정보에서 policy를 수정할 수 있고 다음 전투의 동료 행동 인과가 기록된다.
 6. 동일 seed와 입력은 동일한 월드 구성과 전투 event history를 만든다.
 7. production build와 `/slice2/` public browser smoke가 통과한다.
 

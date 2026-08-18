@@ -1,7 +1,7 @@
 ---
 title: Slice 2 Validation Agenda
 status: under-validation
-last_updated: 2026-08-18
+last_updated: 2026-08-19
 related:
   - index.md
   - ../submission/vertical-slice-2-four-world-tiles.md
@@ -120,12 +120,12 @@ G0 상태와 재현성
 
 ## G5. Policy-edit causality
 
-타일 2 뒤에는 다음만 보여준다.
+비전투 캐릭터 정보에서 다음을 필요할 때 확인한다. 타일 2 뒤 강제 검토 화면은 사용하지 않는다.
 
 - 동료가 실제로 실행한 policy 슬롯
 - 그보다 위 슬롯이 실행되지 않은 첫 번째 이유
 - 받은 피해와 소요 턴
-- 기존 5-slot 목록의 순서 변경
+- 기존 5-slot 목록의 순서 변경. 변경은 다음 전투부터 적용된다.
 
 임시 통과 기준:
 
@@ -135,7 +135,7 @@ G0 상태와 재현성
 
 ## G6. Transfer
 
-타일 4는 궁수·전사·투척병을 처음 보는 배치로 조합하고 추가 설명이나 두 번째 policy 수정을 제공하지 않는다.
+타일 4는 궁수·전사·투척병을 처음 보는 배치로 조합한다. 캐릭터 정보의 policy 편집 기능은 계속 열려 있지만, transfer 측정 경로에서는 추가 설명이나 두 번째 수정을 하지 않는다.
 
 - 5명 중 3명 이상이 새 tooltip 없이 대응한다.
 - 참가자가 암기한 타일 번호가 아니라 사격선, 접근 경로, BODY/GROUND 같은 규칙을 판단 근거로 말한다.
@@ -150,7 +150,7 @@ G0 상태와 재현성
 - 필수 흐름: 시작 → 타일 1 중앙 방 → 통로 정찰 → 타일 2 → policy 변경 → 타일 3 → 복합 타일 4 → 결과
 - console, page와 failed request error 0건
 - 100m 통로에서 전진·후퇴, 0m 취소, 100m 시간 정산과 인카운터 자동 정지를 검증
-- 적·아군 effect 색 분리, 상시 ALLY PLAN, intent hover/focus tooltip, HP bar 비가림과 death 1회 재생을 screenshot·event 회귀로 확인
+- 적·아군 effect 색 분리, 기본 접힘 ALLY PLAN, A/B/C 적 Intent ownership, intent hover/focus tooltip, HP bar 비가림과 death 1회 재생을 screenshot·event 회귀로 확인
 - public root와 `/slice1/`이 기존 내용을 유지하고 `/slice2/`만 새 build를 제공
 
 HTTP readiness, 테스트 통과 또는 네 타일 완주만으로 선택의 의미가 검증됐다고 주장하지 않는다.

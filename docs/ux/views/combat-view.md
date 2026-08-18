@@ -1,7 +1,7 @@
 ---
 title: Combat View UX
 status: accepted
-last_updated: 2026-08-17
+last_updated: 2026-08-19
 related:
   - ../../submission/vertical-slice.md
   - ../../gameplay/combat/turn-and-intent.md
@@ -37,6 +37,10 @@ Darkest Dungeon처럼 scene-first combat composition과 contextual bottom contro
 - 이동 후보는 가는 선·발자국·청색 계열, 공격 threat는 붉은 pattern·굵은 외곽선·아이콘으로 구분한다. 색 하나에 의미를 맡기지 않는다.
 - 상시 policy matrix, 후보 전투 예측, 긴 설명 문단과 개발용 event log는 public boss scene에 두지 않는다.
 - 기술의 상세 효과는 hover/focus tooltip에서만 확장한다. 아이콘과 위치·motion만으로도 기본 행동과 현재 주체를 알 수 있어야 한다.
+- 조우명은 전투 도입에만 표시하고 전투 시작 뒤 상시 HUD 자리를 차지하지 않는다.
+- 공격 대상 picker는 현재 AP·위치에서 공격 후보 기술 중 하나가 실제 적중할 때만 표시한다. 멀리 있는 적을 단순히 살아 있다는 이유로 선택하게 하지 않는다.
+- 같은 종류의 적이 여러 명이면 안정적인 A/B/C source 표식과 색을 Intent 카드, sprite, 이동 경로, 공격 cell과 최종 shadow에 반복한다.
+- 이동·공격 event는 unit facing을 먼저 갱신한다. `이동 → 공격`을 예고한 행동은 animation/event도 같은 순서를 지킨다.
 - 모든 정보 layer가 동시에 최대 명도로 켜지지 않는다. 입력 단계의 주목 대상을 전경으로 만들고 나머지는 낮춘다.
 
 ## Friction questions
