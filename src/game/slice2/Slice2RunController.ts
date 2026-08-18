@@ -27,6 +27,19 @@ import {
 
 export type Slice2Mode = 'INTRO' | 'EXPLORE' | 'COMBAT' | 'POLICY_REVIEW' | 'VICTORY' | 'DEFEAT';
 
+export interface ExpeditionSupplies {
+  readonly water: number;
+  readonly food: number;
+  readonly light: number;
+}
+
+export interface Slice2RunOptions {
+  readonly playbackSpeed?: number;
+  readonly phaseDelayScale?: number;
+  readonly startMinute?: number;
+  readonly initialVitals?: ExpeditionVitals;
+}
+
 export interface Slice2RunSnapshot {
   readonly mode: Slice2Mode;
   readonly world: Slice2WorldState;
@@ -37,6 +50,7 @@ export interface Slice2RunSnapshot {
   readonly vitals: ExpeditionVitals;
   readonly elapsedTravel: number;
   readonly elapsedBattleTurns: number;
+  readonly elapsedEventMinutes: number;
   readonly policy: readonly SlicePolicyId[];
   readonly policyChanged: boolean;
   readonly notice: string;
@@ -45,11 +59,34 @@ export interface Slice2RunSnapshot {
   readonly canAdvanceTile: boolean;
   readonly attempt: number;
   readonly lastPolicyTrace: readonly PolicyExecutionStep[];
+  readonly worldMinute: number;
+  readonly worldTime: string;
+  readonly isNight: boolean;
+  readonly supplies: ExpeditionSupplies;
+  readonly canRest: boolean;
+  readonly canUseLight: boolean;
+  readonly restCount: number;
 }
 
 type Listener = () => void;
 
 const AGGRESSIVE_POLICY: readonly SlicePolicyId[] = ['SHOOT', 'EVADE', 'POSITION', 'PUSH', 'EMPTY'];
+export const SLICE2_START_MINUTE = 10 * 60;
+export const SLICE2_LATE_START_MINUTE = 17 * 60;
+export const NIGHT_START_MINUTE = 18 * 60;
+export const PATROL_RETURN_MINUTE = 11 * 60 + 30;
+export const TRAVEL_MINUTES_PER_SEGMENT = 2;
+export const EVENT_MINUTES = 5;
+export const REST_MINUTES = 20;
+export const REST_HEALING = 3;
+export const MAX_CARRIED_SUPPLY = 2;
+
+interface EncounterCheckpoint {
+  readonly vitals: ExpeditionVitals;
+  readonly supplies: ExpeditionSupplies;
+  readonly worldMinute: number;
+  readonly elapsedBattleTurns: number;
+}
 
 export class Slice2RunController {
   private readonly listeners = new Set<Listener>();
@@ -60,17 +97,27 @@ export class Slice2RunController {
   private vitals: ExpeditionVitals = { administratorHp: 14, allyHp: 12 };
   private elapsedTravel = 0;
   private elapsedBattleTurns = 0;
+  private elapsedEventMinutes = 0;
+  private readonly startMinute: number;
+  private worldMinute: number;
+  private supplies: ExpeditionSupplies = { water: 1, food: 1, light: 1 };
+  private restCount = 0;
   private policy: readonly SlicePolicyId[] = [...DEFAULT_SLICE_POLICY];
   private policyChanged = false;
   private notice = '네 개의 월드 타일을 지나 고블린 봉쇄선을 돌파한다.';
   private combat: SliceController | null = null;
   private combatUnsubscribe: (() => void) | null = null;
-  private encounterCheckpoint: ExpeditionVitals | null = null;
+  private encounterCheckpoint: EncounterCheckpoint | null = null;
   private attempt = 1;
   private lastPolicyTrace: readonly PolicyExecutionStep[] = [];
-  private snapshot = this.buildSnapshot();
+  private snapshot: Slice2RunSnapshot;
 
-  public constructor(private readonly timing: { readonly playbackSpeed?: number; readonly phaseDelayScale?: number } = {}) {}
+  public constructor(private readonly timing: Slice2RunOptions = {}) {
+    this.startMinute = timing.startMinute ?? SLICE2_START_MINUTE;
+    this.worldMinute = this.startMinute;
+    this.vitals = timing.initialVitals ? { ...timing.initialVitals } : this.vitals;
+    this.snapshot = this.buildSnapshot();
+  }
 
   public getSnapshot = (): Slice2RunSnapshot => this.snapshot;
 
@@ -90,6 +137,7 @@ export class Slice2RunController {
     if (this.mode !== 'EXPLORE' || !availableNodeIds(this.currentTile(), this.currentNodeId).includes(nodeId)) return;
     this.currentNodeId = nodeId;
     this.elapsedTravel += 1;
+    this.worldMinute += TRAVEL_MINUTES_PER_SEGMENT;
     const encounter = encounterAt(this.currentTile(), nodeId);
     if (encounter && !encounter.resolved && encounter.kind === 'BATTLE') {
       this.beginCombat(encounter);
@@ -129,6 +177,31 @@ export class Slice2RunController {
     this.enterNextTile();
   };
 
+  public rest = (): void => {
+    if (!this.canRest()) return;
+    this.supplies = {
+      ...this.supplies,
+      water: this.supplies.water - 1,
+      food: this.supplies.food - 1,
+    };
+    this.vitals = {
+      administratorHp: Math.min(14, this.vitals.administratorHp + REST_HEALING),
+      allyHp: Math.min(12, this.vitals.allyHp + REST_HEALING),
+    };
+    this.worldMinute += REST_MINUTES;
+    this.restCount += 1;
+    this.notice = `물과 식량을 소비해 20분 휴식했다. 두 전투원이 HP ${REST_HEALING}을 회복했다.`;
+    this.publish();
+  };
+
+  public useLight = (): void => {
+    if (!this.canUseLight() || !this.combat) return;
+    this.supplies = { ...this.supplies, light: this.supplies.light - 1 };
+    this.combat.revealEnemyIntents();
+    this.notice = '휴대용 조명을 사용해 이번 전투의 모든 Intent를 공개했다.';
+    this.publish();
+  };
+
   public completeEncounter = (): void => {
     if (this.mode !== 'COMBAT' || !this.combat) return;
     const combat = this.combat.getSnapshot();
@@ -146,6 +219,7 @@ export class Slice2RunController {
       allyHp: ally?.hp ?? this.vitals.allyHp,
     };
     this.elapsedBattleTurns += combat.state.turn;
+    this.worldMinute += combat.state.turn;
     this.lastPolicyTrace = [...combat.lastPolicyTrace];
     const centerCleared = this.currentNodeId === 'room-center';
     this.replaceCurrentTile(resolveNodeEncounter(this.currentTile(), this.currentNodeId));
@@ -162,7 +236,10 @@ export class Slice2RunController {
     if ((!combatDefeat && this.mode !== 'DEFEAT') || !this.encounterCheckpoint) return;
     const encounter = encounterAt(this.currentTile(), this.currentNodeId);
     if (!encounter || encounter.kind !== 'BATTLE') return;
-    this.vitals = { ...this.encounterCheckpoint };
+    this.vitals = { ...this.encounterCheckpoint.vitals };
+    this.supplies = { ...this.encounterCheckpoint.supplies };
+    this.worldMinute = this.encounterCheckpoint.worldMinute;
+    this.elapsedBattleTurns = this.encounterCheckpoint.elapsedBattleTurns;
     this.beginCombat(encounter);
   };
 
@@ -175,6 +252,10 @@ export class Slice2RunController {
     this.vitals = { administratorHp: 14, allyHp: 12 };
     this.elapsedTravel = 0;
     this.elapsedBattleTurns = 0;
+    this.elapsedEventMinutes = 0;
+    this.worldMinute = this.startMinute;
+    this.supplies = { water: 1, food: 1, light: 1 };
+    this.restCount = 0;
     this.policy = [...DEFAULT_SLICE_POLICY];
     this.policyChanged = false;
     this.lastPolicyTrace = [];
@@ -203,8 +284,14 @@ export class Slice2RunController {
 
   private beginCombat(encounter: WorldEncounter): void {
     this.releaseCombat();
-    this.encounterCheckpoint = { ...this.vitals };
-    const scenario = createSlice2EncounterScenario(encounter.id, encounter.content, this.vitals);
+    this.encounterCheckpoint = {
+      vitals: { ...this.vitals },
+      supplies: { ...this.supplies },
+      worldMinute: this.worldMinute,
+      elapsedBattleTurns: this.elapsedBattleTurns,
+    };
+    const night = isNightMinute(this.worldMinute);
+    const scenario = createSlice2EncounterScenario(encounter.id, encounter.content, this.vitals, { worldMinute: this.worldMinute });
     this.combat = new SliceController({
       scenarioFactory: () => scenario,
       administratorId: SLICE2_ADMINISTRATOR_ID,
@@ -213,6 +300,7 @@ export class Slice2RunController {
       introNotice: `${encounterName(encounter.content)}이 길을 막고 있다.`,
       playbackSpeed: this.timing.playbackSpeed,
       phaseDelayScale: this.timing.phaseDelayScale,
+      concealOneEnemyIntent: night,
     });
     this.combatUnsubscribe = this.combat.subscribe(() => this.publish());
     this.mode = 'COMBAT';
@@ -227,6 +315,24 @@ export class Slice2RunController {
         allyHp: Math.min(12, this.vitals.allyHp + 2),
       };
       this.notice = '버려진 보급품을 회수해 두 전투원의 HP를 2 회복했다.';
+    } else if (encounter.content === 'WATER_CACHE') {
+      const before = this.supplies.water;
+      if (before === MAX_CARRIED_SUPPLY) {
+        this.notice = '수통이 가득 찼다. 물은 이 구간에 남겨두었다.';
+        this.publish();
+        return;
+      }
+      this.supplies = { ...this.supplies, water: before + 1 };
+      this.notice = '깨끗한 물을 찾아 물 1을 확보했다.';
+    } else if (encounter.content === 'RATION_CACHE') {
+      const before = this.supplies.food;
+      if (before === MAX_CARRIED_SUPPLY) {
+        this.notice = '식량 주머니가 가득 찼다. 식량은 이 구간에 남겨두었다.';
+        this.publish();
+        return;
+      }
+      this.supplies = { ...this.supplies, food: before + 1 };
+      this.notice = '버려진 야전 식량 1을 확보했다.';
     } else {
       this.vitals = {
         ...this.vitals,
@@ -234,6 +340,8 @@ export class Slice2RunController {
       };
       this.notice = '뿌리 덫을 통과하며 관리자가 피해 1을 받았다.';
     }
+    this.worldMinute += EVENT_MINUTES;
+    this.elapsedEventMinutes += EVENT_MINUTES;
     this.replaceCurrentTile(resolveNodeEncounter(this.currentTile(), this.currentNodeId));
     if (this.vitals.administratorHp <= 0) this.mode = 'DEFEAT';
     this.publish();
@@ -262,6 +370,19 @@ export class Slice2RunController {
     return this.currentNodeId === 'room-east' && this.currentTile().cleared;
   }
 
+  private canRest(): boolean {
+    if (this.mode !== 'EXPLORE' || this.supplies.water < 1 || this.supplies.food < 1) return false;
+    if (this.vitals.administratorHp >= 14 && this.vitals.allyHp >= 12) return false;
+    const room = this.currentTile().rooms.find((candidate) => candidate.id === this.currentNodeId);
+    return Boolean(room?.encounter.resolved);
+  }
+
+  private canUseLight(): boolean {
+    return this.mode === 'COMBAT'
+      && this.supplies.light > 0
+      && Boolean(this.combat?.getSnapshot().concealedIntentIds.length);
+  }
+
   private releaseCombat(): void {
     this.combatUnsubscribe?.();
     this.combatUnsubscribe = null;
@@ -281,6 +402,7 @@ export class Slice2RunController {
       vitals: this.vitals,
       elapsedTravel: this.elapsedTravel,
       elapsedBattleTurns: this.elapsedBattleTurns,
+      elapsedEventMinutes: this.elapsedEventMinutes,
       policy: this.policy,
       policyChanged: this.policyChanged,
       notice: this.notice,
@@ -289,11 +411,34 @@ export class Slice2RunController {
       canAdvanceTile: this.mode === 'EXPLORE' && this.canAdvanceTile(),
       attempt: this.attempt,
       lastPolicyTrace: this.lastPolicyTrace,
+      worldMinute: this.currentDisplayMinute(),
+      worldTime: formatWorldTime(this.currentDisplayMinute()),
+      isNight: isNightMinute(this.currentDisplayMinute()),
+      supplies: this.supplies,
+      canRest: this.canRest(),
+      canUseLight: this.canUseLight(),
+      restCount: this.restCount,
     };
+  }
+
+  private currentDisplayMinute(): number {
+    const combat = this.combat?.getSnapshot();
+    if (!combat || combat.mode === 'INTRO') return this.worldMinute;
+    return this.worldMinute + Math.max(0, combat.state.turn - 1);
   }
 
   private publish(): void {
     this.snapshot = this.buildSnapshot();
     for (const listener of this.listeners) listener();
   }
+}
+
+export function formatWorldTime(minute: number): string {
+  const normalized = ((minute % (24 * 60)) + 24 * 60) % (24 * 60);
+  return `${String(Math.floor(normalized / 60)).padStart(2, '0')}:${String(normalized % 60).padStart(2, '0')}`;
+}
+
+export function isNightMinute(minute: number): boolean {
+  const normalized = ((minute % (24 * 60)) + 24 * 60) % (24 * 60);
+  return normalized >= NIGHT_START_MINUTE || normalized < 6 * 60;
 }

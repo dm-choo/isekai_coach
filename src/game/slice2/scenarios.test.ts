@@ -28,6 +28,27 @@ describe('Slice 2 goblin encounters', () => {
     expect(scenario.units.find((unit) => unit.id === 'goblin-warrior')).toMatchObject({ hp: 3, maxHp: 3 });
   });
 
+  it('authors distinct three-enemy formations and adds a patrol only to small late encounters', () => {
+    const rush = createSlice2EncounterScenario('rush', 'GOBLIN_RUSH_SQUAD', { administratorHp: 14, allyHp: 12 });
+    const bombardment = createSlice2EncounterScenario('bomb', 'GOBLIN_BOMBARDMENT', { administratorHp: 14, allyHp: 12 });
+    expect(rush.units.filter((unit) => unit.faction === 'ENEMY')).toHaveLength(3);
+    expect(bombardment.units.filter((unit) => unit.faction === 'ENEMY')).toHaveLength(3);
+    expect(new Set(rush.units.map((unit) => unit.id)).size).toBe(rush.units.length);
+
+    const early = createSlice2EncounterScenario('early', 'GOBLIN_ARCHER', { administratorHp: 14, allyHp: 12 }, { worldMinute: 689 });
+    const late = createSlice2EncounterScenario('late', 'GOBLIN_ARCHER', { administratorHp: 14, allyHp: 12 }, { worldMinute: 690 });
+    expect(early.units.filter((unit) => unit.faction === 'ENEMY')).toHaveLength(1);
+    expect(late.units.filter((unit) => unit.faction === 'ENEMY')).toHaveLength(2);
+
+    const fireline = createSlice2EncounterScenario('fireline', 'GOBLIN_FIRELINE', { administratorHp: 14, allyHp: 12 });
+    const trio = createSlice2EncounterScenario('trio', 'GOBLIN_TRIO', { administratorHp: 14, allyHp: 12 });
+    for (const scenario of [rush, bombardment, fireline, trio, late]) {
+      const engine = new BattleEngine(scenario);
+      engine.beginTurn();
+      expect(engine.state.intents).toHaveLength(scenario.units.filter((unit) => unit.faction === 'ENEMY').length);
+    }
+  });
+
   it('shortens advance preview and moves the enemy shadow when the player blocks its path', () => {
     const engine = new BattleEngine(createSlice2EncounterScenario(
       'blocked-preview-test',

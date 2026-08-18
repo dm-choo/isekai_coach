@@ -22,6 +22,7 @@ export class BattleRenderer {
   private readonly ambientObjects: Phaser.GameObjects.GameObject[] = [];
   private readonly intentGhostObjects: Phaser.GameObjects.GameObject[] = [];
   private readonly previewIntentUnitIds = new Set<string>();
+  private readonly hiddenIntentIds = new Set<string>();
   private currentState: BattleState | null = null;
 
   public constructor(
@@ -49,10 +50,10 @@ export class BattleRenderer {
     for (const unit of state.units) {
       this.unitViews.set(unit.id, new UnitView(this.scene, unit, this.projector.gridToWorld(unit.position), this.onUnitSelected));
     }
-    this.telegraphs.sync(state.intents);
-    this.syncIntentGhosts(state.intents);
+    this.telegraphs.sync(this.visibleIntents(state.intents));
+    this.syncIntentGhosts(this.visibleIntents(state.intents));
     this.drawOccupancy(state);
-    this.syncIntentBadges(state);
+    this.syncIntentBadges({ ...state, intents: this.visibleIntents(state.intents) });
   }
 
   public sync(state: BattleState): void {
@@ -75,10 +76,10 @@ export class BattleRenderer {
         this.unitViews.delete(id);
       }
     }
-    this.telegraphs.sync(state.intents);
-    this.syncIntentGhosts(state.intents);
+    this.telegraphs.sync(this.visibleIntents(state.intents));
+    this.syncIntentGhosts(this.visibleIntents(state.intents));
     this.drawOccupancy(state);
-    this.syncIntentBadges(state);
+    this.syncIntentBadges({ ...state, intents: this.visibleIntents(state.intents) });
   }
 
   public setPhase(_label: string): void {}
@@ -90,7 +91,7 @@ export class BattleRenderer {
     this.predictionObjects.length = 0;
     for (const unitId of this.previewIntentUnitIds) this.unitViews.get(unitId)?.setIntentPreview([]);
     this.previewIntentUnitIds.clear();
-    const previewIntents = prediction?.previewIntents ?? this.currentState?.intents ?? [];
+    const previewIntents = this.visibleIntents(prediction?.previewIntents ?? this.currentState?.intents ?? []);
     this.telegraphs.sync(previewIntents);
     this.syncIntentGhosts(previewIntents);
     if (!prediction) return;
@@ -154,6 +155,16 @@ export class BattleRenderer {
 
   public setSelection(unitId: string | null): void {
     for (const [id, view] of this.unitViews) view.setSelected(id === unitId);
+  }
+
+  public setHiddenIntentIds(intentIds: readonly string[]): void {
+    this.hiddenIntentIds.clear();
+    for (const id of intentIds) this.hiddenIntentIds.add(id);
+    if (!this.currentState) return;
+    const visible = this.visibleIntents(this.currentState.intents);
+    this.telegraphs.sync(visible);
+    this.syncIntentGhosts(visible);
+    this.syncIntentBadges({ ...this.currentState, intents: visible });
   }
 
   public summonUnit(unit: Unit, duration: number, signal: AbortSignal): Promise<void> {
@@ -389,13 +400,18 @@ export class BattleRenderer {
   }
 
   public syncTelegraphs(intents: readonly RenderableIntent[]): void {
-    this.telegraphs.sync(intents);
-    this.syncIntentGhosts(intents);
+    const visible = this.visibleIntents(intents);
+    this.telegraphs.sync(visible);
+    this.syncIntentGhosts(visible);
   }
 
   public clearTelegraphs(): void {
     this.telegraphs.clear();
     this.clearIntentGhosts();
+  }
+
+  private visibleIntents<T extends RenderableIntent>(intents: readonly T[]): readonly T[] {
+    return intents.filter((intent) => !intent.id || !this.hiddenIntentIds.has(intent.id));
   }
 
   public async playSealUnlock(signal: AbortSignal): Promise<void> {

@@ -3,7 +3,11 @@ import type { Unit } from '../game/combat';
 import { POLICY_COPY, type SliceActionId, type SliceSnapshot } from '../game/slice';
 import {
   Slice2RunController,
+  SLICE2_LATE_START_MINUTE,
+  PATROL_RETURN_MINUTE,
+  TRAVEL_MINUTES_PER_SEGMENT,
   encounterAt,
+  formatWorldTime,
   isEncounterVisible,
   type EncounterContent,
   type WorldTileState,
@@ -14,8 +18,15 @@ const BASE_URL = import.meta.env.BASE_URL;
 
 export function Slice2App() {
   const [controller] = useState(() => {
-    const verification = import.meta.env.DEV && new URLSearchParams(window.location.search).has('verify');
-    return new Slice2RunController(verification ? { playbackSpeed: 12, phaseDelayScale: 0.03 } : {});
+    const query = new URLSearchParams(window.location.search);
+    const verification = import.meta.env.DEV && query.has('verify');
+    const debugStart = import.meta.env.DEV ? Number(query.get('start')) : Number.NaN;
+    return new Slice2RunController({
+      ...(verification ? { playbackSpeed: 12, phaseDelayScale: 0.03 } : {}),
+      ...(Number.isFinite(debugStart) && debugStart > 0
+        ? { startMinute: debugStart }
+        : query.has('late') ? { startMinute: SLICE2_LATE_START_MINUTE } : {}),
+    });
   });
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
 
@@ -54,7 +65,7 @@ export function Slice2App() {
     <main className="slice2-shell">
       <section className="slice2-stage" aria-label="네 월드 타일 원정">
         {snapshot.mode === 'COMBAT' && snapshot.combat
-          ? <CombatStage snapshot={snapshot.combat} controller={controller} encounter={snapshot.currentEncounter?.content} />
+          ? <CombatStage snapshot={snapshot.combat} run={snapshot} controller={controller} encounter={snapshot.currentEncounter?.content} />
           : <ExplorationStage snapshot={snapshot} controller={controller} />}
         <RunHud snapshot={snapshot} />
       </section>
@@ -102,7 +113,7 @@ function ExplorationStage({ snapshot, controller }: {
       <div className={`slice2-result ${snapshot.mode === 'DEFEAT' ? 'is-defeat' : ''}`}>
         <p>{snapshot.mode === 'VICTORY' ? 'EXPEDITION COMPLETE' : 'EXPEDITION BROKEN'}</p>
         <h2>{snapshot.mode === 'VICTORY' ? '네 개의 안전 경로 확보' : '원정대 전투 불능'}</h2>
-        <span>이동 {snapshot.elapsedTravel} · 전투 {snapshot.elapsedBattleTurns}턴 · 관리자 HP {snapshot.vitals.administratorHp} · 동료 HP {snapshot.vitals.allyHp}</span>
+        <span>도착 {snapshot.worldTime} · 이동 {snapshot.elapsedTravel} · 전투 {snapshot.elapsedBattleTurns}턴 · 사건 {snapshot.elapsedEventMinutes}분 · 휴식 {snapshot.restCount}회 · 관리자 HP {snapshot.vitals.administratorHp} · 동료 HP {snapshot.vitals.allyHp}</span>
         <button type="button" onClick={snapshot.mode === 'DEFEAT' ? controller.retryEncounter : controller.restartRun}>
           {snapshot.mode === 'DEFEAT' ? '같은 인카운터 재시도' : '다시 원정'}
         </button>
@@ -116,9 +127,13 @@ function ExplorationStage({ snapshot, controller }: {
         <small>WORLD TILE {snapshot.currentTileIndex + 1} / 4</small>
         <h1>{snapshot.tile.name}</h1>
         <p>{snapshot.tile.corridorsScouted ? '중앙 방 확보 · 모든 통로 정찰 완료' : '중앙 방 미확보 · 통로 정보 불명'}</p>
+        <em>{snapshot.worldMinute < PATROL_RETURN_MINUTE ? `순찰대 복귀 ${formatWorldTime(PATROL_RETURN_MINUTE)} · 그 전 도착 시 증원 없음` : '순찰대 활동 중 · 소규모 조우에 전사 증원'}</em>
       </div>
-      <WorldTileMap tile={snapshot.tile} currentNodeId={snapshot.currentNodeId} available={snapshot.availableNodeIds} onMove={controller.moveTo} />
+      <WorldTileMap tile={snapshot.tile} currentNodeId={snapshot.currentNodeId} currentMinute={snapshot.worldMinute} available={snapshot.availableNodeIds} onMove={controller.moveTo} />
       <div className="local-notice" role="status">{snapshot.notice}</div>
+      <button type="button" className="rest-button" disabled={!snapshot.canRest} onClick={controller.rest}>
+        휴식 20분 · 물 1 · 식량 1 · HP +3
+      </button>
       {snapshot.canAdvanceTile && (
         <button type="button" className="advance-world-button" onClick={controller.advanceTile}>
           {snapshot.currentTileIndex === 3 ? '원정 완료' : `월드 타일 ${snapshot.currentTileIndex + 2}로 이동`} →
@@ -128,9 +143,10 @@ function ExplorationStage({ snapshot, controller }: {
   );
 }
 
-function WorldTileMap({ tile, currentNodeId, available, onMove }: {
+function WorldTileMap({ tile, currentNodeId, currentMinute, available, onMove }: {
   readonly tile: WorldTileState;
   readonly currentNodeId: string;
+  readonly currentMinute: number;
   readonly available: readonly string[];
   readonly onMove: (nodeId: string) => void;
 }) {
@@ -147,6 +163,7 @@ function WorldTileMap({ tile, currentNodeId, available, onMove }: {
         const isRoom = nodeId.startsWith('room-');
         const isCurrent = nodeId === currentNodeId;
         const canMove = available.includes(nodeId);
+        const label = nodeLabel(nodeId, encounter?.content, visible);
         return (
           <button
             key={nodeId}
@@ -154,10 +171,12 @@ function WorldTileMap({ tile, currentNodeId, available, onMove }: {
             className={`map-node node-${nodeId} ${isRoom ? 'is-room' : 'is-segment'} ${isCurrent ? 'is-current' : ''} ${encounter?.resolved ? 'is-resolved' : ''}`}
             disabled={!canMove}
             onClick={() => onMove(nodeId)}
-            aria-label={nodeLabel(nodeId, encounter?.content, visible)}
+            aria-label={label}
+            title={canMove ? `${label} · 이동 2분 · 예상 ${formatWorldTime(currentMinute + TRAVEL_MINUTES_PER_SEGMENT)}` : label}
           >
             <span>{nodeGlyph(nodeId, encounter?.content, visible, encounter?.resolved ?? true)}</span>
             {isCurrent && <i>현재</i>}
+            {canMove && !isCurrent && <em>+2분</em>}
           </button>
         );
       })}
@@ -167,8 +186,9 @@ function WorldTileMap({ tile, currentNodeId, available, onMove }: {
   );
 }
 
-function CombatStage({ snapshot, controller, encounter }: {
+function CombatStage({ snapshot, run, controller, encounter }: {
   readonly snapshot: SliceSnapshot;
+  readonly run: ReturnType<Slice2RunController['getSnapshot']>;
   readonly controller: Slice2RunController;
   readonly encounter?: EncounterContent;
 }) {
@@ -176,15 +196,16 @@ function CombatStage({ snapshot, controller, encounter }: {
   const party = state.units.filter((unit) => unit.faction === 'STUDENT');
   const enemies = state.units.filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0);
   return (
-    <div className="slice2-combat">
+    <div className={`slice2-combat ${run.isNight ? 'is-night' : ''}`}>
       <PhaserCanvas controller={controller} />
       <div className="stage-vignette" />
       <header className="slice2-combat-hud">
         <div className="slice2-party-bars">{party.map((unit) => <UnitBar key={unit.id} unit={unit} />)}</div>
-        <div className="encounter-title"><small>통로 인카운터</small><strong>{encounterTitle(encounter)}</strong><span>TURN {snapshot.state.turn}</span></div>
+        <div className="encounter-title"><small>통로 인카운터</small><strong>{encounterTitle(encounter)}{enemies.some((enemy) => enemy.id.includes('patrol')) ? ' · 순찰 증원' : ''}</strong><span>TURN {snapshot.state.turn}</span></div>
         <div className="enemy-bars">{enemies.map((unit) => <UnitBar key={unit.id} unit={unit} enemy />)}</div>
       </header>
       <IntentStack snapshot={snapshot} />
+      {run.canUseLight && <button type="button" className="light-button" onClick={controller.useLight}>휴대용 조명 사용 · Intent 공개</button>}
       {snapshot.mode !== 'INTRO' && <CombatTurnBanner snapshot={snapshot} />}
       {snapshot.mode !== 'INTRO' && <div className="combat-notice"><span />{snapshot.notice}</div>}
       {snapshot.mode === 'ALLY_TURN' && <PolicyReadout snapshot={snapshot} />}
@@ -220,7 +241,10 @@ function ActionButton({ action, index, controller }: { readonly action: SliceSna
 }
 
 function IntentStack({ snapshot }: { readonly snapshot: SliceSnapshot }) {
-  return <div className="intent-stack">{snapshot.previewState.intents.map((intent) => <article key={intent.id} className={`enemy-intent-card ${intent.anchor === 'GROUND' ? 'is-ground' : ''}`}><img src={`${BASE_URL}${intentIcon(intent.abilityId)}`} alt="" /><div><small>{unitName(snapshot.previewState.units.find((unit) => unit.id === intent.sourceId))}</small><strong>{intentName(intent.abilityId)}</strong></div><span>{intent.anchor} · {intent.effectCells.length}칸</span></article>)}</div>;
+  const hidden = new Set(snapshot.concealedIntentIds);
+  return <div className="intent-stack">{snapshot.previewState.intents.map((intent) => hidden.has(intent.id)
+    ? <article key={intent.id} className="enemy-intent-card is-concealed"><span className="concealed-glyph">?</span><div><small>{unitName(snapshot.previewState.units.find((unit) => unit.id === intent.sourceId))}</small><strong>{intent.direction === 'LEFT' ? '서쪽' : intent.direction === 'RIGHT' ? '동쪽' : intent.direction === 'UP' ? '북쪽' : '남쪽'}을 노림</strong></div><span>행동·범위 불명</span></article>
+    : <article key={intent.id} className={`enemy-intent-card ${intent.anchor === 'GROUND' ? 'is-ground' : ''}`}><img src={`${BASE_URL}${intentIcon(intent.abilityId)}`} alt="" /><div><small>{unitName(snapshot.previewState.units.find((unit) => unit.id === intent.sourceId))}</small><strong>{intentName(intent.abilityId)}</strong></div><span>{intent.anchor} · {intent.effectCells.length}칸</span></article>)}</div>;
 }
 
 function PolicyReadout({ snapshot }: { readonly snapshot: SliceSnapshot }) {
@@ -234,7 +258,7 @@ function CombatTurnBanner({ snapshot }: { readonly snapshot: SliceSnapshot }) {
 }
 
 function RunHud({ snapshot }: { readonly snapshot: ReturnType<Slice2RunController['getSnapshot']> }) {
-  return <aside className="run-hud"><div className="run-route">{snapshot.world.tiles.map((tile, index) => <span key={tile.id} className={`${index === snapshot.currentTileIndex ? 'is-current' : ''} ${tile.cleared ? 'is-cleared' : ''}`}><i>{index + 1}</i>{tile.name}</span>)}</div><div className="run-stats"><b>관리자 {snapshot.vitals.administratorHp}/14</b><b>동료 {snapshot.vitals.allyHp}/12</b><small>이동 {snapshot.elapsedTravel} · 전투 {snapshot.elapsedBattleTurns}턴</small></div></aside>;
+  return <aside className="run-hud"><div className="run-route">{snapshot.world.tiles.map((tile, index) => <span key={tile.id} className={`${index === snapshot.currentTileIndex ? 'is-current' : ''} ${tile.cleared ? 'is-cleared' : ''}`}><i>{index + 1}</i>{tile.name}</span>)}</div><div className="run-stats"><strong className={snapshot.isNight ? 'is-night' : ''}>{snapshot.worldTime}</strong><b>물 {snapshot.supplies.water}/2</b><b>식량 {snapshot.supplies.food}/2</b><b>조명 {snapshot.supplies.light}</b><small>이동 {snapshot.elapsedTravel} · 전투 {snapshot.elapsedBattleTurns}턴 · 사건 {snapshot.elapsedEventMinutes}분</small></div></aside>;
 }
 
 function UnitBar({ unit, enemy = false }: { readonly unit: Unit; readonly enemy?: boolean }) {
@@ -252,17 +276,19 @@ function nodeGlyph(nodeId: string, content: EncounterContent | undefined, visibl
   if (!visible) return '?';
   if (resolved || content === 'NONE') return '·';
   if (content === 'RECOVERY_CACHE') return '+';
+  if (content === 'WATER_CACHE') return '水';
+  if (content === 'RATION_CACHE') return '食';
   if (content === 'ROOT_SNARE') return '!';
   return '⚔';
 }
 
 function nodeLabel(nodeId: string, content: EncounterContent | undefined, visible: boolean): string {
   if (!visible) return `${nodeId}, 미정찰`;
-  return `${nodeId}, ${content === 'NONE' ? '안전' : content === 'RECOVERY_CACHE' || content === 'ROOT_SNARE' ? '사건' : '전투'}`;
+  return `${nodeId}, ${content === 'NONE' ? '안전' : content === 'WATER_CACHE' ? '물 보급' : content === 'RATION_CACHE' ? '식량 보급' : content === 'RECOVERY_CACHE' || content === 'ROOT_SNARE' ? '사건' : '전투'}`;
 }
 
 function encounterTitle(content?: EncounterContent): string {
-  const copy: Partial<Record<EncounterContent, string>> = { GOBLIN_ARCHER: '고블린 궁수', GOBLIN_WARRIOR: '고블린 전사', GOBLIN_BOMBER: '고블린 투척병', GOBLIN_ARCHER_WARRIOR: '궁수와 단검 전사', GOBLIN_ARCHER_BOMBER: '궁수와 투척병', GOBLIN_TRIO: '고블린 봉쇄조' };
+  const copy: Partial<Record<EncounterContent, string>> = { GOBLIN_ARCHER: '고블린 궁수', GOBLIN_WARRIOR: '고블린 전사', GOBLIN_BOMBER: '고블린 투척병', GOBLIN_ARCHER_WARRIOR: '궁수와 단검 전사', GOBLIN_ARCHER_BOMBER: '궁수와 투척병', GOBLIN_TRIO: '고블린 봉쇄조', GOBLIN_RUSH_SQUAD: '쌍단검 돌격대', GOBLIN_BOMBARDMENT: '포자 포격 호위대', GOBLIN_FIRELINE: '이중 사격 봉쇄선' };
   return content ? copy[content] ?? '통로 조우' : '통로 조우';
 }
 
@@ -270,9 +296,10 @@ function unitName(unit?: Unit): string {
   if (!unit) return '적';
   if (unit.id.includes('administrator')) return '관리자';
   if (unit.id.includes('companion')) return '원거리 동료';
-  if (unit.id.includes('archer')) return '고블린 궁수';
-  if (unit.id.includes('warrior')) return '고블린 전사';
-  if (unit.id.includes('bomber')) return '고블린 투척병';
+  if (unit.id.includes('patrol')) return '순찰 고블린 전사';
+  if (unit.id.includes('archer')) return `고블린 궁수${unit.id.endsWith('-1') ? ' A' : unit.id.endsWith('-2') ? ' B' : ''}`;
+  if (unit.id.includes('warrior')) return `고블린 전사${unit.id.endsWith('-1') ? ' A' : unit.id.endsWith('-2') ? ' B' : ''}`;
+  if (unit.id.includes('bomber')) return `고블린 투척병${unit.id.endsWith('-1') ? ' A' : unit.id.endsWith('-2') ? ' B' : ''}`;
   return unit.faction === 'ENEMY' ? '적' : '아군';
 }
 

@@ -10,6 +10,11 @@ const artifactDir = new URL('../artifacts/slice2/', import.meta.url);
 let server;
 let browser;
 let blockedPreviewCaptured = false;
+let firstRestUsed = false;
+let supplyDetourStarted = false;
+let supplyDetourCompleted = false;
+let secondRestUsed = false;
+const supplyDetour = ['north-1', 'north-2', 'north-3', 'north-2', 'north-1', 'room-center', 'south-1', 'south-2', 'south-3', 'south-2', 'south-1', 'room-center'];
 
 await mkdir(artifactDir, { recursive: true });
 
@@ -66,6 +71,28 @@ try {
       continue;
     }
     if (run.mode === 'EXPLORE') {
+      if (run.currentTileIndex === 0 && run.currentNodeId === 'room-center' && run.canRest && !firstRestUsed) {
+        firstRestUsed = true;
+        await page.locator('.rest-button').click();
+        continue;
+      }
+      if (run.currentTileIndex === 1 && run.tile.corridorsScouted && !supplyDetourCompleted) {
+        supplyDetourStarted = true;
+        const nextDetourNode = supplyDetour[0];
+        if (nextDetourNode && run.availableNodeIds.includes(nextDetourNode)) {
+          supplyDetour.shift();
+          await page.locator(`.node-${nextDetourNode}`).click();
+          await page.waitForTimeout(80);
+          if (supplyDetour.length === 0) supplyDetourCompleted = true;
+          continue;
+        }
+      }
+      if (run.currentTileIndex === 1 && supplyDetourCompleted && run.currentNodeId === 'room-center' && run.canRest && !secondRestUsed) {
+        if (run.supplies.water < 1 || run.supplies.food < 1) throw new Error(`Supply detour did not yield both rest resources: ${JSON.stringify(run.supplies)}`);
+        secondRestUsed = true;
+        await page.locator('.rest-button').click();
+        continue;
+      }
       if (run.canAdvanceTile) {
         await page.locator('.advance-world-button').click();
         continue;
@@ -110,6 +137,26 @@ try {
   }
   if (!blockedPreviewCaptured) throw new Error('Blocked enemy movement preview was not exercised');
   await capture(page, '03-complete');
+  const night = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  night.on('console', (message) => { if (message.type() === 'error') errors.push(`night ${message.text()}`); });
+  night.on('pageerror', (error) => errors.push(`night ${error.message}`));
+  const nightUrl = new URL(baseUrl);
+  nightUrl.searchParams.set('verify', '1');
+  nightUrl.searchParams.set('start', String(17 * 60 + 58));
+  await night.goto(nightUrl.toString(), { waitUntil: 'networkidle' });
+  await night.getByRole('button', { name: '원정 시작' }).click();
+  await night.locator('.node-west-4').click();
+  await night.locator('.node-west-3').click();
+  await night.getByRole('button', { name: '전투 시작' }).click();
+  await night.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot.mode === 'PLAYER_TURN' && !window.__ISEKAI_COACH_COMBAT__?.snapshot.isBusy);
+  const concealedBeforeLight = await night.evaluate(() => window.__ISEKAI_COACH_COMBAT__?.snapshot.concealedIntentIds.length ?? 0);
+  if (concealedBeforeLight !== 1) throw new Error(`Night encounter concealed ${concealedBeforeLight} intents instead of one`);
+  await night.screenshot({ path: new URL('05-night-concealed.png', artifactDir).pathname });
+  await night.locator('.light-button').click();
+  const concealedAfterLight = await night.evaluate(() => window.__ISEKAI_COACH_COMBAT__?.snapshot.concealedIntentIds.length ?? -1);
+  if (concealedAfterLight !== 0) throw new Error(`Portable light left ${concealedAfterLight} intents concealed`);
+  await night.screenshot({ path: new URL('06-night-revealed.png', artifactDir).pathname });
+  await night.close();
   const compact = await browser.newPage({ viewport: { width: 960, height: 720 } });
   compact.on('console', (message) => { if (message.type() === 'error') errors.push(`4:3 ${message.text()}`); });
   compact.on('pageerror', (error) => errors.push(`4:3 ${error.message}`));
@@ -130,10 +177,17 @@ try {
     retries,
     elapsedTravel: final.elapsedTravel,
     elapsedBattleTurns: final.elapsedBattleTurns,
+    elapsedEventMinutes: final.elapsedEventMinutes,
     vitals: final.vitals,
     policy: final.policy,
+    worldTime: final.worldTime,
+    supplies: final.supplies,
+    restCount: final.restCount,
+    supplyDetourStarted,
+    supplyDetourCompleted,
     browserErrors: errors,
     blockedPreviewCaptured,
+    nightConcealmentVerified: concealedBeforeLight === 1 && concealedAfterLight === 0,
   };
   await writeFile(new URL('report.json', artifactDir), `${JSON.stringify(report, null, 2)}\n`);
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);

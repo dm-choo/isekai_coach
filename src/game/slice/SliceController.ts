@@ -104,6 +104,7 @@ export interface SliceSnapshot {
   readonly selectedTargetId?: string;
   readonly canUndo: boolean;
   readonly canConfirm: boolean;
+  readonly concealedIntentIds: readonly string[];
 }
 
 type SnapshotListener = () => void;
@@ -117,6 +118,7 @@ export interface SliceControllerOptions {
   readonly introNotice?: string;
   readonly playbackSpeed?: number;
   readonly phaseDelayScale?: number;
+  readonly concealOneEnemyIntent?: boolean;
 }
 
 export class SliceController {
@@ -143,6 +145,8 @@ export class SliceController {
   private plannedActions: CombatAction[] = [];
   private hoveredActionId: SliceActionId | undefined;
   private selectedTargetId: string | undefined;
+  private readonly concealOneEnemyIntent: boolean;
+  private enemyIntentsRevealed = false;
   private snapshot: SliceSnapshot;
 
   public constructor(options: SliceControllerOptions = {}) {
@@ -153,6 +157,7 @@ export class SliceController {
     this.introNotice = options.introNotice ?? '결계문 앞을 지키는 존재가 길을 막고 있다.';
     this.playbackSpeed = options.playbackSpeed ?? 1;
     this.phaseDelayScale = options.phaseDelayScale ?? 1;
+    this.concealOneEnemyIntent = options.concealOneEnemyIntent ?? false;
     this.notice = this.introNotice;
     this.engine = new BattleEngine(this.scenarioFactory());
     this.selectedTargetId = options.initialTargetId ?? this.firstLivingEnemyId();
@@ -170,6 +175,7 @@ export class SliceController {
     this.abortPresentation();
     this.presentation = presentation;
     presentation.setSpeed(this.playbackSpeed);
+    presentation.setHiddenIntentIds?.(this.snapshot.concealedIntentIds);
     presentation.reset(this.engine.getState());
     presentation.setSelection?.(this.selectedTargetId ?? null);
     this.presentedEventCount = this.engine.getEvents().length;
@@ -216,6 +222,13 @@ export class SliceController {
   public setActionHover = (actionId?: SliceActionId): void => {
     if (this.mode !== 'PLAYER_TURN' || this.isBusy) return;
     this.hoveredActionId = actionId;
+    this.publish();
+  };
+
+  public revealEnemyIntents = (): void => {
+    if (this.enemyIntentsRevealed || !this.concealOneEnemyIntent) return;
+    this.enemyIntentsRevealed = true;
+    this.notice = '휴대용 조명으로 모든 적 Intent를 확인했다.';
     this.publish();
   };
 
@@ -292,6 +305,7 @@ export class SliceController {
     this.plannedActions = [];
     this.hoveredActionId = undefined;
     this.selectedTargetId = this.firstLivingEnemyId();
+    this.enemyIntentsRevealed = false;
     this.attempt += 1;
     this.notice = this.introNotice;
     this.presentation?.reset(this.engine.getState());
@@ -590,6 +604,7 @@ export class SliceController {
       selectedTargetId: this.currentTarget(projection.state)?.id,
       canUndo: this.canAcceptPlayerInput() && this.plannedActions.length > 0,
       canConfirm: this.canAcceptPlayerInput(),
+      concealedIntentIds: this.concealedIntentIds(projection.state),
     };
   }
 
@@ -600,6 +615,7 @@ export class SliceController {
   }
 
   private syncPlanningPresentation(): void {
+    this.presentation?.setHiddenIntentIds?.(this.snapshot.concealedIntentIds);
     this.presentation?.setSelection?.(this.snapshot.selectedTargetId ?? null);
     if (!this.presentation || this.mode !== 'PLAYER_TURN' || this.isBusy) {
       this.presentation?.setPrediction?.(null);
@@ -619,6 +635,19 @@ export class SliceController {
     });
   }
 
+  private concealedIntentIds(state: BattleState): readonly string[] {
+    if (!this.concealOneEnemyIntent || this.enemyIntentsRevealed) return [];
+    const first = state.intents
+      .filter((intent) => state.units.some((unit) => unit.id === intent.sourceId && unit.hp > 0))
+      .slice()
+      .sort((left, right) => {
+        const leftOrder = state.units.find((unit) => unit.id === left.sourceId)?.spawnOrder ?? 0;
+        const rightOrder = state.units.find((unit) => unit.id === right.sourceId)?.spawnOrder ?? 0;
+        return leftOrder - rightOrder;
+      })[0];
+    return first ? [first.id] : [];
+  }
+
   private abortPresentation(): void {
     this.playbackAbortController.abort();
     this.playbackAbortController = new AbortController();
@@ -634,9 +663,11 @@ export class SliceController {
 function unitDisplayName(unit: BattleState['units'][number]): string {
   if (unit.id === GUARDIAN_ID) return '결계 수호자';
   if (unit.combatRole === 'MINION') return '추적 하수인';
-  if (unit.visualKey === 'goblin_archer_slice_02') return '고블린 궁수';
-  if (unit.visualKey === 'goblin_warrior_slice_02') return '고블린 전사';
-  if (unit.visualKey === 'goblin_bomber_slice_02') return '고블린 투척병';
+  const suffix = unit.id.endsWith('-1') ? ' A' : unit.id.endsWith('-2') ? ' B' : '';
+  if (unit.id.includes('patrol')) return '순찰 고블린 전사';
+  if (unit.visualKey === 'goblin_archer_slice_02') return `고블린 궁수${suffix}`;
+  if (unit.visualKey === 'goblin_warrior_slice_02') return `고블린 전사${suffix}`;
+  if (unit.visualKey === 'goblin_bomber_slice_02') return `고블린 투척병${suffix}`;
   return '적';
 }
 

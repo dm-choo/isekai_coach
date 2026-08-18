@@ -50,6 +50,10 @@ export class AnimationDirector {
     this.renderer.setSelection(unitId);
   }
 
+  public setHiddenIntentIds(intentIds: readonly string[]): void {
+    this.renderer.setHiddenIntentIds(intentIds);
+  }
+
   public playSealUnlock(signal: AbortSignal): Promise<void> {
     return this.renderer.playSealUnlock(signal);
   }

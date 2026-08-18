@@ -46,6 +46,8 @@ export interface PresentationPort {
   setSpeed(multiplier: number): void;
   setPrediction?(prediction: BattlePredictionPresentation | null): void;
   setSelection?(unitId: string | null): void;
+  /** Presentation-only fog. Authoritative intents remain intact. */
+  setHiddenIntentIds?(intentIds: readonly string[]): void;
   playSealUnlock?(signal: AbortSignal): Promise<void>;
   destroy(): void;
 }

@@ -8,7 +8,12 @@ export type EncounterContent =
   | 'GOBLIN_ARCHER_WARRIOR'
   | 'GOBLIN_ARCHER_BOMBER'
   | 'GOBLIN_TRIO'
+  | 'GOBLIN_RUSH_SQUAD'
+  | 'GOBLIN_BOMBARDMENT'
+  | 'GOBLIN_FIRELINE'
   | 'RECOVERY_CACHE'
+  | 'WATER_CACHE'
+  | 'RATION_CACHE'
   | 'ROOT_SNARE';
 
 export interface WorldEncounter {
@@ -62,9 +67,9 @@ const REQUIRED_ROUTE: readonly string[] = [
 
 const TILE_NAMES = ['젖은 뿌리길', '무너진 감시로', '붉은 포자림', '고블린 봉쇄선'] as const;
 const CENTER_CONTENT: readonly EncounterContent[] = [
-  'GOBLIN_ARCHER',
   'GOBLIN_ARCHER_WARRIOR',
-  'GOBLIN_ARCHER_BOMBER',
+  'GOBLIN_RUSH_SQUAD',
+  'GOBLIN_BOMBARDMENT',
   'GOBLIN_TRIO',
 ];
 
@@ -160,7 +165,7 @@ function createWorldTile(
       const index = (offset + 1) as 1 | 2 | 3 | 4;
       const id = `${direction.toLowerCase()}-${index}`;
       const content = drawCorridorContent(random, direction, index, tileIndex);
-      const oneTime = content === 'RECOVERY_CACHE';
+      const oneTime = isOneTimeReward(content);
       const consumed = oneTime && consumedOneTimeRewards.includes(oneTimeRewardKey(tileIndex, id));
       return {
         id,
@@ -211,7 +216,13 @@ function drawCorridorContent(
     if (tileIndex === 1 && direction === 'WEST' && index === 4) return 'GOBLIN_ARCHER';
     return roll < 0.88 ? 'NONE' : 'ROOT_SNARE';
   }
-  if (optional && index === 3 && roll < 0.58) return 'RECOVERY_CACHE';
+  // Tile 2 always exposes one food and one water detour so the run can test
+  // rest-versus-arrival-time decisions on a stable seed.
+  if (tileIndex === 1 && direction === 'NORTH' && index === 3) return 'RATION_CACHE';
+  if (tileIndex === 1 && direction === 'SOUTH' && index === 3) return 'WATER_CACHE';
+  if (tileIndex === 1 && optional) return 'NONE';
+  if (optional && index === 3 && roll < 0.29) return 'RATION_CACHE';
+  if (optional && index === 3 && roll < 0.58) return 'WATER_CACHE';
   if (roll < 0.5) return 'NONE';
   if (roll < 0.64) return 'ROOT_SNARE';
   if (roll < 0.87) return tileIndex < 2 ? 'GOBLIN_WARRIOR' : 'GOBLIN_BOMBER';
@@ -226,11 +237,22 @@ function createEncounter(
 ): WorldEncounter {
   return {
     id: encounterId(tileIndex, generation, nodeId),
-    kind: content === 'NONE' ? 'NONE' : content === 'RECOVERY_CACHE' || content === 'ROOT_SNARE' ? 'EVENT' : 'BATTLE',
+    kind: content === 'NONE' ? 'NONE' : isEvent(content) ? 'EVENT' : 'BATTLE',
     content,
     resolved: content === 'NONE',
-    oneTime: content === 'RECOVERY_CACHE',
+    oneTime: isOneTimeReward(content),
   };
+}
+
+function isEvent(content: EncounterContent): boolean {
+  return content === 'RECOVERY_CACHE'
+    || content === 'WATER_CACHE'
+    || content === 'RATION_CACHE'
+    || content === 'ROOT_SNARE';
+}
+
+function isOneTimeReward(content: EncounterContent): boolean {
+  return content === 'RECOVERY_CACHE' || content === 'WATER_CACHE' || content === 'RATION_CACHE';
 }
 
 function encounterId(tileIndex: number, generation: number, nodeId: string): string {

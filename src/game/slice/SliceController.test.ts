@@ -10,6 +10,7 @@ import { SliceController } from './SliceController';
 class InstantPresentation implements PresentationPort {
   public readonly events: CombatEvent[] = [];
   public readonly predictions: (BattlePredictionPresentation | null)[] = [];
+  public readonly hiddenIntentIds: string[][] = [];
   public sealUnlocks = 0;
 
   public reset(_state: BattleState): void {}
@@ -28,6 +29,9 @@ class InstantPresentation implements PresentationPort {
   public setSpeed(_multiplier: number): void {}
   public setPrediction(prediction: BattlePredictionPresentation | null): void {
     this.predictions.push(prediction);
+  }
+  public setHiddenIntentIds(intentIds: readonly string[]): void {
+    this.hiddenIntentIds.push([...intentIds]);
   }
   public playSealUnlock(_signal: AbortSignal): Promise<void> {
     this.sealUnlocks += 1;
@@ -240,6 +244,30 @@ describe('SliceController barrier-guardian encounter', () => {
     expect(controller.getSnapshot().plannedActions).toEqual([
       expect.objectContaining({ label: '내려찍기', action: expect.objectContaining({ targetId: 'goblin-archer' }) }),
     ]);
+  });
+
+  it('conceals one enemy intent only in presentation and restores it without mutating combat state', async () => {
+    const scenario = createSlice2EncounterScenario('night-test', 'GOBLIN_WARRIOR', { administratorHp: 14, allyHp: 12 });
+    const controller = new SliceController({
+      scenarioFactory: () => scenario,
+      administratorId: 'administrator-slice2',
+      allyId: 'archer-companion-slice2',
+      concealOneEnemyIntent: true,
+    });
+    const presentation = new InstantPresentation();
+    controller.attachPresentation(presentation);
+    controller.startEncounter();
+    await flushPromises();
+
+    const before = controller.getSnapshot();
+    expect(before.state.intents).toHaveLength(1);
+    expect(before.concealedIntentIds).toEqual([before.state.intents[0].id]);
+    expect(presentation.hiddenIntentIds.at(-1)).toEqual(before.concealedIntentIds);
+
+    controller.revealEnemyIntents();
+    expect(controller.getSnapshot().state.intents).toEqual(before.state.intents);
+    expect(controller.getSnapshot().concealedIntentIds).toEqual([]);
+    expect(presentation.hiddenIntentIds.at(-1)).toEqual([]);
   });
 });
 

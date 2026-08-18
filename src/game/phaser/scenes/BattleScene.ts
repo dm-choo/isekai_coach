@@ -99,6 +99,10 @@ class PhaserPresentationPort implements PresentationPort {
     if (!this.destroyed) this.director.setSelection(unitId);
   }
 
+  public setHiddenIntentIds(intentIds: readonly string[]): void {
+    if (!this.destroyed) this.director.setHiddenIntentIds(intentIds);
+  }
+
   public playSealUnlock(signal: AbortSignal): Promise<void> {
     if (this.destroyed) return Promise.resolve();
     return this.director.playSealUnlock(signal);

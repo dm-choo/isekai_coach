@@ -42,13 +42,15 @@ describe('Slice 2 world tile lifecycle', () => {
     expect(encounterAt(secondErosion, 'room-center')?.resolved).toBe(false);
   });
 
-  it('keeps one-time recovery rewards consumed across erosion generations', () => {
+  it('keeps one-time water and food rewards consumed across erosion generations', () => {
     const world = createSlice2World(42);
-    const tile = world.tiles.find((candidate) => Object.values(candidate.corridors).flat().some((segment) => segment.encounter.content === 'RECOVERY_CACHE'));
-    expect(tile).toBeDefined();
-    const recovery = Object.values(tile!.corridors).flat().find((segment) => segment.encounter.content === 'RECOVERY_CACHE')!;
-    const consumed = resolveNodeEncounter(tile!, recovery.id);
-    const eroded = rerollErodedTile(consumed, world.seed);
-    expect(encounterAt(eroded, recovery.id)?.content).not.toBe('RECOVERY_CACHE');
+    const tile = world.tiles[1];
+    for (const content of ['WATER_CACHE', 'RATION_CACHE'] as const) {
+      const reward = Object.values(tile.corridors).flat().find((segment) => segment.encounter.content === content)!;
+      expect(reward).toBeDefined();
+      const consumed = resolveNodeEncounter(tile, reward.id);
+      const eroded = rerollErodedTile(consumed, world.seed);
+      expect(encounterAt(eroded, reward.id)?.content).not.toBe(content);
+    }
   });
 });
