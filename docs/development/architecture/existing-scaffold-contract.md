@@ -38,7 +38,7 @@ related:
 - React와 Phaser는 typed bridge/event boundary로 통신한다. React가 Scene 내부 state를 직접 변경하지 않는다.
 - logical grid 좌표와 화면 projection을 분리한다. 카메라가 보여주는 영역과 `12 x 3` 논리 topology는 같은 계약이 아니다.
 - player plan은 authoritative `BattleState`와 분리된 preview projection이다. hover는 ally policy와 enemy Intent를 what-if로 계산하고, `Z`/`Space`가 각각 마지막 하나/전체 계획을 확정 경계로 보낸다.
-- `Slice2RunController`가 월드 타일, 현재 방·통로 구간, 100m traversal 진행률, 지속 HP·시간·policy와 인카운터 체크포인트를 소유한다. React local map과 Phaser 전투 장면은 이 상태를 표현하고 typed command만 전달한다.
+- `Slice2RunController`가 월드 타일, 현재 방, 400m 통로 traversal과 내부 100m 판정 위치, 지속 HP·시간·policy와 인카운터 체크포인트를 소유한다. React room/corridor view와 Phaser 전투 장면은 이 상태를 표현하고 typed command만 전달한다.
 - `SliceController`는 authored scenario, 관리자·동료 id와 policy 순서를 주입받아 여러 인카운터에 재사용한다. encounter 전환은 이전 presentation generation을 파기한 뒤 새 `BattleEngine`을 연결한다.
 
 ## Grid, units, and actions
@@ -116,7 +116,7 @@ Slice 2 enemy intent는 포지셔닝 뒤 장거리 BODY 사격, 4칸 ADVANCE 뒤
 
 - `src/game/slice2/world.ts`는 네 월드 타일과 각 타일의 중앙·경계 방, 방향별 4구간 통로, seed 기반 인카운터 생명주기를 정의한다.
 - `src/game/slice2/scenarios.ts`는 고블린 궁수·전사·투척병, 네 중앙 방의 학습 순서와 encounter ID 기반 진형·정예 spec을 정의한다.
-- local map node command는 traversal을 시작할 뿐 위치를 즉시 바꾸지 않는다. `advanceTravel`이 100m에 도달했을 때만 node, 시간과 인카운터를 원자적으로 정산한다.
+- `enterCorridor(direction)`은 방의 실제 문에서 다음 방까지 하나의 400m traversal을 시작한다. `advanceTravel`은 100m 경계마다 시간·판정 위치·인카운터를 원자적으로 정산하고, 전투 뒤에도 traversal을 보존한다.
 - 필수 경로에는 통로 전투 2회와 중앙 방 전투 4회를 배치한다. 북·남 선택 통로의 추가 인카운터는 정찰 뒤 선택할 수 있다.
 - `/slice2/`가 Slice 2 build를 소유하며 `/`와 `/slice1/`을 보존한다.
 

@@ -1,7 +1,7 @@
 ---
 title: Research and Design Critique
 status: under-validation
-last_updated: 2026-08-18
+last_updated: 2026-08-19
 related:
   - ../index.md
   - ../_meta/documentation-governance.md
@@ -9,6 +9,7 @@ related:
   - reference-insights.md
   - validation-agenda.md
   - validation-agenda-slice-2.md
+  - sprint-retrospective-continuous-corridor.md
 ---
 
 # Research and design critique
@@ -21,7 +22,8 @@ related:
 2. [Reference insights](./reference-insights.md): Darkest Dungeon, DNF, One Step From Eden 등에서 가져온 인사이트와 적용 한계
 3. [Validation agenda](./validation-agenda.md): Slice 1 보스방에서 장면·턴·이동·공격·Intent 마찰을 반증할 테스트 순서와 임시 기준
 4. [Slice 2 validation agenda](./validation-agenda-slice-2.md): 네 월드 타일의 공간 판독, 정찰, 선택 충돌과 정책 전이 검증
-5. [Reference screenshots](../images/reference_screenshot/README.md): 출처와 분석 목적이 기록된 비교 이미지 보관소
+5. [Continuous corridor sprint KPT](./sprint-retrospective-continuous-corridor.md): 100m node UI 실패 원인, 연속 통로 전환과 다음 스프린트 규칙
+6. [Reference screenshots](../images/reference_screenshot/README.md): 출처와 분석 목적이 기록된 비교 이미지 보관소
 
 ## Evidence labels
 
