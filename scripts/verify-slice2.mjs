@@ -14,6 +14,8 @@ let firstRestUsed = false;
 let supplyDetourStarted = false;
 let supplyDetourCompleted = false;
 let secondRestUsed = false;
+let traversalCaptured = false;
+let allyPlanCaptured = false;
 const supplyDetour = ['north-1', 'north-2', 'north-3', 'north-2', 'north-1', 'room-center', 'south-1', 'south-2', 'south-3', 'south-2', 'south-1', 'room-center'];
 
 await mkdir(artifactDir, { recursive: true });
@@ -81,8 +83,7 @@ try {
         const nextDetourNode = supplyDetour[0];
         if (nextDetourNode && run.availableNodeIds.includes(nextDetourNode)) {
           supplyDetour.shift();
-          await page.locator(`.node-${nextDetourNode}`).click();
-          await page.waitForTimeout(80);
+          await traverse(page, nextDetourNode);
           if (supplyDetour.length === 0) supplyDetourCompleted = true;
           continue;
         }
@@ -100,8 +101,7 @@ try {
       const routeIndex = route.indexOf(run.currentNodeId);
       const next = route[routeIndex + 1];
       if (!next || !run.availableNodeIds.includes(next)) throw new Error(`No authored route from ${run.currentNodeId}: ${JSON.stringify(run.availableNodeIds)}`);
-      await page.locator(`.node-${next}`).click();
-      await page.waitForTimeout(80);
+      await traverse(page, next);
       continue;
     }
     if (run.mode !== 'COMBAT') throw new Error(`Unexpected run mode ${run.mode}`);
@@ -126,6 +126,12 @@ try {
       await page.waitForTimeout(120);
       continue;
     }
+    if (!allyPlanCaptured) {
+      allyPlanCaptured = true;
+      await page.locator('.enemy-intent-card').first().hover();
+      await capture(page, '02b-ally-plan-and-intent-tooltip');
+      await page.mouse.move(640, 360);
+    }
     await playPlayerTurn(page, combat);
   }
 
@@ -145,8 +151,8 @@ try {
   nightUrl.searchParams.set('start', String(17 * 60 + 58));
   await night.goto(nightUrl.toString(), { waitUntil: 'networkidle' });
   await night.getByRole('button', { name: '원정 시작' }).click();
-  await night.locator('.node-west-4').click();
-  await night.locator('.node-west-3').click();
+  await traverse(night, 'west-4');
+  await traverse(night, 'west-3');
   await night.getByRole('button', { name: '전투 시작' }).click();
   await night.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot.mode === 'PLAYER_TURN' && !window.__ISEKAI_COACH_COMBAT__?.snapshot.isBusy);
   const concealedBeforeLight = await night.evaluate(() => window.__ISEKAI_COACH_COMBAT__?.snapshot.concealedIntentIds.length ?? 0);
@@ -188,6 +194,8 @@ try {
     browserErrors: errors,
     blockedPreviewCaptured,
     nightConcealmentVerified: concealedBeforeLight === 1 && concealedAfterLight === 0,
+    corridorTraversalCaptured: traversalCaptured,
+    allyPlanAndTooltipCaptured: allyPlanCaptured,
   };
   await writeFile(new URL('report.json', artifactDir), `${JSON.stringify(report, null, 2)}\n`);
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
@@ -252,6 +260,17 @@ async function playPlayerTurn(page, snapshot) {
   }
   await page.locator('.end-turn-button').click();
   await page.waitForTimeout(120);
+}
+
+async function traverse(page, nodeId) {
+  await page.locator(`.node-${nodeId}`).click();
+  await page.locator('.corridor-traversal').waitFor();
+  if (!traversalCaptured) {
+    traversalCaptured = true;
+    await capture(page, '01b-corridor-traversal');
+  }
+  for (let step = 0; step < 20; step += 1) await page.keyboard.press('d');
+  await page.waitForFunction(() => !window.__ISEKAI_COACH_SLICE2__?.snapshot.traversal, null, { timeout: 5_000 });
 }
 
 function bestMove(state, actorId, targetId) {

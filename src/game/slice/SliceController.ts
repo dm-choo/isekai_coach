@@ -1,4 +1,5 @@
 import {
+  ABILITY_IDS,
   BattleEngine,
   directionBetween,
   getAbility,
@@ -40,7 +41,7 @@ export type SliceMode =
   | 'VICTORY'
   | 'DEFEAT'
   | 'SEAL_UNLOCKED';
-export type SliceActionId = 'PUSH' | 'SLAM';
+export type SliceActionId = 'PUSH' | 'SLAM' | 'INTERCEPT';
 
 export interface PlannedPlayerAction {
   readonly id: string;
@@ -522,8 +523,12 @@ export class SliceController {
 
   private actionFor(actionId: SliceActionId, state: BattleState): CombatAction | null {
     const administrator = state.units.find((unit) => unit.id === this.administratorId);
+    if (!administrator) return null;
+    if (actionId === 'INTERCEPT') {
+      return { type: 'USE_ABILITY', actorId: administrator.id, abilityId: ABILITY_IDS.INTERCEPT, targetId: administrator.id };
+    }
     const target = this.currentTarget(state, administrator?.position);
-    if (!administrator || !target) return null;
+    if (!target) return null;
     const direction = directionBetween(administrator.position, target.position);
     if (!direction) return null;
     return actionId === 'PUSH'
@@ -559,6 +564,10 @@ export class SliceController {
       {
         id: 'SLAM', label: '내려찍기', glyph: '↓', icon: 'ATTACK', tags: ['#근거리공격'], apCost: 2,
         description: `인접한 ${targetName}에게 피해 2를 줍니다. 차징 중인 결계 수호자에게 적중하면 해당 Intent를 취소합니다.`,
+      },
+      {
+        id: 'INTERCEPT', label: '가로막기', glyph: '◇', icon: 'INTERCEPT', tags: ['#방어', '#반격', '#이동차단'], apCost: 2,
+        description: '이 턴 적의 이동 경로에 먼저 들어가 가로막으면 받는 피해 1을 막고 해당 적에게 피해 1로 한 번 반격합니다.',
       },
     ];
     return definitions.map((definition) => {
@@ -720,7 +729,7 @@ function directionCopy(from: GridPosition | undefined, to: GridPosition): string
 
 function policyDescription(policyId: SlicePolicyId, targetName?: string, damage?: number): string {
   if (policyId === 'SHOOT') {
-    return `사격: 같은 행 2~5칸 안의 가장 가까운 ${targetName ?? '적'}에게 피해 ${damage ?? 1}을 줍니다. 관통하지 않습니다.`;
+    return `사격: 같은 행 3~6칸 안에서 몸에 가리지 않은 첫 ${targetName ?? '적'}에게 피해 ${damage ?? 1}을 줍니다. 인접 사격과 관통은 불가능합니다.`;
   }
   if (policyId === 'PUSH') {
     return `밀치기: 인접한 ${targetName ?? '적'}에게 피해 ${damage ?? 1}을 주고 1칸 밀어냅니다.`;
@@ -732,6 +741,7 @@ function actionLabel(action: CombatAction): string {
   if (action.type === 'MOVE') return '이동';
   if (action.abilityId === 'push') return '밀치기';
   if (action.abilityId === 'slam') return '내려찍기';
+  if (action.abilityId === 'intercept') return '가로막기';
   return getAbility(action.abilityId)?.name ?? '행동';
 }
 

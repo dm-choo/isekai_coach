@@ -100,6 +100,7 @@ export class ScriptedEnemyStrategy implements EnemyIntentStrategy {
           anchor: plan.anchor,
           direction: plan.direction,
           groundOrigin: plan.groundOrigin ? { ...plan.groundOrigin } : undefined,
+          movementPath: plan.movementPath?.map((cell) => ({ ...cell })),
         }
       : null;
   }

@@ -28,8 +28,21 @@ describe('Slice2RunController exploration', () => {
   it('advances two minutes per 100m segment from a 10:00 departure', () => {
     const controller = new Slice2RunController();
     controller.startRun();
-    controller.moveTo('west-4');
+    travel(controller, 'west-4');
     expect(controller.getSnapshot()).toMatchObject({ worldMinute: 602, worldTime: '10:02', elapsedTravel: 1 });
+    controller.destroy();
+  });
+
+  it('lets the party retreat to 0m without changing node or world time', () => {
+    const controller = new Slice2RunController();
+    controller.startRun();
+    controller.moveTo('west-4');
+    controller.advanceTravel('FORWARD');
+    controller.advanceTravel('FORWARD');
+    controller.advanceTravel('BACK');
+    controller.advanceTravel('BACK');
+
+    expect(controller.getSnapshot()).toMatchObject({ currentNodeId: 'room-west', worldMinute: 600, traversal: undefined });
     controller.destroy();
   });
 
@@ -52,8 +65,8 @@ describe('Slice2RunController exploration', () => {
   it('conceals one night intent and spends one light to restore it', () => {
     const controller = new Slice2RunController({ startMinute: SLICE2_LATE_START_MINUTE + 58 });
     controller.startRun();
-    controller.moveTo('west-4');
-    controller.moveTo('west-3');
+    travel(controller, 'west-4');
+    travel(controller, 'west-3');
     expect(controller.getSnapshot()).toMatchObject({ mode: 'COMBAT', worldTime: '18:02', isNight: true });
     controller.startEncounter();
     expect(controller.getSnapshot().combat?.concealedIntentIds).toHaveLength(1);
@@ -68,3 +81,9 @@ describe('Slice2RunController exploration', () => {
     expect(formatWorldTime(24 * 60 + 5)).toBe('00:05');
   });
 });
+
+function travel(controller: Slice2RunController, nodeId: string): void {
+  controller.moveTo(nodeId);
+  expect(controller.getSnapshot().traversal).toMatchObject({ toNodeId: nodeId, progressMeters: 0, distanceMeters: 100 });
+  for (let distance = 0; distance < 100; distance += 5) controller.advanceTravel('FORWARD');
+}

@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Unit } from '../game/combat';
 import { POLICY_COPY, type SliceActionId, type SliceSnapshot } from '../game/slice';
 import {
@@ -56,6 +56,10 @@ export function Slice2App() {
       } else if (['2', 'e', 'E'].includes(event.key)) {
         event.preventDefault();
         const action = snapshot.combat.actions[1];
+        if (action) controller.useAction(action.id as SliceActionId);
+      } else if (['3', 'r', 'R'].includes(event.key)) {
+        event.preventDefault();
+        const action = snapshot.combat.actions[2];
         if (action) controller.useAction(action.id as SliceActionId);
       } else if (event.key === ' ') {
         event.preventDefault();
@@ -137,7 +141,9 @@ function ExplorationStage({ snapshot, controller }: {
         <p>{snapshot.tile.corridorsScouted ? '중앙 방 확보 · 모든 통로 정찰 완료' : '중앙 방 미확보 · 통로 정보 불명'}</p>
         <em>{snapshot.worldMinute < PATROL_RETURN_MINUTE ? `순찰대 복귀 ${formatWorldTime(PATROL_RETURN_MINUTE)} · 그 전 도착 시 증원 없음` : '순찰대 활동 중 · 소규모 조우에 전사 증원'}</em>
       </div>
-      <WorldTileMap tile={snapshot.tile} currentNodeId={snapshot.currentNodeId} currentMinute={snapshot.worldMinute} available={snapshot.availableNodeIds} onMove={controller.moveTo} />
+      {snapshot.traversal
+        ? <CorridorTraversalScene snapshot={snapshot} controller={controller} />
+        : <WorldTileMap tile={snapshot.tile} currentNodeId={snapshot.currentNodeId} currentMinute={snapshot.worldMinute} available={snapshot.availableNodeIds} onMove={controller.moveTo} />}
       <div className="local-notice" role="status">{snapshot.notice}</div>
       <button type="button" className="rest-button" disabled={!snapshot.canRest} onClick={controller.rest}>
         휴식 20분 · 물 1 · 식량 1 · HP +3
@@ -149,6 +155,54 @@ function ExplorationStage({ snapshot, controller }: {
       )}
     </div>
   );
+}
+
+function CorridorTraversalScene({ snapshot, controller }: {
+  readonly snapshot: ReturnType<Slice2RunController['getSnapshot']>;
+  readonly controller: Slice2RunController;
+}) {
+  const activeTimer = useRef<number | undefined>(undefined);
+  const traversal = snapshot.traversal;
+  useEffect(() => {
+    const stop = () => {
+      if (activeTimer.current !== undefined) window.clearInterval(activeTimer.current);
+      activeTimer.current = undefined;
+    };
+    const start = (direction: 'FORWARD' | 'BACK') => {
+      stop();
+      controller.advanceTravel(direction);
+      activeTimer.current = window.setInterval(() => controller.advanceTravel(direction), 85);
+    };
+    const keyDown = (event: KeyboardEvent) => {
+      if (event.repeat) return;
+      if (event.key.toLowerCase() === 'd' || event.key === 'ArrowRight') { event.preventDefault(); start('FORWARD'); }
+      if (event.key.toLowerCase() === 'a' || event.key === 'ArrowLeft') { event.preventDefault(); start('BACK'); }
+    };
+    const keyUp = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      if (key === 'd' || key === 'a' || event.key === 'ArrowRight' || event.key === 'ArrowLeft') stop();
+    };
+    window.addEventListener('keydown', keyDown);
+    window.addEventListener('keyup', keyUp);
+    window.addEventListener('blur', stop);
+    return () => { stop(); window.removeEventListener('keydown', keyDown); window.removeEventListener('keyup', keyUp); window.removeEventListener('blur', stop); };
+  }, [controller]);
+  if (!traversal) return null;
+  const encounter = encounterAt(snapshot.tile, traversal.toNodeId);
+  const progress = traversal.progressMeters / traversal.distanceMeters;
+  const startPointer = (direction: 'FORWARD' | 'BACK') => {
+    if (activeTimer.current !== undefined) window.clearInterval(activeTimer.current);
+    controller.advanceTravel(direction);
+    activeTimer.current = window.setInterval(() => controller.advanceTravel(direction), 85);
+  };
+  const stopPointer = () => { if (activeTimer.current !== undefined) window.clearInterval(activeTimer.current); activeTimer.current = undefined; };
+  return <section className="corridor-traversal" aria-label="100미터 통로 이동">
+    <div className="corridor-depth" style={{ backgroundPositionX: `${progress * -180}px` }} />
+    <div className="travel-party" style={{ left: `${14 + progress * 66}%` }}><img src={`${BASE_URL}assets/slice1/administrator-v2.png`} alt="관리자" /><img src={`${BASE_URL}assets/slice1/archer-v2.png`} alt="원거리 동료" /></div>
+    <div className={`travel-destination ${encounter && !encounter.resolved ? 'has-encounter' : ''}`}><span>{encounter && !encounter.resolved ? encounter.kind === 'BATTLE' ? '⚔' : '!' : traversal.toNodeId.startsWith('room-') ? '🚪' : '◇'}</span><small>{100 - traversal.progressMeters}m</small></div>
+    <div className="travel-progress"><i style={{ width: `${progress * 100}%` }} /><span>{traversal.progressMeters} / 100m</span></div>
+    <div className="travel-controls"><button type="button" onPointerDown={() => startPointer('BACK')} onPointerUp={stopPointer} onPointerLeave={stopPointer}><kbd>A</kbd> 후퇴</button><p>D를 누르는 동안 경계 이동 · 조우 지점에서 자동 정지</p><button type="button" onPointerDown={() => startPointer('FORWARD')} onPointerUp={stopPointer} onPointerLeave={stopPointer}>전진 <kbd>D</kbd></button></div>
+  </section>;
 }
 
 function WorldTileMap({ tile, currentNodeId, currentMinute, available, onMove }: {
@@ -213,6 +267,7 @@ function CombatStage({ snapshot, run, controller, encounter }: {
         <div className="enemy-bars">{enemies.map((unit) => <UnitBar key={unit.id} unit={unit} enemy />)}</div>
       </header>
       <IntentStack snapshot={snapshot} />
+      {snapshot.mode === 'PLAYER_TURN' && <AllyIntentPanel snapshot={snapshot} />}
       {run.canUseLight && <button type="button" className="light-button" onClick={controller.useLight}>휴대용 조명 사용 · Intent 공개</button>}
       {snapshot.mode !== 'INTRO' && <CombatTurnBanner snapshot={snapshot} />}
       {snapshot.mode !== 'INTRO' && <div className="combat-notice"><span />{snapshot.notice}</div>}
@@ -245,7 +300,7 @@ function CombatControls({ snapshot, controller }: { readonly snapshot: SliceSnap
 }
 
 function ActionButton({ action, index, controller }: { readonly action: SliceSnapshot['actions'][number]; readonly index: number; readonly controller: Slice2RunController }) {
-  return <button type="button" className={`skill-button ${action.executable ? '' : 'is-disabled'}`} disabled={false} aria-disabled={!action.executable} onClick={() => controller.useAction(action.id as SliceActionId)} onMouseEnter={() => controller.setActionHover(action.id as SliceActionId)} onMouseLeave={() => controller.setActionHover()}><kbd>{index === 0 ? '1 / Q' : index === 1 ? '2 / E' : index + 1}</kbd><img src={`${BASE_URL}assets/ui/intent-${action.icon.toLowerCase()}.svg`} alt="" /><strong>{action.label}</strong><small>AP {action.apCost}</small><span className="skill-tooltip"><b>{action.label}</b>{action.description}{!action.executable && <em>현재 계획에서 실행할 수 없습니다.</em>}<small>{action.tags.join(' ')}</small></span></button>;
+  return <button type="button" className={`skill-button ${action.executable ? '' : 'is-disabled'}`} disabled={false} aria-disabled={!action.executable} onClick={() => controller.useAction(action.id as SliceActionId)} onMouseEnter={() => controller.setActionHover(action.id as SliceActionId)} onMouseLeave={() => controller.setActionHover()}><kbd>{index === 0 ? '1 / Q' : index === 1 ? '2 / E' : index === 2 ? '3 / R' : index + 1}</kbd><img src={`${BASE_URL}assets/ui/intent-${action.icon.toLowerCase()}.svg`} alt="" /><strong>{action.label}</strong><small>AP {action.apCost}</small><span className="skill-tooltip"><b>{action.label}</b>{action.description}{!action.executable && <em>현재 계획에서 실행할 수 없습니다.</em>}<small>{action.tags.join(' ')}</small></span></button>;
 }
 
 function IntentStack({ snapshot }: { readonly snapshot: SliceSnapshot }) {
@@ -257,6 +312,17 @@ function IntentStack({ snapshot }: { readonly snapshot: SliceSnapshot }) {
 
 function PolicyReadout({ snapshot }: { readonly snapshot: SliceSnapshot }) {
   return <div className="ally-turn-readout"><div className="ally-policy-slots">{snapshot.policy.map((id, index) => <span key={`${id}-${index}`} className={snapshot.activePolicyStep?.selectedPolicyId === id ? 'is-active' : id === 'EMPTY' ? 'is-empty' : ''}><i>{index + 1}</i>{POLICY_COPY[id].name}</span>)}</div>{snapshot.activePolicyStep && <div className="ally-action-result"><strong>{snapshot.activePolicyStep.selectedName}</strong><small>{snapshot.activePolicyStep.reason}</small></div>}</div>;
+}
+
+function AllyIntentPanel({ snapshot }: { readonly snapshot: SliceSnapshot }) {
+  const steps = snapshot.allyIntent?.steps ?? [];
+  return <aside className="ally-intent-panel" aria-label="동료 예정 행동">
+    <header><div><small>ALLY PLAN · LOCKED FORECAST</small><strong>원거리 동료</strong></div><span>{snapshot.plannedActions.length ? '내 계획 반영' : '현재 상태 기준'}</span></header>
+    <div className="ally-intent-sequence">{steps.length
+      ? steps.map((step, index) => <div key={`${step.id}-${index}`} className="ally-intent-step" tabIndex={0}><i>{index + 1}</i><img src={`${BASE_URL}assets/ui/intent-${step.icon.toLowerCase()}.svg`} alt="" /><div><strong>{step.label}</strong><small>{step.description}</small></div>{step.damage !== undefined && <b>피해 {step.damage}</b>}</div>)
+      : <p>실행 가능한 전술이 없어 대기합니다.</p>}
+    </div>
+  </aside>;
 }
 
 function CombatTurnBanner({ snapshot }: { readonly snapshot: SliceSnapshot }) {
@@ -271,7 +337,7 @@ function RunHud({ snapshot }: { readonly snapshot: ReturnType<Slice2RunControlle
 
 function UnitBar({ unit, enemy = false }: { readonly unit: Unit; readonly enemy?: boolean }) {
   const ratio = Math.max(0, unit.hp / Math.max(1, unit.maxHp));
-  return <article className={`slice2-unit-bar ${enemy ? 'is-enemy' : ''}`}><strong>{unitName(unit)}</strong><div><i style={{ width: `${ratio * 100}%` }} /></div><small>{unit.hp}/{unit.maxHp}</small></article>;
+  return <article className={`slice2-unit-bar ${enemy ? 'is-enemy' : ''} ${unit.rank === 'ELITE' ? 'is-elite' : ''}`}><strong>{unit.rank === 'ELITE' ? `정예 · ${unitName(unit)}` : unitName(unit)}</strong><div><i style={{ width: `${ratio * 100}%` }} /></div><small>{unit.hp}/{unit.maxHp}</small></article>;
 }
 
 function PolicyChoice({ title, policy, onClick }: { readonly title: string; readonly policy: readonly (keyof typeof POLICY_COPY)[]; readonly onClick: () => void }) {
@@ -324,7 +390,7 @@ function intentName(id?: string): string {
 }
 
 function intentDetail(id?: string): string {
-  if (id === 'goblin-long-shot') return '사거리 안의 첫 대상에게 피해 2';
+  if (id === 'goblin-long-shot') return '최소 사거리 밖의 첫 노출 대상에게 피해 1';
   if (id === 'goblin-rush') return '표시 경로로 접근한 뒤 전방을 공격';
   if (id === 'goblin-bomb') return '표시된 지면을 다음 적 턴에 폭격';
   return '표시된 범위에 공격';

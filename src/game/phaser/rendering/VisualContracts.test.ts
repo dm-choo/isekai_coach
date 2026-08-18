@@ -29,7 +29,7 @@ describe('combat visual contracts', () => {
 
   it('pins concrete icons for every player-facing intent category', () => {
     expect(Object.keys(INTENT_ICON_TEXTURES).sort()).toEqual([
-      'ATTACK', 'MOVE', 'PUSH', 'SHOOT', 'STUN', 'SUMMON',
+      'ATTACK', 'INTERCEPT', 'MOVE', 'PUSH', 'SHOOT', 'STUN', 'SUMMON',
     ]);
     for (const icon of Object.values(INTENT_ICON_TEXTURES)) {
       expect(icon.url).toMatch(/^assets\/ui\/intent-[a-z-]+\.svg$/);

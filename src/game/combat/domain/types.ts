@@ -17,7 +17,7 @@ export type EnemyRank = 'NORMAL' | 'ELITE' | 'BOSS';
 export type IntentAnchor = 'BODY' | 'GROUND';
 export type ThreatCategory = 'NORMAL_ATTACK' | 'UNBLOCKABLE_ATTACK';
 export type CombatRole = 'FRONTLINE' | 'RANGED' | 'BOSS' | 'MINION';
-export type UnitBehavior = 'RANGED_HUNTER';
+export type UnitBehavior = 'RANGED_HUNTER' | 'RANGED_SKIRMISHER';
 
 export interface UnitStatus {
   /** Remaining mitigation for the next blockable hit. */
@@ -171,6 +171,8 @@ export interface Intent {
   readonly aim: GridPosition;
   /** Cells traversed by a movement intent. Never rendered as attack danger. */
   readonly movementPath: readonly GridPosition[];
+  /** Authored move-before-attack route before current occupancy clipping. */
+  readonly plannedMovementPath: readonly GridPosition[];
   /** Cells affected by ability resolution. Empty for a pure movement intent. */
   readonly effectCells: readonly GridPosition[];
   readonly threat: ThreatCategory;
@@ -345,6 +347,7 @@ export interface EnemyIntentPlan {
   readonly anchor?: IntentAnchor;
   readonly groundOrigin?: GridPosition;
   readonly targetId?: UnitId;
+  readonly movementPath?: readonly GridPosition[];
 }
 
 export interface BattleScenario {
@@ -404,6 +407,7 @@ export interface IntentChoice {
   readonly anchor?: IntentAnchor;
   readonly direction?: Direction;
   readonly groundOrigin?: GridPosition;
+  readonly movementPath?: readonly GridPosition[];
 }
 
 export interface StudentDecisionStrategy {

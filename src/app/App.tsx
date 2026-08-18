@@ -47,6 +47,10 @@ export function App() {
         event.preventDefault();
         const action = snapshot.actions[1];
         if (action) controller.useAction(action.id);
+      } else if (snapshot.mode === 'PLAYER_TURN' && ['3', 'r', 'R'].includes(event.key)) {
+        event.preventDefault();
+        const action = snapshot.actions[2];
+        if (action) controller.useAction(action.id);
       } else if (event.key === ' ' && snapshot.mode === 'PLAYER_TURN') {
         event.preventDefault();
         controller.confirmPlan();
@@ -291,7 +295,7 @@ function PlayerControls({
               onFocus={() => controller.setActionHover(action.id)}
               onBlur={() => controller.setActionHover()}
             >
-              <kbd>{index === 0 ? '1 / Q' : index === 1 ? '2 / E' : index + 1}</kbd>
+              <kbd>{index === 0 ? '1 / Q' : index === 1 ? '2 / E' : index === 2 ? '3 / R' : index + 1}</kbd>
               <img src={`${BASE_URL}assets/ui/intent-${action.icon.toLowerCase()}.svg`} alt="" />
               <strong>{action.label}</strong>
               <small>AP {action.apCost}</small>

@@ -325,6 +325,7 @@ export class BattleEngine {
   }
 
   private chooseBuiltInIntent(enemy: Unit): IntentChoice | null {
+    if (enemy.behavior === 'RANGED_SKIRMISHER') return this.chooseRangedSkirmisherIntent(enemy);
     if (enemy.behavior !== 'RANGED_HUNTER') return null;
     const targets = this.livingUnits('STUDENT').slice().sort((left, right) => {
       const rolePriority = Number(right.combatRole === 'RANGED') - Number(left.combatRole === 'RANGED');
@@ -347,6 +348,34 @@ export class BattleEngine {
       },
       direction,
       anchor: 'BODY',
+    };
+  }
+
+  private chooseRangedSkirmisherIntent(enemy: Unit): IntentChoice | null {
+    if (!enemy.abilities.includes(ABILITY_IDS.GOBLIN_LONG_SHOT)) return null;
+    const target = this.livingUnits('STUDENT').slice().sort((left, right) => {
+      const rolePriority = Number(right.combatRole === 'RANGED') - Number(left.combatRole === 'RANGED');
+      return rolePriority || manhattanDistance(enemy.position, left.position) - manhattanDistance(enemy.position, right.position) || compareStableUnits(left, right);
+    })[0];
+    if (!target) return null;
+    const direction: Direction = target.position.x < enemy.position.x ? 'LEFT' : 'RIGHT';
+    const movementPath: GridPosition[] = [];
+    if (target.position.y !== enemy.position.y) {
+      const destination = step(enemy.position, target.position.y < enemy.position.y ? 'UP' : 'DOWN');
+      if (inBounds(this.map, destination) && !isOccupied(this.units, destination, enemy.id)) movementPath.push(destination);
+    } else if (manhattanDistance(enemy.position, target.position) < 2) {
+      const away: Direction = target.position.x < enemy.position.x ? 'RIGHT' : 'LEFT';
+      const destination = step(enemy.position, away);
+      if (inBounds(this.map, destination) && !isOccupied(this.units, destination, enemy.id)) movementPath.push(destination);
+    }
+    return {
+      action: {
+        type: 'USE_ABILITY', actorId: enemy.id, abilityId: ABILITY_IDS.GOBLIN_LONG_SHOT,
+        direction, targetId: target.id,
+      },
+      direction,
+      anchor: 'BODY',
+      movementPath,
     };
   }
 
@@ -445,12 +474,19 @@ export class BattleEngine {
           (action.type === 'USE_ABILITY' ? action.groundOrigin : undefined) ??
           source.position
         : source.position;
+    const authoredChoicePath = choice.movementPath?.map(clonePosition) ?? [];
+    const plannedMovementPath = authoredChoicePath.length > 0
+      ? authoredChoicePath
+      : ability?.sourceMovement
+        ? projectMovementPath(source.position, direction, ability.sourceMovement.distance, this.map)
+        : [];
     const movementPath = action.type === 'MOVE'
       ? inBounds(this.map, action.to) ? [{ ...action.to }] : []
-      : ability?.sourceMovement
-        ? this.projectTraversableMovementPath(source, direction, ability.sourceMovement.distance)
+      : plannedMovementPath.length > 0
+        ? this.projectAuthoredMovementPath(source, plannedMovementPath)
         : [];
-    const effectOrigin = ability?.sourceMovement?.type === 'ADVANCE'
+    const movesBeforeAttack = authoredChoicePath.length > 0 || ability?.sourceMovement?.type === 'ADVANCE';
+    const effectOrigin = movesBeforeAttack
       ? movementPath.at(-1) ?? declaredOrigin
       : declaredOrigin;
     const effectCells =
@@ -470,6 +506,7 @@ export class BattleEngine {
       direction,
       aim: { ...aim },
       movementPath: movementPath.map(clonePosition),
+      plannedMovementPath: plannedMovementPath.map(clonePosition),
       effectCells: effectCells.map(clonePosition),
       threat,
       tags: [threat],
@@ -511,7 +548,8 @@ export class BattleEngine {
     if (currentIntent.action.type === 'USE_ABILITY') {
       let currentSource = this.requireUnit(source.id);
       let cells = this.effectiveIntentCells(currentIntent);
-      if (ability.sourceMovement?.type === 'ADVANCE') {
+      const authoredMoveBeforeAttack = !ability.sourceMovement && currentIntent.plannedMovementPath.length > 0;
+      if (ability.sourceMovement?.type === 'ADVANCE' || authoredMoveBeforeAttack) {
         const destination = this.resolveAdvanceDestination(currentSource, currentIntent.movementPath);
         if (!positionsEqual(currentSource.position, destination)) {
           const from = { ...currentSource.position };
@@ -526,6 +564,8 @@ export class BattleEngine {
       const chargeDestination = ability.sourceMovement?.type === 'CHARGE'
         ? this.resolveChargeDestination(currentSource, currentIntent.movementPath)
         : null;
+      const interceptor = this.findInterceptionTarget(currentIntent);
+      const guardBefore = interceptor?.status.guard ?? 0;
       this.resolveAbilityEffects(
         currentSource,
         ability,
@@ -534,6 +574,10 @@ export class BattleEngine {
         currentIntent.direction,
         currentIntent.threat,
       );
+      const guardAfter = interceptor ? this.findUnit(interceptor.id)?.status.guard ?? 0 : 0;
+      if (interceptor && guardAfter < guardBefore && (this.findUnit(currentSource.id)?.hp ?? 0) > 0 && (this.findUnit(interceptor.id)?.hp ?? 0) > 0) {
+        this.applyDamage(interceptor.id, currentSource.id, 1, 'NORMAL_ATTACK');
+      }
       if (chargeDestination) {
         if (!positionsEqual(currentSource.position, chargeDestination)) {
           const from = { ...currentSource.position };
@@ -542,6 +586,12 @@ export class BattleEngine {
         }
       }
     }
+  }
+
+  private findInterceptionTarget(intent: Intent): Unit | undefined {
+    if (intent.plannedMovementPath.length <= intent.movementPath.length) return undefined;
+    const blockedCell = intent.plannedMovementPath[intent.movementPath.length];
+    return this.units.find((unit) => unit.faction === 'STUDENT' && unit.hp > 0 && unit.status.guard > 0 && positionsEqual(unit.position, blockedCell));
   }
 
   private resolveAbilityEffects(
@@ -792,10 +842,13 @@ export class BattleEngine {
       return { movementPath: [{ ...intent.action.to }], effectCells: [] };
     }
     const ability = getAbility(intent.action.abilityId);
-    const movementPath = ability?.sourceMovement
+    const movementPath = intent.plannedMovementPath.length > 0
+      ? this.projectAuthoredMovementPath(source, intent.plannedMovementPath)
+      : ability?.sourceMovement
       ? this.projectTraversableMovementPath(source, intent.direction, ability.sourceMovement.distance)
       : [];
-    const effectOrigin = ability?.sourceMovement?.type === 'ADVANCE'
+    const authoredMoveBeforeAttack = !ability?.sourceMovement && intent.plannedMovementPath.length > 0;
+    const effectOrigin = authoredMoveBeforeAttack || ability?.sourceMovement?.type === 'ADVANCE'
       ? movementPath.at(-1) ?? source.position
       : source.position;
     const effectCells = ability?.pattern
@@ -814,6 +867,17 @@ export class BattleEngine {
     for (const cell of projected) {
       if (isOccupied(this.units, cell, source.id)) break;
       traversable.push(cell);
+    }
+    return traversable;
+  }
+
+  private projectAuthoredMovementPath(source: Unit, authored: readonly GridPosition[]): GridPosition[] {
+    const traversable: GridPosition[] = [];
+    let previous = source.position;
+    for (const cell of authored) {
+      if (!inBounds(this.map, cell) || manhattanDistance(previous, cell) !== 1 || isOccupied(this.units, cell, source.id)) break;
+      traversable.push({ ...cell });
+      previous = cell;
     }
     return traversable;
   }
@@ -956,6 +1020,7 @@ function clonePlan(plan: BattleScenario['enemyPlans'] extends infer _ ? NonNulla
     ...plan,
     action: plan.action ? cloneAction(plan.action) : undefined,
     groundOrigin: plan.groundOrigin ? { ...plan.groundOrigin } : undefined,
+    movementPath: plan.movementPath?.map(clonePosition),
   };
 }
 
@@ -984,6 +1049,7 @@ function cloneIntent(intent: Intent): Intent {
     declaredOrigin: clonePosition(intent.declaredOrigin),
     aim: clonePosition(intent.aim),
     movementPath: intent.movementPath.map(clonePosition),
+    plannedMovementPath: intent.plannedMovementPath.map(clonePosition),
     effectCells: intent.effectCells.map(clonePosition),
     tags: [...intent.tags],
   };

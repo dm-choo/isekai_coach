@@ -13,17 +13,23 @@ export interface Slice2EncounterOptions {
   readonly worldMinute?: number;
 }
 
+export interface EncounterSpec {
+  readonly formation: 'REAR_GUARD' | 'ADVANCED' | 'CROSSED';
+  readonly strength: 'NORMAL' | 'VETERAN';
+}
+
 export function createSlice2EncounterScenario(
   encounterId: string,
   content: EncounterContent,
   vitals: ExpeditionVitals,
   options: Slice2EncounterOptions = {},
 ): BattleScenario {
-  const enemyDefinitions = addPatrolReinforcement(enemiesFor(content), options.worldMinute ?? 600);
+  const spec = createEncounterSpec(encounterId);
+  const enemyDefinitions = addPatrolReinforcement(applyEncounterSpec(enemiesFor(content), spec), options.worldMinute ?? 600);
   const enemyPlans = Object.fromEntries(enemyDefinitions.map((unit) => [
     unit.id,
     plansFor(unit.id),
-  ]));
+  ]).filter(([, plans]) => plans.length > 0));
   return {
     id: `slice2:${encounterId}`,
     name: encounterName(content),
@@ -38,7 +44,7 @@ export function createSlice2EncounterScenario(
         maxHp: 14,
         ap: 0,
         maxAp: 3,
-        abilities: [ABILITY_IDS.PUSH, ABILITY_IDS.SLAM],
+        abilities: [ABILITY_IDS.PUSH, ABILITY_IDS.SLAM, ABILITY_IDS.INTERCEPT],
         spawnOrder: 0,
         visualKey: 'administrator_slice_01',
         combatRole: 'FRONTLINE',
@@ -60,6 +66,16 @@ export function createSlice2EncounterScenario(
       ...enemyDefinitions,
     ],
     enemyPlans,
+  };
+}
+
+export function createEncounterSpec(encounterId: string): EncounterSpec {
+  if (!encounterId.startsWith('tile-')) return { formation: 'REAR_GUARD', strength: 'NORMAL' };
+  const value = stableHash(encounterId);
+  const formations: readonly EncounterSpec['formation'][] = ['REAR_GUARD', 'ADVANCED', 'CROSSED'];
+  return {
+    formation: formations[value % formations.length] ?? 'REAR_GUARD',
+    strength: value % 4 === 0 ? 'VETERAN' : 'NORMAL',
   };
 }
 
@@ -91,7 +107,7 @@ function enemiesFor(content: EncounterContent): UnitDefinition[] {
 
 function plansFor(enemyId: string): readonly EnemyIntentPlan[] {
   if (enemyId.startsWith('goblin-archer')) {
-    return [{ abilityId: ABILITY_IDS.GOBLIN_LONG_SHOT, direction: 'LEFT', anchor: 'BODY' }];
+    return [];
   }
   if (enemyId.startsWith('goblin-warrior')) {
     return [{ abilityId: ABILITY_IDS.GOBLIN_RUSH, direction: 'LEFT', anchor: 'BODY' }];
@@ -115,7 +131,7 @@ function plansFor(enemyId: string): readonly EnemyIntentPlan[] {
 function archer(id: string, x: number, y: number, spawnOrder: number): UnitDefinition {
   return {
     id, faction: 'ENEMY', position: { x, y }, facing: 'LEFT', hp: 2, maxHp: 2,
-    abilities: [ABILITY_IDS.GOBLIN_LONG_SHOT], spawnOrder, visualKey: 'goblin_archer_slice_02', combatRole: 'RANGED',
+    abilities: [ABILITY_IDS.GOBLIN_LONG_SHOT], spawnOrder, visualKey: 'goblin_archer_slice_02', combatRole: 'RANGED', behavior: 'RANGED_SKIRMISHER',
   };
 }
 
@@ -139,4 +155,28 @@ function addPatrolReinforcement(enemies: UnitDefinition[], worldMinute: number):
   const position = [{ x: 8, y: 0 }, { x: 8, y: 1 }, { x: 8, y: 2 }].find((candidate) => !occupied.has(`${candidate.x},${candidate.y}`));
   if (!position) return enemies;
   return [...enemies, warrior('goblin-warrior-patrol', position.x, position.y, 2 + enemies.length)];
+}
+
+function applyEncounterSpec(enemies: UnitDefinition[], spec: EncounterSpec): UnitDefinition[] {
+  return enemies.map((enemy) => {
+    const xOffset = spec.formation === 'ADVANCED' ? -1 : 0;
+    const y = spec.formation === 'CROSSED' ? (enemy.position.y + 1) % 3 : enemy.position.y;
+    const hp = (enemy.hp ?? enemy.maxHp ?? 5) + (spec.strength === 'VETERAN' ? 1 : 0);
+    return {
+      ...enemy,
+      position: { x: enemy.position.x + xOffset, y },
+      hp,
+      maxHp: hp,
+      rank: spec.strength === 'VETERAN' ? 'ELITE' : enemy.rank,
+    };
+  });
+}
+
+function stableHash(value: string): number {
+  let hash = 2_166_136_261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16_777_619);
+  }
+  return hash >>> 0;
 }

@@ -1,6 +1,6 @@
 import type { BattleState, CombatEvent, Intent } from '../../combat';
 
-export type IntentIconKind = 'MOVE' | 'ATTACK' | 'SHOOT' | 'STUN' | 'SUMMON' | 'PUSH';
+export type IntentIconKind = 'MOVE' | 'ATTACK' | 'SHOOT' | 'STUN' | 'SUMMON' | 'PUSH' | 'INTERCEPT';
 
 export interface PredictionLayer {
   readonly cells: readonly Readonly<{ x: number; y: number }>[];

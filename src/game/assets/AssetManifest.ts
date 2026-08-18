@@ -229,6 +229,7 @@ export const INTENT_ICON_TEXTURES = {
   STUN: { textureKey: 'intent_icon_stun', url: 'assets/ui/intent-stun.svg' },
   SUMMON: { textureKey: 'intent_icon_summon', url: 'assets/ui/intent-summon.svg' },
   PUSH: { textureKey: 'intent_icon_push', url: 'assets/ui/intent-push.svg' },
+  INTERCEPT: { textureKey: 'intent_icon_intercept', url: 'assets/ui/intent-intercept.svg' },
 } as const;
 
 export function getCharacterVisual(

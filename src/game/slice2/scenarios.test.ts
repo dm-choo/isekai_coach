@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BattleEngine, moveAction } from '../combat';
-import { createSlice2EncounterScenario } from './scenarios';
+import { createEncounterSpec, createSlice2EncounterScenario } from './scenarios';
 
 describe('Slice 2 goblin encounters', () => {
   it('locks long shot, fast advance and ground bomb as distinct intents', () => {
@@ -12,9 +12,35 @@ describe('Slice 2 goblin encounters', () => {
     engine.beginTurn();
     const intents = engine.getState().intents;
 
+    expect(intents.find((intent) => intent.sourceId === 'goblin-archer')).toMatchObject({
+      action: { targetId: 'archer-companion-slice2' },
+      movementPath: [{ x: 10, y: 2 }],
+    });
     expect(intents.find((intent) => intent.sourceId === 'goblin-archer')?.effectCells.length).toBeGreaterThanOrEqual(8);
     expect(intents.find((intent) => intent.sourceId === 'goblin-warrior')?.movementPath).toHaveLength(4);
     expect(intents.find((intent) => intent.sourceId === 'goblin-bomber')?.anchor).toBe('GROUND');
+  });
+
+  it('repositions a goblin archer toward the ranged ally before resolving its shot', () => {
+    const base = createSlice2EncounterScenario('archer-position', 'GOBLIN_ARCHER', { administratorHp: 14, allyHp: 12 });
+    const scenario = {
+      ...base,
+      units: base.units.map((unit) => unit.id === 'archer-companion-slice2'
+        ? { ...unit, position: { x: 1, y: 0 } }
+        : unit),
+    };
+    const engine = new BattleEngine(scenario);
+    engine.beginTurn();
+
+    expect(engine.state.intents[0]).toMatchObject({
+      sourceId: 'goblin-archer',
+      movementPath: [{ x: 10, y: 0 }],
+      plannedMovementPath: [{ x: 10, y: 0 }],
+      action: { targetId: 'archer-companion-slice2' },
+    });
+    engine.resolveEnemyIntents();
+    expect(engine.state.units.find((unit) => unit.id === 'goblin-archer')?.position).toEqual({ x: 10, y: 0 });
+    expect(engine.state.units.find((unit) => unit.id === 'archer-companion-slice2')?.hp).toBe(11);
   });
 
   it('uses the shared AP grammar and gives the melee goblin three HP', () => {
@@ -47,6 +73,18 @@ describe('Slice 2 goblin encounters', () => {
       engine.beginTurn();
       expect(engine.state.intents).toHaveLength(scenario.units.filter((unit) => unit.faction === 'ENEMY').length);
     }
+  });
+
+  it('derives stable live encounter formation and strength variants from the encounter id', () => {
+    const ids = Array.from({ length: 12 }, (_, index) => `tile-${index + 1}:generation-0:room-center`);
+    const specs = ids.map(createEncounterSpec);
+    expect(new Set(specs.map((spec) => spec.formation)).size).toBeGreaterThan(1);
+    expect(new Set(specs.map((spec) => spec.strength))).toEqual(new Set(['NORMAL', 'VETERAN']));
+    expect(createEncounterSpec(ids[0])).toEqual(createEncounterSpec(ids[0]));
+
+    const scenarios = ids.map((id) => createSlice2EncounterScenario(id, 'GOBLIN_TRIO', { administratorHp: 14, allyHp: 12 }));
+    expect(new Set(scenarios.map((scenario) => JSON.stringify(scenario.units.filter((unit) => unit.faction === 'ENEMY').map((unit) => unit.position)))).size).toBeGreaterThan(1);
+    expect(scenarios.some((scenario) => scenario.units.some((unit) => unit.rank === 'ELITE'))).toBe(true);
   });
 
   it('shortens advance preview and moves the enemy shadow when the player blocks its path', () => {

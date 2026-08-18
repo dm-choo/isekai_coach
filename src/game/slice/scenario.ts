@@ -21,7 +21,7 @@ export function createSliceScenario(): BattleScenario {
         maxHp: 10,
         ap: 0,
         maxAp: 3,
-        abilities: [ABILITY_IDS.PUSH, ABILITY_IDS.SLAM],
+        abilities: [ABILITY_IDS.PUSH, ABILITY_IDS.SLAM, ABILITY_IDS.INTERCEPT],
         spawnOrder: 0,
         visualKey: 'administrator_slice_01',
         combatRole: 'FRONTLINE',

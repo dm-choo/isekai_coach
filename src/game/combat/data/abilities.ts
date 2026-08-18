@@ -14,6 +14,7 @@ export const ABILITY_IDS = {
   GOBLIN_LONG_SHOT: 'goblin-long-shot',
   GOBLIN_RUSH: 'goblin-rush',
   GOBLIN_BOMB: 'goblin-bomb',
+  INTERCEPT: 'intercept',
   SIGNAL_THRUST: 'signal-thrust',
   DEBUG_KNOCKBACK: 'debug-knockback',
   DEBUG_STRIKE_PUSH: 'debug-strike-push',
@@ -237,6 +238,14 @@ export const ABILITIES: Readonly<Record<string, AbilityDefinition>> = {
     intentAnchor: 'GROUND',
     threat: 'UNBLOCKABLE_ATTACK',
     interruptible: true,
+  },
+  [ABILITY_IDS.INTERCEPT]: {
+    id: ABILITY_IDS.INTERCEPT,
+    name: '가로막기',
+    apCost: 2,
+    targeting: 'SELF',
+    effects: [{ type: 'GUARD', amount: 1 }],
+    tags: ['#방어', '#반격', '#이동차단'],
   },
   [ABILITY_IDS.SIGNAL_THRUST]: {
     id: ABILITY_IDS.SIGNAL_THRUST,

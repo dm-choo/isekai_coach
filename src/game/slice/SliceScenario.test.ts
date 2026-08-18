@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ABILITY_IDS, BattleEngine, getAbility, pushAction, slamAction, type BattleScenario } from '../combat';
+import { ABILITY_IDS, BattleEngine, getAbility, moveAction, pushAction, slamAction, type BattleScenario } from '../combat';
 import {
   ADMINISTRATOR_ID,
   ARCHER_ID,
@@ -46,6 +46,25 @@ describe('vertical slice encounter contract', () => {
     expect(engine.events).toEqual(expect.arrayContaining([
       expect.objectContaining({ type: 'UNIT_MOVED', unitId: GUARDIAN_ID, to: { x: 5, y: 1 } }),
       expect.objectContaining({ type: 'DAMAGE_DEALT', targetId: ADMINISTRATOR_ID, amount: 6 }),
+    ]));
+  });
+
+  it('lets the administrator enter a move path, mitigate the hit, and counter once', () => {
+    const engine = new BattleEngine(createSliceScenario());
+    engine.beginTurn();
+    expect(engine.performStudentAction(moveAction(ADMINISTRATOR_ID, { x: 5, y: 1 })).executable).toBe(true);
+    expect(engine.performStudentAction({
+      type: 'USE_ABILITY', actorId: ADMINISTRATOR_ID, abilityId: ABILITY_IDS.INTERCEPT, targetId: ADMINISTRATOR_ID,
+    }).executable).toBe(true);
+
+    expect(engine.state.intents[0].movementPath).toEqual([{ x: 6, y: 1 }]);
+    engine.resolveEnemyIntents();
+
+    expect(unit(engine, ADMINISTRATOR_ID)).toMatchObject({ hp: 5, status: { guard: 0 } });
+    expect(unit(engine, GUARDIAN_ID).hp).toBe(14);
+    expect(engine.events).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'DAMAGE_BLOCKED', sourceId: GUARDIAN_ID, targetId: ADMINISTRATOR_ID, amount: 1 }),
+      expect.objectContaining({ type: 'DAMAGE_DEALT', sourceId: ADMINISTRATOR_ID, targetId: GUARDIAN_ID, amount: 1 }),
     ]));
   });
 

@@ -66,6 +66,14 @@ export interface Slice2RunSnapshot {
   readonly canRest: boolean;
   readonly canUseLight: boolean;
   readonly restCount: number;
+  readonly traversal?: CorridorTraversal;
+}
+
+export interface CorridorTraversal {
+  readonly fromNodeId: string;
+  readonly toNodeId: string;
+  readonly progressMeters: number;
+  readonly distanceMeters: 100;
 }
 
 type Listener = () => void;
@@ -110,6 +118,7 @@ export class Slice2RunController {
   private encounterCheckpoint: EncounterCheckpoint | null = null;
   private attempt = 1;
   private lastPolicyTrace: readonly PolicyExecutionStep[] = [];
+  private traversal: CorridorTraversal | undefined;
   private snapshot: Slice2RunSnapshot;
 
   public constructor(private readonly timing: Slice2RunOptions = {}) {
@@ -134,7 +143,33 @@ export class Slice2RunController {
   };
 
   public moveTo = (nodeId: string): void => {
-    if (this.mode !== 'EXPLORE' || !availableNodeIds(this.currentTile(), this.currentNodeId).includes(nodeId)) return;
+    if (this.mode !== 'EXPLORE' || this.traversal || !availableNodeIds(this.currentTile(), this.currentNodeId).includes(nodeId)) return;
+    this.traversal = { fromNodeId: this.currentNodeId, toNodeId: nodeId, progressMeters: 0, distanceMeters: 100 };
+    this.notice = `${nodeId} 방향 통로에 진입했다. D를 누르고 이동하십시오.`;
+    this.publish();
+  };
+
+  public advanceTravel = (direction: 'FORWARD' | 'BACK'): void => {
+    if (this.mode !== 'EXPLORE' || !this.traversal) return;
+    const delta = direction === 'FORWARD' ? 5 : -5;
+    const progressMeters = Math.max(0, Math.min(100, this.traversal.progressMeters + delta));
+    if (progressMeters === 0 && direction === 'BACK') {
+      this.traversal = undefined;
+      this.notice = '출발 지점으로 돌아왔다.';
+      this.publish();
+      return;
+    }
+    this.traversal = { ...this.traversal, progressMeters };
+    if (progressMeters < 100) {
+      this.publish();
+      return;
+    }
+    const destination = this.traversal.toNodeId;
+    this.traversal = undefined;
+    this.arriveAtNode(destination);
+  };
+
+  private arriveAtNode(nodeId: string): void {
     this.currentNodeId = nodeId;
     this.elapsedTravel += 1;
     this.worldMinute += TRAVEL_MINUTES_PER_SEGMENT;
@@ -151,7 +186,7 @@ export class Slice2RunController {
       ? '중앙 방은 확보됐다. 네 통로의 위험 위치가 드러났다.'
       : '통로를 이동했다.';
     this.publish();
-  };
+  }
 
   public advanceTile = (): void => {
     if (this.mode !== 'EXPLORE' || !this.canAdvanceTile()) return;
@@ -261,6 +296,7 @@ export class Slice2RunController {
     this.lastPolicyTrace = [];
     this.notice = '네 개의 월드 타일을 지나 고블린 봉쇄선을 돌파한다.';
     this.encounterCheckpoint = null;
+    this.traversal = undefined;
     this.attempt += 1;
     this.publish();
   };
@@ -350,6 +386,7 @@ export class Slice2RunController {
   private enterNextTile(): void {
     this.currentTileIndex += 1;
     this.currentNodeId = 'room-west';
+    this.traversal = undefined;
     this.mode = 'EXPLORE';
     this.notice = `${this.currentTile().name}의 서쪽 경계 방에 진입했다.`;
     this.publish();
@@ -371,7 +408,7 @@ export class Slice2RunController {
   }
 
   private canRest(): boolean {
-    if (this.mode !== 'EXPLORE' || this.supplies.water < 1 || this.supplies.food < 1) return false;
+    if (this.mode !== 'EXPLORE' || this.traversal || this.supplies.water < 1 || this.supplies.food < 1) return false;
     if (this.vitals.administratorHp >= 14 && this.vitals.allyHp >= 12) return false;
     const room = this.currentTile().rooms.find((candidate) => candidate.id === this.currentNodeId);
     return Boolean(room?.encounter.resolved);
@@ -398,7 +435,7 @@ export class Slice2RunController {
       tile,
       currentTileIndex: this.currentTileIndex,
       currentNodeId: this.currentNodeId,
-      availableNodeIds: this.mode === 'EXPLORE' ? availableNodeIds(tile, this.currentNodeId) : [],
+      availableNodeIds: this.mode === 'EXPLORE' && !this.traversal ? availableNodeIds(tile, this.currentNodeId) : [],
       vitals: this.vitals,
       elapsedTravel: this.elapsedTravel,
       elapsedBattleTurns: this.elapsedBattleTurns,
@@ -418,6 +455,7 @@ export class Slice2RunController {
       canRest: this.canRest(),
       canUseLight: this.canUseLight(),
       restCount: this.restCount,
+      traversal: this.traversal ? { ...this.traversal } : undefined,
     };
   }
 
