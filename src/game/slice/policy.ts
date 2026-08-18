@@ -161,11 +161,12 @@ function shootDirection(state: BattleState, origin: GridPosition, preferred: Dir
 function firstEnemyInLine(state: BattleState, origin: GridPosition, direction: Direction): Unit | undefined {
   if (direction !== 'LEFT' && direction !== 'RIGHT') return undefined;
   const sign = direction === 'RIGHT' ? 1 : -1;
-  for (let distance = 2; distance <= 5; distance += 1) {
+  for (let distance = 1; distance <= 6; distance += 1) {
     const position = { x: origin.x + sign * distance, y: origin.y };
-    const target = state.units.find((unit) =>
-      unit.faction === 'ENEMY' && unit.hp > 0 && positionsEqual(unit.position, position));
-    if (target) return target;
+    const occupant = state.units.find((unit) => unit.hp > 0 && positionsEqual(unit.position, position));
+    if (!occupant) continue;
+    if (distance < 3 || occupant.faction !== 'ENEMY') return undefined;
+    return occupant;
   }
   return undefined;
 }

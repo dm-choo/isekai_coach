@@ -134,8 +134,8 @@ export class BattleRenderer {
         for (const cell of step.effectCells) {
           const world = this.projector.gridToWorld(cell);
           const zone = this.scene.add
-            .rectangle(world.x, world.y, this.projector.cellSize.width - 6, this.projector.cellSize.height - 6, 0xd84935, 0.22)
-            .setStrokeStyle(3, 0xffc06b, 0.92)
+            .rectangle(world.x, world.y, this.projector.cellSize.width - 6, this.projector.cellSize.height - 6, 0x278fbd, 0.2)
+            .setStrokeStyle(3, 0x8eefff, 0.95)
             .setDepth(13);
           this.predictionObjects.push(zone);
         }

@@ -38,14 +38,37 @@ export function resolveAbilityTargets(context: TargetResolutionContext): readonl
     .sort(compareStableUnits);
 
   if (ability.patternTargetMode === 'FIRST_IN_PATTERN') {
-    for (const cell of footprint) {
-      const target = occupants.find((unit) => positionsEqual(cell, unit.position));
-      if (target) return [target.id];
+    const ray = orderedProjectileRay(source, action, footprint);
+    for (const cell of ray) {
+      const occupant = units.find((unit) => unit.hp > 0 && positionsEqual(cell, unit.position));
+      if (!occupant) continue;
+      const targetable = footprint.some((candidate) => positionsEqual(candidate, cell));
+      return targetable && occupant.faction !== source.faction ? [occupant.id] : [];
     }
     return [];
   }
 
   return occupants.map((unit) => unit.id);
+}
+
+function orderedProjectileRay(
+  source: Unit,
+  action: UseAbilityAction,
+  footprint: readonly GridPosition[],
+): readonly GridPosition[] {
+  const direction = action.direction;
+  if (!direction || footprint.length === 0) return footprint;
+  const delta = direction === 'RIGHT' ? { x: 1, y: 0 }
+    : direction === 'LEFT' ? { x: -1, y: 0 }
+      : direction === 'DOWN' ? { x: 0, y: 1 }
+        : { x: 0, y: -1 };
+  const distances = footprint.map((cell) =>
+    Math.abs(cell.x - source.position.x) + Math.abs(cell.y - source.position.y));
+  const maximumDistance = Math.max(...distances);
+  return Array.from({ length: maximumDistance }, (_, index) => ({
+    x: source.position.x + delta.x * (index + 1),
+    y: source.position.y + delta.y * (index + 1),
+  }));
 }
 
 function compareStableUnits(left: Unit, right: Unit): number {

@@ -39,6 +39,14 @@ export function App() {
       if (direction) {
         event.preventDefault();
         controller.move(direction);
+      } else if (snapshot.mode === 'PLAYER_TURN' && ['1', 'q', 'Q'].includes(event.key)) {
+        event.preventDefault();
+        const action = snapshot.actions[0];
+        if (action) controller.useAction(action.id);
+      } else if (snapshot.mode === 'PLAYER_TURN' && ['2', 'e', 'E'].includes(event.key)) {
+        event.preventDefault();
+        const action = snapshot.actions[1];
+        if (action) controller.useAction(action.id);
       } else if (event.key === ' ' && snapshot.mode === 'PLAYER_TURN') {
         event.preventDefault();
         controller.confirmPlan();
@@ -51,7 +59,7 @@ export function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [controller, snapshot.mode]);
+  }, [controller, snapshot.actions, snapshot.mode]);
 
   const displayState = snapshot.mode === 'PLAYER_TURN' ? snapshot.previewState : snapshot.state;
   const administrator = displayState.units.find((unit) => unit.id === 'administrator-01');
@@ -283,7 +291,7 @@ function PlayerControls({
               onFocus={() => controller.setActionHover(action.id)}
               onBlur={() => controller.setActionHover()}
             >
-              <kbd>{index + 1}</kbd>
+              <kbd>{index === 0 ? '1 / Q' : index === 1 ? '2 / E' : index + 1}</kbd>
               <img src={`${BASE_URL}assets/ui/intent-${action.icon.toLowerCase()}.svg`} alt="" />
               <strong>{action.label}</strong>
               <small>AP {action.apCost}</small>

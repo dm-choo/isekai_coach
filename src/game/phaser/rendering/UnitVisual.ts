@@ -50,7 +50,8 @@ class SpriteUnitVisual implements UnitVisualAdapter {
       case 'idle':
         this.scene.tweens.add({
           targets: this.sprite,
-          y: -3,
+          scaleX: this.baseScaleX * 1.008,
+          scaleY: this.baseScaleY * 0.992,
           duration: this.visual.silhouette === 'GUARDIAN' ? 1_500 : 1_050,
           yoyo: true,
           repeat: -1,

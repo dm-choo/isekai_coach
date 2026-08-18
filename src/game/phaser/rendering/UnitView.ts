@@ -45,7 +45,7 @@ export class UnitView {
   private readonly faction: RenderableUnit['faction'];
   private maxHp = 1;
   private currentHp = -1;
-  private currentState: UnitAnimationState = 'idle';
+  private currentState: UnitAnimationState | null = null;
 
   public constructor(
     private readonly scene: Phaser.Scene,
@@ -61,7 +61,10 @@ export class UnitView {
     const guardian = this.visual.silhouette === 'GUARDIAN';
     const visualHeight = this.visual.displaySize?.height ?? 96;
     const barWidth = guardian ? 112 : 68;
-    const labelY = -visualHeight + 12;
+    const footAnchorY = this.visual.footAnchor?.y ?? 1;
+    const visualTopY = -visualHeight * footAnchorY;
+    const hpY = visualTopY - 10;
+    const labelY = hpY - 16;
     const shadow = scene.add.ellipse(0, 3, guardian ? 126 : 68, guardian ? 24 : 16, 0x050704, 0.62);
     this.selectionRing = scene.add.ellipse(0, 2, 88, 26, 0xffc66d, 0.05)
       .setStrokeStyle(4, 0xffd67f, 0.96)
@@ -78,10 +81,10 @@ export class UnitView {
       })
       .setOrigin(0.5)
       .setVisible(false);
-    this.hpBackground = scene.add.rectangle(0, labelY + 22, barWidth + 4, 9, 0x120d09, 0.92);
-    this.hpLagFill = scene.add.rectangle(-barWidth / 2, labelY + 22, barWidth, 5, 0xf0d384, 0.82).setOrigin(0, 0.5);
-    this.hpFill = scene.add.rectangle(-barWidth / 2, labelY + 22, barWidth, 5, this.hpColor(1), 1).setOrigin(0, 0.5);
-    this.hpTicks = scene.add.container(0, labelY + 22);
+    this.hpBackground = scene.add.rectangle(0, hpY, barWidth + 4, 9, 0x120d09, 0.92);
+    this.hpLagFill = scene.add.rectangle(-barWidth / 2, hpY, barWidth, 5, 0xf0d384, 0.82).setOrigin(0, 0.5);
+    this.hpFill = scene.add.rectangle(-barWidth / 2, hpY, barWidth, 5, this.hpColor(1), 1).setOrigin(0, 0.5);
+    this.hpTicks = scene.add.container(0, hpY);
     this.apLabel = scene.add
       .text(0, 38, '', {
         fontFamily: 'ui-monospace, monospace',
@@ -91,7 +94,7 @@ export class UnitView {
         strokeThickness: 3,
       })
       .setOrigin(0.5, 0);
-    this.intentContainer = scene.add.container(0, guardian ? -visualHeight + 95 : labelY - 37);
+    this.intentContainer = scene.add.container(0, labelY - 35);
 
     this.container.add([
       shadow,
@@ -164,6 +167,7 @@ export class UnitView {
   }
 
   public setAnimationState(state: UnitAnimationState): void {
+    if (this.currentState === state) return;
     this.currentState = state;
     this.unitVisual.setState(state);
   }

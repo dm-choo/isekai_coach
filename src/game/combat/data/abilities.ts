@@ -46,8 +46,8 @@ export const SHORT_STRIKE_PATTERN: AttackPattern = {
 };
 
 export const SHOOT_PATTERN: AttackPattern = {
-  id: 'projectile-forward-5',
-  cells: Array.from({ length: 4 }, (_, index) => ({ forward: index + 2, lateral: 0 })),
+  id: 'projectile-forward-3-to-6',
+  cells: Array.from({ length: 4 }, (_, index) => ({ forward: index + 3, lateral: 0 })),
 };
 
 export const WIDE_RUPTURE_PATTERN: AttackPattern = {
@@ -137,8 +137,8 @@ export const ABILITIES: Readonly<Record<string, AbilityDefinition>> = {
     apCost: 2,
     targeting: 'PATTERN',
     pattern: SHOOT_PATTERN,
-    minimumRange: 2,
-    range: 5,
+    minimumRange: 3,
+    range: 6,
     patternTargetMode: 'FIRST_IN_PATTERN',
     effects: [{ type: 'DAMAGE', amount: 1 }],
     intentAnchor: 'BODY',

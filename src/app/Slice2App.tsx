@@ -49,6 +49,14 @@ export function Slice2App() {
       if (direction) {
         event.preventDefault();
         controller.move(direction);
+      } else if (['1', 'q', 'Q'].includes(event.key)) {
+        event.preventDefault();
+        const action = snapshot.combat.actions[0];
+        if (action) controller.useAction(action.id as SliceActionId);
+      } else if (['2', 'e', 'E'].includes(event.key)) {
+        event.preventDefault();
+        const action = snapshot.combat.actions[1];
+        if (action) controller.useAction(action.id as SliceActionId);
       } else if (event.key === ' ') {
         event.preventDefault();
         controller.confirmPlan();
@@ -237,14 +245,14 @@ function CombatControls({ snapshot, controller }: { readonly snapshot: SliceSnap
 }
 
 function ActionButton({ action, index, controller }: { readonly action: SliceSnapshot['actions'][number]; readonly index: number; readonly controller: Slice2RunController }) {
-  return <button type="button" className={`skill-button ${action.executable ? '' : 'is-disabled'}`} disabled={false} aria-disabled={!action.executable} onClick={() => controller.useAction(action.id as SliceActionId)} onMouseEnter={() => controller.setActionHover(action.id as SliceActionId)} onMouseLeave={() => controller.setActionHover()}><kbd>{index + 1}</kbd><img src={`${BASE_URL}assets/ui/intent-${action.icon.toLowerCase()}.svg`} alt="" /><strong>{action.label}</strong><small>AP {action.apCost}</small><span className="skill-tooltip"><b>{action.label}</b>{action.description}{!action.executable && <em>현재 계획에서 실행할 수 없습니다.</em>}<small>{action.tags.join(' ')}</small></span></button>;
+  return <button type="button" className={`skill-button ${action.executable ? '' : 'is-disabled'}`} disabled={false} aria-disabled={!action.executable} onClick={() => controller.useAction(action.id as SliceActionId)} onMouseEnter={() => controller.setActionHover(action.id as SliceActionId)} onMouseLeave={() => controller.setActionHover()}><kbd>{index === 0 ? '1 / Q' : index === 1 ? '2 / E' : index + 1}</kbd><img src={`${BASE_URL}assets/ui/intent-${action.icon.toLowerCase()}.svg`} alt="" /><strong>{action.label}</strong><small>AP {action.apCost}</small><span className="skill-tooltip"><b>{action.label}</b>{action.description}{!action.executable && <em>현재 계획에서 실행할 수 없습니다.</em>}<small>{action.tags.join(' ')}</small></span></button>;
 }
 
 function IntentStack({ snapshot }: { readonly snapshot: SliceSnapshot }) {
   const hidden = new Set(snapshot.concealedIntentIds);
   return <div className="intent-stack">{snapshot.previewState.intents.map((intent) => hidden.has(intent.id)
-    ? <article key={intent.id} className="enemy-intent-card is-concealed"><span className="concealed-glyph">?</span><div><small>{unitName(snapshot.previewState.units.find((unit) => unit.id === intent.sourceId))}</small><strong>{intent.direction === 'LEFT' ? '서쪽' : intent.direction === 'RIGHT' ? '동쪽' : intent.direction === 'UP' ? '북쪽' : '남쪽'}을 노림</strong></div><span>행동·범위 불명</span></article>
-    : <article key={intent.id} className={`enemy-intent-card ${intent.anchor === 'GROUND' ? 'is-ground' : ''}`}><img src={`${BASE_URL}${intentIcon(intent.abilityId)}`} alt="" /><div><small>{unitName(snapshot.previewState.units.find((unit) => unit.id === intent.sourceId))}</small><strong>{intentName(intent.abilityId)}</strong></div><span>{intent.anchor} · {intent.effectCells.length}칸</span></article>)}</div>;
+    ? <article key={intent.id} className="enemy-intent-card is-concealed" tabIndex={0}><span className="concealed-glyph">?</span><div><small>{unitName(snapshot.previewState.units.find((unit) => unit.id === intent.sourceId))}</small><strong>{intent.direction === 'LEFT' ? '서쪽' : intent.direction === 'RIGHT' ? '동쪽' : intent.direction === 'UP' ? '북쪽' : '남쪽'}을 노림</strong></div><span>행동·범위 불명</span><span className="intent-card-tooltip" role="tooltip">어둠 때문에 행동 하나가 숨겨졌습니다. 휴대용 조명을 사용하면 이번 전투의 모든 Intent가 공개됩니다.</span></article>
+    : <article key={intent.id} className={`enemy-intent-card ${intent.anchor === 'GROUND' ? 'is-ground' : ''}`} tabIndex={0}><img src={`${BASE_URL}${intentIcon(intent.abilityId)}`} alt="" /><div><small>{unitName(snapshot.previewState.units.find((unit) => unit.id === intent.sourceId))}</small><strong>{intentName(intent.abilityId)}</strong></div><span>{intent.anchor} · {intent.effectCells.length}칸</span><span className="intent-card-tooltip" role="tooltip">{intentDetail(intent.abilityId)} · {intent.direction === 'LEFT' ? '서쪽' : intent.direction === 'RIGHT' ? '동쪽' : intent.direction === 'UP' ? '북쪽' : '남쪽'} 방향. 붉은 칸은 현재 고정된 피해 범위입니다.</span></article>)}</div>;
 }
 
 function PolicyReadout({ snapshot }: { readonly snapshot: SliceSnapshot }) {
@@ -271,8 +279,10 @@ function PolicyChoice({ title, policy, onClick }: { readonly title: string; read
 }
 
 function nodeGlyph(nodeId: string, content: EncounterContent | undefined, visible: boolean, resolved: boolean): string {
-  if (nodeId === 'room-center') return resolved ? '✓' : '中';
-  if (nodeId.startsWith('room-')) return '▣';
+  if (nodeId === 'room-center') return resolved ? '✓' : '⌂';
+  if (nodeId === 'room-east') return '🚪';
+  if (nodeId === 'room-west') return '↩';
+  if (nodeId.startsWith('room-')) return '⌂';
   if (!visible) return '?';
   if (resolved || content === 'NONE') return '·';
   if (content === 'RECOVERY_CACHE') return '+';
@@ -283,6 +293,9 @@ function nodeGlyph(nodeId: string, content: EncounterContent | undefined, visibl
 }
 
 function nodeLabel(nodeId: string, content: EncounterContent | undefined, visible: boolean): string {
+  if (nodeId === 'room-east') return '동쪽 출구, 다음 월드 타일로 향하는 문';
+  if (nodeId === 'room-west') return '서쪽 입구, 이전 월드 타일에서 들어온 문';
+  if (nodeId === 'room-center') return '중앙 방, 통로 정찰 거점';
   if (!visible) return `${nodeId}, 미정찰`;
   return `${nodeId}, ${content === 'NONE' ? '안전' : content === 'WATER_CACHE' ? '물 보급' : content === 'RATION_CACHE' ? '식량 보급' : content === 'RECOVERY_CACHE' || content === 'ROOT_SNARE' ? '사건' : '전투'}`;
 }
@@ -308,6 +321,13 @@ function intentName(id?: string): string {
   if (id === 'goblin-rush') return '단검 쇄도';
   if (id === 'goblin-bomb') return '포자 폭탄';
   return '공격';
+}
+
+function intentDetail(id?: string): string {
+  if (id === 'goblin-long-shot') return '사거리 안의 첫 대상에게 피해 2';
+  if (id === 'goblin-rush') return '표시 경로로 접근한 뒤 전방을 공격';
+  if (id === 'goblin-bomb') return '표시된 지면을 다음 적 턴에 폭격';
+  return '표시된 범위에 공격';
 }
 
 function intentIcon(id?: string): string {
