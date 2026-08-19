@@ -174,6 +174,49 @@ try {
   await page.screenshot({ path: new URL('11-four-corridors-scouted-4x3.png', artifactDir).pathname });
   await page.setViewportSize({ width: 1280, height: 720 });
 
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'POLICY_REVIEW');
+  const policyInitial = await submissionSnapshot(page);
+  const blockedShoot = policyInitial.lastCombatSummary?.blockedByPolicy?.SHOOT;
+  const policyEvidence = page.locator('[data-policy-evidence="ADJACENT_SHOOT_BLOCKED"]');
+  await expectCount(page, '[data-policy-choice]', 2, 'two spatial policy responses');
+  await expectCount(page, '.policy-spatial-lane.is-choice', 2, 'two policy response lanes');
+  await expectCount(page, '[data-submission-primary="open-delegation"]', 1, 'single policy continuation action');
+  await expectCount(page, '.policy-evidence-focus,.policy-choice-panel h2,.policy-spatial-choices p,.policy-choice-label em', 0, 'retired policy dashboard copy');
+  if (Number(await policyEvidence.getAttribute('data-blocked-count')) !== (blockedShoot?.count ?? 0)) throw new Error('Policy record count does not match the last combat summary');
+  if (await page.locator('[data-submission-primary="open-delegation"]').isEnabled()) throw new Error('Policy continuation is enabled before a response is chosen');
+  if (await page.locator('.policy-order-delta').getAttribute('data-policy-order') !== 'EVADE>POSITION>SHOOT>PUSH>EMPTY') throw new Error('Policy review does not start from the authoritative default order');
+  await assertCriticalFit(page, ['.submission-policy-review', '.policy-record-scene', '.policy-spatial-choices', '.policy-order-delta', '[data-submission-primary="open-delegation"]']);
+  await page.screenshot({ path: new URL('12-policy-spatial-choice.png', artifactDir).pathname });
+
+  await page.locator('[data-policy-choice="PUSH_FIRST"]').click();
+  await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.policyChoice === 'PUSH_FIRST');
+  let policyChanged = await submissionSnapshot(page);
+  if (policyChanged.policy.join('>') !== 'PUSH>EVADE>POSITION>SHOOT>EMPTY' || policyChanged.policyDirectives.keepRange) throw new Error('Pointer PUSH_FIRST did not change the authoritative order');
+  await page.keyboard.press('2');
+  await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.policyChoice === 'KEEP_RANGE');
+  policyChanged = await submissionSnapshot(page);
+  if (policyChanged.policy.join('>') !== 'EVADE>POSITION>SHOOT>PUSH>EMPTY' || !policyChanged.policyDirectives.keepRange) throw new Error('Keyboard KEEP_RANGE did not preserve order and add its directive');
+  await page.keyboard.press('q');
+  await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.policyChoice === 'PUSH_FIRST');
+  await page.keyboard.press('e');
+  await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.policyChoice === 'KEEP_RANGE');
+  await expectCount(page, '[data-policy-choice].is-selected', 1, 'one selected policy response');
+  await expectCount(page, '.policy-order-row.is-after .policy-symbol.is-changed.has-range-directive', 1, 'one selected policy delta');
+  if (!await page.locator('[data-submission-primary="open-delegation"]').isEnabled()) throw new Error('Policy continuation stayed disabled after a response was chosen');
+  if (await page.locator('.policy-order-delta').getAttribute('data-policy-directive') !== 'KEEP_RANGE') throw new Error('Visible policy delta lost the keep-range directive');
+  await page.screenshot({ path: new URL('13-policy-keep-range.png', artifactDir).pathname });
+  const policyTextOff = await page.addStyleTag({ content: '.submission-policy-review .policy-record-fact small,.submission-policy-review .policy-choice-label strong,.submission-policy-review .policy-order-row>small,.submission-topbar strong,.submission-topbar small{visibility:hidden!important}' });
+  await page.screenshot({ path: new URL('14-policy-keep-range-text-off.png', artifactDir).pathname });
+  await policyTextOff.evaluate((element) => element.remove());
+
+  await page.setViewportSize({ width: 960, height: 720 });
+  await assertCriticalFit(page, ['.submission-policy-review', '.policy-record-scene', '.policy-spatial-choices', '.policy-order-delta', '[data-submission-primary="open-delegation"]']);
+  const policyCompactOverflow = await page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth));
+  if (policyCompactOverflow !== 0) throw new Error(`Compact policy choice horizontally overflows by ${policyCompactOverflow}px`);
+  await page.screenshot({ path: new URL('15-policy-keep-range-4x3.png', artifactDir).pathname });
+  await page.setViewportSize({ width: 1280, height: 720 });
+
   if (errors.length) throw new Error(`Browser errors:\n${errors.join('\n')}`);
   const report = {
     status: 'ENCOUNTER_TRANSITION_PASS',
@@ -202,6 +245,18 @@ try {
       worldState: { knowledge: scoutedFrontier.knowledge, corridorsScouted: scoutedFrontier.corridorsScouted, threat: scoutedFrontier.threat },
       compactResultOverflow: centralCompactOverflow,
       compactMapOverflow: scoutedCompactOverflow,
+    },
+    policyChoice: {
+      recordKind: 'ADJACENT_SHOOT_BLOCKED',
+      blockedCount: blockedShoot?.count ?? 0,
+      choices: 2,
+      pointerPushFirst: true,
+      keyboardBindings: ['1/Q', '2/E'],
+      selected: 'KEEP_RANGE',
+      order: policyChanged.policy,
+      keepRange: policyChanged.policyDirectives.keepRange,
+      changedSlots: 1,
+      compactOverflow: policyCompactOverflow,
     },
     browserErrors: errors,
   };

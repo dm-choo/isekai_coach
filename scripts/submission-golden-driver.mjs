@@ -140,9 +140,10 @@ try {
     const scoutedMinute = run.worldMinute;
     await page.keyboard.press('Space');
     await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'POLICY_REVIEW');
-    const evidenceText = await page.locator('.policy-evidence-focus').innerText();
-    if (!evidenceText.includes('ACTUAL RECORD') || !evidenceText.includes('사격 판정') || !evidenceText.includes('유효 사거리')) {
-      throw new Error(`Policy review is not grounded in the previous combat record: ${evidenceText}`);
+    const policyEntry = await submissionSnapshot(page);
+    const evidence = page.locator('[data-policy-evidence="ADJACENT_SHOOT_BLOCKED"]');
+    if (await evidence.count() !== 1 || Number(await evidence.getAttribute('data-blocked-count')) !== (policyEntry.lastCombatSummary?.blockedByPolicy?.SHOOT?.count ?? 0) || await page.locator('[data-policy-choice]').count() !== 2) {
+      throw new Error('Policy review is not grounded in the previous combat record and two spatial responses');
     }
     if (verifyP5) await assertPrimaryAction(page, 'open-delegation', 'SPACE', false);
     await page.locator('.policy-choice-list button').filter({ hasText: '사격 거리를 계속 지킨다' }).click();

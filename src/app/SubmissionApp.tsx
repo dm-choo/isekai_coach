@@ -49,6 +49,16 @@ export function SubmissionApp() {
         if (controller.performPrimaryAction()) event.preventDefault();
         return;
       }
+      if (snapshot.mode === 'POLICY_REVIEW') {
+        if (['1', 'q', 'Q'].includes(event.key)) {
+          event.preventDefault();
+          controller.choosePolicy('PUSH_FIRST');
+        } else if (['2', 'e', 'E'].includes(event.key)) {
+          event.preventDefault();
+          controller.choosePolicy('KEEP_RANGE');
+        }
+        return;
+      }
       if (snapshot.mode !== 'COMBAT' || snapshot.combat?.mode !== 'PLAYER_TURN') return;
       const directions = { w: 'UP', ArrowUp: 'UP', a: 'LEFT', ArrowLeft: 'LEFT', s: 'DOWN', ArrowDown: 'DOWN', d: 'RIGHT', ArrowRight: 'RIGHT' } as const;
       const direction = directions[event.key as keyof typeof directions];
@@ -298,27 +308,52 @@ function ScoutedStage({ snapshot, controller }: { readonly snapshot: SubmissionS
 
 function PolicyReviewStage({ snapshot, controller }: { readonly snapshot: SubmissionSnapshot; readonly controller: SubmissionController }) {
   const shootBlocked = snapshot.lastCombatSummary?.blockedByPolicy.SHOOT;
-  const choices: readonly { id: SubmissionPolicyChoice; eyebrow: string; title: string; detail: string; icon: string }[] = [
-    { id: 'PUSH_FIRST', eyebrow: '접근 대응', title: '가까우면 먼저 밀친다', detail: '밀치기를 1순위로 올려 공간을 직접 되찾습니다.', icon: 'intent-push.svg' },
-    { id: 'KEEP_RANGE', eyebrow: '거리 보존', title: '사격 거리를 계속 지킨다', detail: '최소 사거리 안으로 들어오면 공격보다 이동을 우선합니다.', icon: 'intent-move.svg' },
+  const choices: readonly { id: SubmissionPolicyChoice; key: string; title: string; icon: string; effect: string }[] = [
+    { id: 'PUSH_FIRST', key: '1', title: '가까우면 먼저 밀친다', icon: 'intent-push.svg', effect: 'PUSH_4_TO_1' },
+    { id: 'KEEP_RANGE', key: '2', title: '사격 거리를 계속 지킨다', icon: 'intent-move.svg', effect: 'KEEP_DISTANCE_3' },
   ];
+  const defaultPolicy = ['EVADE', 'POSITION', 'SHOOT', 'PUSH', 'EMPTY'] as const;
+  const changedPolicyId = snapshot.policyChoice === 'PUSH_FIRST' ? 'PUSH' : snapshot.policyChoice === 'KEEP_RANGE' ? 'POSITION' : undefined;
   return <div className="submission-policy-review">
     <div className="submission-sky" /><div className="submission-canopy" />
-    <section className="policy-evidence-focus">
-      <small>LAST COMBAT · ACTUAL RECORD</small><h1>왜 사격하지<br />못했을까?</h1>
-      <div className="evidence-lane"><span className="evidence-ally"><img src={`${BASE_URL}assets/submission/archer-v1.png`} alt="원거리 동료" /><i /></span><b>1</b><span className="evidence-enemy"><img src={`${BASE_URL}assets/submission/goblin-warrior-v1.png`} alt="고블린 전사" /></span></div>
-      <article className="evidence-reason"><img src={`${BASE_URL}assets/ui/intent-shoot.svg`} alt="" /><div><small>사격 판정 · {shootBlocked?.count ?? 0}회 막힘</small><strong>{shootBlocked?.reason ?? '유효 사거리에 적이 없음'}</strong></div></article>
-      <p>활은 바로 앞 2칸을 쏠 수 없다. 바꾼 정책은 이전 기록을 고치지 않고 다음 작전부터 적용된다.</p>
+    <section className="policy-record-scene" data-policy-evidence="ADJACENT_SHOOT_BLOCKED" data-blocked-count={shootBlocked?.count ?? 0} aria-label={`직전 전투에서 적이 거리 1까지 접근해 사격이 ${shootBlocked?.count ?? 0}회 막힘`}>
+      <header aria-hidden="true"><span className="scout-record-glyph"><i /><i /><b /></span><i /><b>×{shootBlocked?.count ?? 0}</b></header>
+      <div className="policy-spatial-lane is-record" aria-hidden="true">
+        {Array.from({ length: 6 }, (_, index) => <i key={index} />)}
+        <span className="policy-lane-unit is-ally"><img src={`${BASE_URL}assets/submission/archer-v1.png`} alt="" /></span>
+        <span className="policy-lane-unit is-enemy"><img src={`${BASE_URL}assets/submission/goblin-warrior-v1.png`} alt="" /></span>
+        <b className="policy-one-cell">1</b>
+        <span className="policy-blocked-shot"><img src={`${BASE_URL}assets/ui/intent-shoot.svg`} alt="" /><i /></span>
+      </div>
+      <output className="policy-record-fact"><span><img src={`${BASE_URL}assets/ui/intent-shoot.svg`} alt="" /><i /></span><b>1 &lt; 3</b><small>{shootBlocked?.reason ?? '유효 사거리에 적이 없음'}</small></output>
     </section>
-    <section className="policy-choice-panel">
-      <header><small>CHANGE ONE RULE</small><h2>이 상황에 어떻게 대응할까?</h2><p>둘 다 안전과 시간을 다르게 바꾼다. 결과는 위임 작전에서 확인한다.</p></header>
-      <div className="policy-choice-list">{choices.map((choice) => <button key={choice.id} type="button" className={snapshot.policyChoice === choice.id ? 'is-selected' : ''} onClick={() => controller.choosePolicy(choice.id)}>
-        <i><img src={`${BASE_URL}assets/ui/${choice.icon}`} alt="" /></i><span><small>{choice.eyebrow}</small><strong>{choice.title}</strong><em>{choice.detail}</em></span><b>{snapshot.policyChoice === choice.id ? '✓' : '○'}</b>
+    <section className="policy-spatial-choices" data-policy-selection={snapshot.policyChoice ?? 'NONE'}>
+      <div className="policy-choice-list">{choices.map((choice) => <button key={choice.id} type="button" data-policy-choice={choice.id} data-policy-effect={choice.effect} className={snapshot.policyChoice === choice.id ? 'is-selected' : ''} aria-pressed={snapshot.policyChoice === choice.id} onClick={() => controller.choosePolicy(choice.id)}>
+        <kbd>{choice.key}</kbd>
+        <div className={`policy-spatial-lane is-choice is-${choice.id.toLowerCase()}`} aria-hidden="true">
+          {Array.from({ length: 6 }, (_, index) => <i key={index} />)}
+          <span className="policy-choice-ally is-before"><img src={`${BASE_URL}assets/submission/archer-v1.png`} alt="" /></span>
+          <span className="policy-choice-ally is-after"><img src={`${BASE_URL}assets/submission/archer-v1.png`} alt="" /></span>
+          <span className="policy-choice-enemy is-before"><img src={`${BASE_URL}assets/submission/goblin-warrior-v1.png`} alt="" /></span>
+          <span className="policy-choice-enemy is-after"><img src={`${BASE_URL}assets/submission/goblin-warrior-v1.png`} alt="" /></span>
+          <b><img src={`${BASE_URL}assets/ui/${choice.icon}`} alt="" /></b><em />
+        </div>
+        <span className="policy-choice-label"><img src={`${BASE_URL}assets/ui/${choice.icon}`} alt="" /><strong>{choice.title}</strong><small>{choice.id === 'PUSH_FIRST' ? '4 → 1' : '1 → 3+'}</small></span>
+        <b className="policy-choice-check" aria-hidden="true">{snapshot.policyChoice === choice.id ? '✓' : ''}</b>
       </button>)}</div>
-      <div className="policy-order-preview"><small>현재 평가 순서</small>{snapshot.policy.map((policyId, index) => <span key={policyId} className={index === 0 ? 'is-first' : ''}><i>{index + 1}</i>{policyName(policyId)}</span>)}</div>
+      <div className="policy-order-delta" data-policy-order={snapshot.policy.join('>')} data-policy-directive={snapshot.policyDirectives.keepRange ? 'KEEP_RANGE' : 'NONE'}>
+        <span className="policy-order-row is-before"><small>NOW</small>{defaultPolicy.map((policyId, index) => <PolicySlot key={policyId} policyId={policyId} rank={index + 1} changed={changedPolicyId === policyId} />)}</span>
+        <i aria-hidden="true" />
+        <span className={`policy-order-row is-after ${snapshot.policyChoice ? '' : 'is-pending'}`}><small>NEXT</small>{snapshot.policyChoice ? snapshot.policy.map((policyId, index) => <PolicySlot key={policyId} policyId={policyId} rank={index + 1} changed={changedPolicyId === policyId} directive={policyId === 'POSITION' && snapshot.policyDirectives.keepRange} />) : defaultPolicy.map((policyId, index) => <b key={policyId} aria-hidden="true">{index + 1}</b>)}</span>
+      </div>
     </section>
-    <button type="button" className="submission-flow-primary" data-submission-primary="open-delegation" data-primary-key="SPACE" disabled={!snapshot.policyChoice} onClick={controller.performPrimaryAction}><span><small>{snapshot.policyChoice ? '변경은 다음 작전부터 적용' : '대응 하나를 선택'}</small><strong>위임 경로 확인</strong></span><kbd>SPACE</kbd></button>
+    <button type="button" className="submission-flow-primary is-icon-first policy-review-primary" data-submission-primary="open-delegation" data-primary-key="SPACE" disabled={!snapshot.policyChoice} aria-label={snapshot.policyChoice ? '선택한 정책으로 위임 경로 확인' : '정책 대응 하나를 먼저 선택'} onClick={controller.performPrimaryAction}>{snapshot.policyChoice ? <img src={`${BASE_URL}assets/ui/${snapshot.policyChoice === 'PUSH_FIRST' ? 'intent-push.svg' : 'intent-move.svg'}`} alt="" /> : <b aria-hidden="true">?</b>}<i className="flow-forward" aria-hidden="true" /><span className="policy-route-glyph" aria-hidden="true"><i /><i /><b /></span><kbd>SPACE</kbd></button>
   </div>;
+}
+
+function PolicySlot({ policyId, rank, changed, directive = false }: { readonly policyId: SubmissionSnapshot['policy'][number]; readonly rank: number; readonly changed: boolean; readonly directive?: boolean }) {
+  const icon = policyId === 'SHOOT' ? 'intent-shoot.svg' : policyId === 'PUSH' ? 'intent-push.svg' : 'intent-move.svg';
+  return <span className={`policy-symbol is-${policyId.toLowerCase()} ${changed ? 'is-changed' : ''} ${directive ? 'has-range-directive' : ''}`} data-policy-slot={policyId} data-policy-rank={rank} aria-label={`${rank}순위 ${policyName(policyId)}${directive ? ', 최소 사거리 유지' : ''}`}><i>{rank}</i>{policyId === 'EMPTY' ? <b /> : <img src={`${BASE_URL}assets/ui/${icon}`} alt="" />}{directive && <em>3+</em>}</span>;
 }
 
 function DelegationPlanStage({ snapshot, controller }: { readonly snapshot: SubmissionSnapshot; readonly controller: SubmissionController }) {

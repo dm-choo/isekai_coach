@@ -159,6 +159,25 @@ try {
   }
   await page.screenshot({ path: new URL('08-public-four-corridors-scouted.png', artifactDir).pathname });
 
+  await page.keyboard.press('Space');
+  await page.locator('[data-policy-evidence="ADJACENT_SHOOT_BLOCKED"]').waitFor();
+  if (await page.locator('[data-policy-choice]').count() !== 2 || await page.locator('.policy-spatial-lane.is-choice').count() !== 2) {
+    throw new Error('Public policy review lost its two spatial response choices');
+  }
+  const publicPolicyPrimary = page.locator('[data-submission-primary="open-delegation"]');
+  if (await publicPolicyPrimary.isEnabled()) throw new Error('Public policy continuation is enabled before a choice');
+  await page.keyboard.press('2');
+  await page.locator('[data-policy-choice="KEEP_RANGE"].is-selected').waitFor();
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('isekai-coach:submission:v2') ?? 'null')?.policyChoice === 'KEEP_RANGE');
+  const publicPolicySave = await savedSubmission(page);
+  if (publicPolicySave?.policyChoice !== 'KEEP_RANGE' || publicPolicySave?.policy?.join('>') !== 'EVADE>POSITION>SHOOT>PUSH>EMPTY' || !publicPolicySave?.policyDirectives?.keepRange) {
+    throw new Error(`Public policy shortcut did not set authoritative keep-range state: ${JSON.stringify(publicPolicySave)}`);
+  }
+  if (!await publicPolicyPrimary.isEnabled() || await page.locator('.policy-order-row.is-after .is-changed.has-range-directive').count() !== 1) {
+    throw new Error('Public policy choice lacks selected feedback or exact changed slot');
+  }
+  await page.screenshot({ path: new URL('09-public-policy-spatial-choice.png', artifactDir).pathname });
+
   const regression = {};
   for (const [path, expectedTitle] of [['slice1', 'Slice1'], ['slice2', 'Slice2']]) {
     const regressionPage = await context.newPage();
@@ -187,6 +206,7 @@ try {
     allyPolicy: { rankedForecast: true, detailDefaultClosed: true, publicFirstJointEncounter: true },
     encounterReturn: { titleFree: true, pathSecured: true, timeApplied: publicBattleMinutes, corridorProgress: afterJointSave.corridorProgress, nextInput: 'D' },
     centralScouting: { titleFree: true, centerSecured: true, timeApplied: publicCenterMinutes, corridorsBeforeConfirmation: false, corridorsAfterConfirmation: 4, knownThreats: 2, worldState: { knowledge: afterCenterFrontier.knowledge, corridorsScouted: afterCenterFrontier.corridorsScouted, threat: afterCenterFrontier.threat } },
+    policyChoice: { recordLinked: true, spatialResponses: 2, keyboardChoice: '2', selected: publicPolicySave.policyChoice, order: publicPolicySave.policy, keepRange: publicPolicySave.policyDirectives.keepRange },
     regression,
     browserErrors: errors,
   };

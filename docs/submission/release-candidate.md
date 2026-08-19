@@ -35,8 +35,9 @@ P7은 기능 추가가 아니라 하나의 commit을 재현 가능한 제품 후
 11. 복도 정지→적 reveal→SPACE→같은 전장 입력의 연속 조우
 12. 첫 합동 승리→경로 안전화→HP·시간 반영→200m 복귀
 13. 중앙 방 승리→중앙점 확보→확인 뒤 네 방향 통로·위험 정찰
-14. 16:9·4:3 layout과 console/page/request errors 0건
-15. 기존 Slice 1·2 회귀
+14. 직전 사격 실패→두 공간 대응→한 정책 변화와 pointer/keyboard parity
+15. 16:9·4:3 layout과 console/page/request errors 0건
+16. 기존 Slice 1·2 회귀
 
 중간 단계가 실패하면 뒤 단계를 실행하지 않는다. technical pass는 재미, 직관성 또는 pacing 통과를 뜻하지 않는다.
 

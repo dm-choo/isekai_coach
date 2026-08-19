@@ -13,6 +13,7 @@ related:
   - p13-retrospective.md
   - p14-retrospective.md
   - p15-retrospective.md
+  - p16-retrospective.md
 ---
 
 # 제출본 수용 기준 증거 매트릭스
@@ -53,7 +54,7 @@ related:
 | 불가 행동은 state 불변과 구체 이유 | controller early-activation test + blocker copy | A |
 | 적 Intent/관리자 plan/동료 prediction 비색상 문법 | 기존 `verify:combat-ux`, Slice 1 browser regression | A+V |
 | 같은 적 다수의 source→path→target 추적 | Slice 1/2 combat regression과 multi-enemy intent tests | A |
-| 정책 화면이 실제 행동·막힌 상위 규칙을 먼저 제시 | golden `.policy-evidence-focus` assertion | A+V |
+| 정책 화면이 실제 실패→두 공간 대응→정확히 한 정책 변화로 이어짐 | encounter lifecycle의 blocked-count parity, 두 lane, pointer·`1/Q`·`2/E`, order/directive delta와 text-off·양 비율 캡처 | A+V, 선택 차이 이해는 H REQUIRED |
 | 위임 한 장에 목적지·경로·시간·보급·중단 조건 | golden delegation plan copy assertion + `09-revised-plan` | A+V |
 
 ## World and simulation
@@ -87,7 +88,7 @@ related:
 | first solo combat | `npm run verify:submission:solo-combat` | threat→unsafe revise→safe execute→full controls, both ratios, error 0 |
 | normal combat hierarchy | `npm run verify:submission:normal-combat` | scene-first action dock, result focus, both ratios, error 0 |
 | ally policy causality | `npm run verify:submission:ally-policy` | closed forecast, 5-slot source, plan recomputation, forecast/execution policy identity, both ratios, error 0 |
-| encounter lifecycle | `npm run verify:submission:encounter-transition` | title-free threat reveal, same-stage input, HP/time/200m return, central check→4-route scouting, both ratios, error 0 |
+| encounter and decision lifecycle | `npm run verify:submission:encounter-transition` | threat reveal→same-stage input→200m return→central 4-route scouting→record-linked spatial policy choice, both ratios, error 0 |
 | failure contract | `npm run verify:submission:failure` | safe retreat, persistent cost, no reroll, browser error 0 |
 | product golden | `npm run verify:submission:golden` | EXPANDED, both ratios, browser error 0 |
 | cumulative technical RC | `npm run verify:submission-rc` | clean exact SHA, submission + Slice 1·2 전부 통과 |

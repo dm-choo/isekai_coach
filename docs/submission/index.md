@@ -22,6 +22,8 @@ related:
   - p14-retrospective.md
   - p15-central-scouting-contract.md
   - p15-retrospective.md
+  - p16-policy-spatial-choice-contract.md
+  - p16-retrospective.md
   - release-candidate.md
 ---
 
@@ -53,6 +55,8 @@ OpenAI Game Builders Seoul 제출용 Web Build가 전체 게임 설계에서 선
 - [P14 retrospective](./p14-retrospective.md): 경로 안전화 결과의 시각 판단·상태 수명 오류·검증 비용 회고
 - [P15 central scouting contract](./p15-central-scouting-contract.md): 중앙 방 확보→네 방향 통로 reveal의 공간 인과 계약
 - [P15 retrospective](./p15-retrospective.md): 지도 중심 정찰 장면의 시각 판단·fixture 결함·검증 비용 회고
+- [P16 policy spatial choice contract](./p16-policy-spatial-choice-contract.md): 실제 기록→두 공간 대응→한 정책 변화의 선택 계약
+- [P16 retrospective](./p16-retrospective.md): 정책 선택의 공간 비교·focus/selection 분리·검증 비용 회고
 - [Release candidate gate](./release-candidate.md): 재현 가능한 기술 검증, 배포·복구와 사람 gate
 
 ## Status summary
