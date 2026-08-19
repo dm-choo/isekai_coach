@@ -1,6 +1,6 @@
 ---
 title: P19 Anchor Handoff Retrospective
-status: under-validation
+status: technical-candidate
 last_updated: 2026-08-20
 related:
   - p19-anchor-handoff-contract.md
@@ -23,6 +23,9 @@ D와 pointer hold는 동일한 authoritative action을 사용해 step당 5m를 �
 - production build: pass; P18 공개본 대비 CSS `117,340→122,118` bytes(+4,778), SubmissionApp JS `115,778→118,605` bytes(+2,827). 이 중 공개 P0 휴식 보완은 최초 P19 build보다 CSS +1,216, JS +1,957 bytes다.
 - 직접 비교: golden `12-anchor-approach`, `12-anchor-approach-text-off`, `12-anchor-approach-4x3`, `13-anchor-ready`, `13-anchor-ready-text-off`, `13-anchor-ready-4x3`
 - 1280×720과 960×720에서 protagonist·anchor·route rail·primary가 viewport 안이고 overflow 0
+- exact-SHA `a54acc8d22fa0268fa19295ca4b786b816800f83` 누적 RC: `TECHNICAL_PASS`, clean worktree, 13 files/94 tests, 제출본 EXPANDED, Slice1과 Slice2 4타일·7전투 회귀 통과
+- 공개 release `/srv/ooh/releases/20260819T155637Z-a54acc8-submission`과 root·Slice1/2 health pass
+- `npm run verify:submission:public`: `PUBLIC_BROWSER_PASS`; 공개 중앙 checkpoint에서 휴식 20분·HP +3·물/식량 각 -1, KEEP_RANGE TIME_LIMIT HP 7, PUSH_FIRST SECURED, P19 400m·8분·protagonistAtAnchor true·territory OUTSIDE·보급 불변, pointer/keyboard와 world scroll, Slice1/2 title, browser error 0
 
 자동·시각 증거는 input/state/time/presentation parity를 닫는다. 신규 사용자가 설명 없이 `동료가 길을 열었고 주인공이 그곳까지 가서 영역을 연결해야 한다`고 설명하는지는 human gate 전까지 REQUIRED다.
 
@@ -65,7 +68,7 @@ exact-SHA `16b2045e3359ffe26a58bdf3f81b2e4a127420a6`은 누적 RC를 통과했�
 
 정본에 이미 있는 안전 방 휴식 규칙을 중앙 방과 위임 사이에 연결했다. 동료 HP가 6 이하이고 물·식량이 있으면 다음 단일 primary는 `물+식량 −1 · 시계 20 → HP +3 · SPACE`가 된다. 실행 뒤에도 SCOUTED 장면을 유지하고 시간·보급·HP가 실제 state에 반영된 다음, primary가 전투 기록으로 바뀐다. 공개 정상 상태는 HP `6→9`, 보급 `1/1→0/0`, 시간 `+20`이 되어 KEEP_RANGE `9→7` 뒤 PUSH_FIRST `7→3`으로 실제 연속 cycle을 완료한다.
 
-로컬 production build에 공개 verifier의 동일 save/reload 입력을 적용해 rest→TIME_LIMIT→SCOUTED checkpoint restore→SECURED→P19 400m 도착까지 통과했다. root-only 로컬 preview라 마지막 `/slice1/` title 회귀에서 의도대로 중단됐으므로, 이 결과를 full public pass라고 부르지 않는다. 보완 commit의 exact-SHA RC·재배포·공개 root와 Slice1/2 검증을 다시 통과해야 release blocker가 닫힌다.
+로컬 production build에 공개 verifier의 동일 save/reload 입력을 적용해 rest→TIME_LIMIT→SCOUTED checkpoint restore→SECURED→P19 400m 도착까지 먼저 통과시켰다. root-only 로컬 preview의 `/slice1/` title 중단은 full public pass로 부르지 않았다. 이후 보완 commit의 exact-SHA RC, 재배포, 공개 root와 Slice1/2 검증까지 모두 다시 통과해 release blocker를 닫았다.
 
 ## Next rules
 
