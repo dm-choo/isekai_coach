@@ -33,6 +33,26 @@ export interface ExpeditionSupplies {
   readonly light: number;
 }
 
+export interface PolicyCombatSummary {
+  readonly encounterId: string;
+  readonly tileIndex: number;
+  readonly policy: readonly SlicePolicyId[];
+  readonly selectedCounts: Readonly<Partial<Record<SlicePolicyId, number>>>;
+  readonly primaryBlocked?: {
+    readonly policyId: SlicePolicyId;
+    readonly reason: string;
+    readonly count: number;
+  };
+  readonly turns: number;
+  readonly vitalsBefore: ExpeditionVitals;
+  readonly vitalsAfter: ExpeditionVitals;
+}
+
+export interface PolicyCombatComparison {
+  readonly before: PolicyCombatSummary;
+  readonly after: PolicyCombatSummary;
+}
+
 export interface Slice2RunOptions {
   readonly playbackSpeed?: number;
   readonly phaseDelayScale?: number;
@@ -58,6 +78,8 @@ export interface Slice2RunSnapshot {
   readonly canAdvanceTile: boolean;
   readonly attempt: number;
   readonly lastPolicyTrace: readonly PolicyExecutionStep[];
+  readonly lastPolicySummary?: PolicyCombatSummary;
+  readonly policyComparison?: PolicyCombatComparison;
   readonly worldMinute: number;
   readonly worldTime: string;
   readonly isNight: boolean;
@@ -122,6 +144,9 @@ export class Slice2RunController {
   private encounterCheckpoint: EncounterCheckpoint | null = null;
   private attempt = 1;
   private lastPolicyTrace: readonly PolicyExecutionStep[] = [];
+  private lastPolicySummary: PolicyCombatSummary | undefined;
+  private policyRevisionBaseline: PolicyCombatSummary | undefined;
+  private policyComparison: PolicyCombatComparison | undefined;
   private traversal: CorridorTraversal | undefined;
   private snapshot: Slice2RunSnapshot;
 
@@ -240,6 +265,8 @@ export class Slice2RunController {
     const destination = index + offset;
     if (index < 0 || index >= this.policy.length || destination < 0 || destination >= this.policy.length) return;
     const next = [...this.policy];
+    if (!this.policyRevisionBaseline && this.lastPolicySummary) this.policyRevisionBaseline = this.lastPolicySummary;
+    this.policyComparison = undefined;
     [next[index], next[destination]] = [next[destination], next[index]];
     this.policy = next;
     this.notice = '원거리 동료의 전술 우선순위를 변경했다.';
@@ -283,13 +310,29 @@ export class Slice2RunController {
     if (combat.mode !== 'VICTORY') return;
     const administrator = combat.state.units.find((unit) => unit.id === SLICE2_ADMINISTRATOR_ID);
     const ally = combat.state.units.find((unit) => unit.id === SLICE2_ALLY_ID);
-    this.vitals = {
+    const vitalsAfter = {
       administratorHp: administrator?.hp ?? this.vitals.administratorHp,
       allyHp: ally?.hp ?? this.vitals.allyHp,
     };
+    const encounter = encounterAt(this.currentTile(), this.currentNodeId);
+    const summary = summarizePolicyCombat(
+      encounter?.id ?? combat.scenarioId,
+      this.currentTileIndex,
+      this.policy,
+      combat.policyHistory,
+      combat.state.turn,
+      this.encounterCheckpoint?.vitals ?? this.vitals,
+      vitalsAfter,
+    );
+    this.vitals = vitalsAfter;
     this.elapsedBattleTurns += combat.state.turn;
     this.worldMinute += combat.state.turn;
     this.lastPolicyTrace = [...combat.lastPolicyTrace];
+    this.lastPolicySummary = summary;
+    if (this.policyRevisionBaseline && !samePolicy(this.policyRevisionBaseline.policy, summary.policy)) {
+      this.policyComparison = { before: this.policyRevisionBaseline, after: summary };
+      this.policyRevisionBaseline = undefined;
+    }
     const centerCleared = this.currentNodeId === 'room-center';
     this.replaceCurrentTile(resolveNodeEncounter(this.currentTile(), this.currentNodeId));
     this.releaseCombat();
@@ -331,6 +374,9 @@ export class Slice2RunController {
     this.restCount = 0;
     this.policy = [...DEFAULT_SLICE_POLICY];
     this.lastPolicyTrace = [];
+    this.lastPolicySummary = undefined;
+    this.policyRevisionBaseline = undefined;
+    this.policyComparison = undefined;
     this.notice = '네 개의 월드 타일을 지나 고블린 봉쇄선을 돌파한다.';
     this.encounterCheckpoint = null;
     this.traversal = undefined;
@@ -487,6 +533,8 @@ export class Slice2RunController {
       canAdvanceTile: this.mode === 'EXPLORE' && this.canAdvanceTile(),
       attempt: this.attempt,
       lastPolicyTrace: this.lastPolicyTrace,
+      lastPolicySummary: this.lastPolicySummary,
+      policyComparison: this.policyComparison,
       worldMinute: this.currentDisplayMinute(),
       worldTime: formatWorldTime(this.currentDisplayMinute()),
       isNight: isNightMinute(this.currentDisplayMinute()),
@@ -551,4 +599,48 @@ function corridorForDoor(roomId: string, heading: WorldDirection): CorridorTrave
     progressMeters: 0,
     distanceMeters: 400,
   };
+}
+
+function summarizePolicyCombat(
+  encounterId: string,
+  tileIndex: number,
+  policy: readonly SlicePolicyId[],
+  history: readonly PolicyExecutionStep[],
+  turns: number,
+  vitalsBefore: ExpeditionVitals,
+  vitalsAfter: ExpeditionVitals,
+): PolicyCombatSummary {
+  const selectedCounts: Partial<Record<SlicePolicyId, number>> = {};
+  const blockedCounts = new Map<string, { policyId: SlicePolicyId; reason: string; count: number }>();
+  for (const step of history) {
+    if (step.selectedPolicyId) {
+      selectedCounts[step.selectedPolicyId] = (selectedCounts[step.selectedPolicyId] ?? 0) + 1;
+    }
+    for (const evaluation of step.evaluations) {
+      if (evaluation.executable) continue;
+      const key = `${evaluation.policyId}\u0000${evaluation.reason}`;
+      const current = blockedCounts.get(key);
+      blockedCounts.set(key, {
+        policyId: evaluation.policyId,
+        reason: evaluation.reason,
+        count: (current?.count ?? 0) + 1,
+      });
+    }
+  }
+  const primaryBlocked = [...blockedCounts.values()]
+    .sort((left, right) => right.count - left.count || policy.indexOf(left.policyId) - policy.indexOf(right.policyId))[0];
+  return {
+    encounterId,
+    tileIndex,
+    policy: [...policy],
+    selectedCounts,
+    ...(primaryBlocked ? { primaryBlocked } : {}),
+    turns,
+    vitalsBefore: { ...vitalsBefore },
+    vitalsAfter: { ...vitalsAfter },
+  };
+}
+
+function samePolicy(left: readonly SlicePolicyId[], right: readonly SlicePolicyId[]): boolean {
+  return left.length === right.length && left.every((policyId, index) => policyId === right[index]);
 }

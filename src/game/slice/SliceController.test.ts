@@ -184,6 +184,7 @@ describe('SliceController barrier-guardian encounter', () => {
     expect(snapshot.eventHistory).toEqual(expect.arrayContaining([
       expect.objectContaining({ type: 'INTENT_CANCELLED', reason: 'MELEE_HIT' }),
     ]));
+    expect(snapshot.policyHistory.length).toBeGreaterThan(snapshot.lastPolicyTrace.length);
     expect(snapshot.eventHistory.some((event) => event.type === 'STATUS_APPLIED' && event.status === 'STUN')).toBe(false);
     expect(snapshot.state.intents[0]?.abilityId).toBe('guardian-summon');
   });

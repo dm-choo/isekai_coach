@@ -106,6 +106,7 @@ export interface SliceSnapshot {
   readonly policy: readonly SlicePolicyId[];
   readonly activePolicyStep?: PolicyExecutionStep;
   readonly lastPolicyTrace: readonly PolicyExecutionStep[];
+  readonly policyHistory: readonly PolicyExecutionStep[];
   readonly notice: string;
   readonly attempt: number;
   readonly plannedActions: readonly PlannedPlayerAction[];
@@ -152,6 +153,7 @@ export class SliceController {
   private attempt = 1;
   private playbackAbortController = new AbortController();
   private lastPolicyTrace: PolicyExecutionStep[] = [];
+  private policyHistory: PolicyExecutionStep[] = [];
   private activePolicyStep: PolicyExecutionStep | undefined;
   private notice: string;
   private plannedActions: CombatAction[] = [];
@@ -323,6 +325,7 @@ export class SliceController {
     this.phaseSerial += 1;
     this.presentedEventCount = 0;
     this.lastPolicyTrace = [];
+    this.policyHistory = [];
     this.activePolicyStep = undefined;
     this.plannedActions = [];
     this.hoveredActionId = undefined;
@@ -390,6 +393,7 @@ export class SliceController {
       };
       this.activePolicyStep = trace;
       this.lastPolicyTrace = [...this.lastPolicyTrace, trace];
+      this.policyHistory = [...this.policyHistory, trace];
       this.notice = `${trace.selectedName} · ${trace.reason}`;
       this.publish();
       await this.phaseDelay(360, runGeneration);
@@ -646,6 +650,7 @@ export class SliceController {
       policy: this.policyOrder,
       activePolicyStep: this.activePolicyStep,
       lastPolicyTrace: this.lastPolicyTrace,
+      policyHistory: this.policyHistory,
       notice: this.notice,
       attempt: this.attempt,
       plannedActions: this.plannedActions.map((action, index) => ({

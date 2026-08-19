@@ -1,8 +1,41 @@
 import { describe, expect, it } from 'vitest';
 import { BattleEngine, moveAction, slamAction } from '../combat';
+import { DEFAULT_SLICE_POLICY, evaluatePolicy, type SlicePolicyId } from '../slice';
 import { createEncounterSpec, createSlice2EncounterScenario } from './scenarios';
 
 describe('Slice 2 goblin encounters', () => {
+  it('keeps evade-first and shoot-first as a real safety-versus-damage tradeoff', () => {
+    const base = createSlice2EncounterScenario('policy-tradeoff', 'GOBLIN_ARCHER', { administratorHp: 14, allyHp: 12 });
+    const scenario = {
+      ...base,
+      units: base.units.map((unit) => {
+        if (unit.id === 'administrator-slice2') return { ...unit, position: { x: 3, y: 0 } };
+        if (unit.id === 'archer-companion-slice2') return { ...unit, position: { x: 1, y: 1 } };
+        if (unit.id === 'goblin-archer') return { ...unit, position: { x: 5, y: 1 } };
+        return unit;
+      }),
+    };
+
+    const resolveWith = (policy: readonly SlicePolicyId[]) => {
+      const engine = new BattleEngine(scenario);
+      engine.beginTurn();
+      const decision = evaluatePolicy(engine.state, 'archer-companion-slice2', policy);
+      expect(decision.selected?.action).toBeDefined();
+      engine.performStudentAction(decision.selected!.action!);
+      engine.resolveEnemyIntents();
+      return {
+        selected: decision.selected?.policyId,
+        allyHp: engine.state.units.find((unit) => unit.id === 'archer-companion-slice2')?.hp,
+        enemyHp: engine.state.units.find((unit) => unit.id === 'goblin-archer')?.hp,
+      };
+    };
+
+    const safe = resolveWith(DEFAULT_SLICE_POLICY);
+    const aggressive = resolveWith(['SHOOT', 'EVADE', 'POSITION', 'PUSH', 'EMPTY']);
+    expect(safe).toEqual({ selected: 'EVADE', allyHp: 12, enemyHp: 2 });
+    expect(aggressive).toEqual({ selected: 'SHOOT', allyHp: 11, enemyHp: 1 });
+  });
+
   it('locks long shot, fast advance and ground bomb as distinct intents', () => {
     const engine = new BattleEngine(createSlice2EncounterScenario(
       'trio-test',

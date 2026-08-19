@@ -27,6 +27,8 @@ let groundAnchorCopyVerified = false;
 let progressiveDisclosureVerified = false;
 let minimapRevealVerified = false;
 let firstCombatCueVerified = false;
+let policyEvidenceVerified = false;
+let policyComparisonVerified = false;
 
 await mkdir(artifactDir, { recursive: true });
 
@@ -89,6 +91,12 @@ try {
           throw new Error('Run and party information did not appear after the first battle');
         }
         await page.locator('.party-toggle').click();
+        const firstSummary = (await runSnapshot(page)).lastPolicySummary;
+        if (!firstSummary || Object.values(firstSummary.selectedCounts).reduce((sum, count) => sum + count, 0) === 0) {
+          throw new Error('Completed combat did not preserve ally policy evidence');
+        }
+        await page.locator('.policy-evidence:not(.policy-comparison)').waitFor();
+        policyEvidenceVerified = true;
         const initialPolicy = (await runSnapshot(page)).policy;
         await page.getByRole('button', { name: /사격.*위로/ }).click();
         const reorderedPolicy = (await runSnapshot(page)).policy;
@@ -99,6 +107,17 @@ try {
         if (JSON.stringify(initialPolicy) !== JSON.stringify(restoredPolicy)) throw new Error('Party policy editor did not restore policy order');
         await page.getByRole('button', { name: '닫기' }).click();
         partyPolicyVerified = true;
+        continue;
+      }
+      if (run.policyComparison && !policyComparisonVerified) {
+        await page.locator('.party-toggle').click();
+        await page.locator('.policy-comparison').waitFor();
+        const beforeActions = Object.values(run.policyComparison.before.selectedCounts).reduce((sum, count) => sum + count, 0);
+        const afterActions = Object.values(run.policyComparison.after.selectedCounts).reduce((sum, count) => sum + count, 0);
+        if (beforeActions === 0 || afterActions === 0) throw new Error('Policy comparison lacks actual action counts');
+        await capture(page, '02e-policy-comparison');
+        await page.getByRole('button', { name: '닫기' }).click();
+        policyComparisonVerified = true;
         continue;
       }
       if (run.tile.corridorsScouted && !minimapRevealVerified) {
@@ -249,6 +268,7 @@ try {
   if (!intentSequenceVerified || !groundAnchorCopyVerified) throw new Error('Player-readable BODY/GROUND intent grammar was not fully verified');
   if (!progressiveDisclosureVerified || !minimapRevealVerified) throw new Error('Progressive onboarding disclosure was not fully verified');
   if (!firstCombatCueVerified) throw new Error('First combat cue did not transition from input to plan confirmation');
+  if (!policyEvidenceVerified || !policyComparisonVerified) throw new Error('Policy outcome evidence was not preserved and compared');
   await capture(page, '03-complete');
   const night = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   night.on('console', (message) => { if (message.type() === 'error') errors.push(`night ${message.text()}`); });
@@ -318,6 +338,8 @@ try {
     progressiveDisclosureVerified,
     minimapRevealVerified,
     firstCombatCueVerified,
+    policyEvidenceVerified,
+    policyComparisonVerified,
   };
   await writeFile(new URL('report.json', artifactDir), `${JSON.stringify(report, null, 2)}\n`);
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);

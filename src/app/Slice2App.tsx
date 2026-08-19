@@ -400,9 +400,30 @@ function ExpeditionPartyPanel({ snapshot, controller }: {
       <header><b>PARTY</b><button type="button" aria-label="닫기" onClick={() => setOpen(false)}>×</button></header>
       <section className="party-member"><img src={`${BASE_URL}assets/slice1/administrator-v2.png`} alt="" /><div><strong>관리자</strong><span className="member-hp"><i style={{ width: `${snapshot.vitals.administratorHp / 14 * 100}%` }} /></span><small>{snapshot.vitals.administratorHp}/14</small><p><img src={`${BASE_URL}assets/ui/intent-push.svg`} alt="밀치기" /><img src={`${BASE_URL}assets/ui/intent-attack.svg`} alt="내려찍기" /><img src={`${BASE_URL}assets/ui/intent-intercept.svg`} alt="가로막기" /></p></div></section>
       <section className="party-member ally"><img src={`${BASE_URL}assets/slice1/archer-v2.png`} alt="" /><div><strong>원거리 동료</strong><span className="member-hp"><i style={{ width: `${snapshot.vitals.allyHp / 12 * 100}%` }} /></span><small>{snapshot.vitals.allyHp}/12</small></div></section>
+      <PolicyEvidence snapshot={snapshot} />
+      <p className="policy-rule"><b>1 → 5</b> 위에서부터 실행 가능한 첫 전술을 선택</p>
       <ol className="policy-editor" aria-label="동료 전술 우선순위">{snapshot.policy.map((id, index) => <li key={id}><b>{index + 1}</b>{id === 'EMPTY' ? <span className="policy-empty">—</span> : <img src={`${BASE_URL}assets/ui/intent-${policyIcon(id)}.svg`} alt="" />}<span>{POLICY_COPY[id].name}</span><div><button type="button" disabled={index === 0} aria-label={`${POLICY_COPY[id].name} 위로`} onClick={() => controller.movePolicy(index, -1)}>↑</button><button type="button" disabled={index === snapshot.policy.length - 1} aria-label={`${POLICY_COPY[id].name} 아래로`} onClick={() => controller.movePolicy(index, 1)}>↓</button></div></li>)}</ol>
     </div>}
   </aside>;
+}
+
+function PolicyEvidence({ snapshot }: { readonly snapshot: ReturnType<Slice2RunController['getSnapshot']> }) {
+  const comparison = snapshot.policyComparison;
+  const summary = snapshot.lastPolicySummary;
+  if (!summary) return null;
+  const ids = ['EVADE', 'POSITION', 'SHOOT', 'PUSH'] as const;
+  if (comparison) {
+    return <section className="policy-evidence policy-comparison" aria-label="정책 변경 전후 실제 행동 비교">
+      <header><b>정책 변경 확인</b><small>서로 다른 조우의 실제 행동</small></header>
+      <div className="policy-compare-row"><i>전</i>{ids.map((id) => <span key={id}><img src={`${BASE_URL}assets/ui/intent-${policyIcon(id)}.svg`} alt={POLICY_COPY[id].name} /><b>{comparison.before.selectedCounts[id] ?? 0}</b></span>)}<em>{comparison.before.turns}턴</em></div>
+      <div className="policy-compare-row is-after"><i>후</i>{ids.map((id) => <span key={id}><img src={`${BASE_URL}assets/ui/intent-${policyIcon(id)}.svg`} alt={POLICY_COPY[id].name} /><b>{comparison.after.selectedCounts[id] ?? 0}</b></span>)}<em>{comparison.after.turns}턴</em></div>
+    </section>;
+  }
+  return <section className="policy-evidence" aria-label="직전 전투 동료 행동 근거">
+    <header><b>직전 전투 · {summary.turns}턴</b><small>실행 횟수</small></header>
+    <div className="policy-counts">{ids.filter((id) => summary.selectedCounts[id]).map((id) => <span key={id}><img src={`${BASE_URL}assets/ui/intent-${policyIcon(id)}.svg`} alt="" />{POLICY_COPY[id].name} <b>{summary.selectedCounts[id]}</b></span>)}</div>
+    {summary.primaryBlocked && <p><b>{POLICY_COPY[summary.primaryBlocked.policyId].name}</b> · {summary.primaryBlocked.reason} <em>×{summary.primaryBlocked.count}</em></p>}
+  </section>;
 }
 
 function UnitBar({ unit, enemy = false }: { readonly unit: Unit; readonly enemy?: boolean }) {
