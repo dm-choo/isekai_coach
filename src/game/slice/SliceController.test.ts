@@ -63,6 +63,12 @@ describe('SliceController barrier-guardian encounter', () => {
       effectCells: [{ x: 4, y: 1 }],
     });
     expect(snapshot.policy).toEqual(['EVADE', 'POSITION', 'SHOOT', 'PUSH', 'EMPTY']);
+    expect(snapshot.allyIntent?.steps[0]).toMatchObject({
+      policyId: 'POSITION',
+      policyRank: 2,
+      policyReason: '가장 앞의 적을 기준으로 사격 위치에 접근',
+      blockedBeforeSelection: [{ policyId: 'EVADE', reason: '현재 위치가 이미 안전함' }],
+    });
   });
 
   it('turns every rejected, planned, and committed input into explicit feedback', async () => {

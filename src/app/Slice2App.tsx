@@ -313,11 +313,11 @@ export function CombatStage({ snapshot, run, controller, encounter, visualTheme,
         <div className="enemy-bars">{enemies.map((unit) => <UnitBar key={unit.id} unit={unit} enemy />)}</div>
       </header>
       <IntentStack snapshot={snapshot} focused={soloLearningTurn} sceneFirst={submissionPresentation} />
-      {snapshot.mode === 'PLAYER_TURN' && party.length > 1 && <AllyIntentPanel snapshot={snapshot} />}
+      {snapshot.mode === 'PLAYER_TURN' && party.length > 1 && <AllyIntentPanel snapshot={snapshot} compact={submissionPresentation} />}
       {run.canUseLight && <button type="button" className="light-button" onClick={controller.useLight}>휴대용 조명 사용 · Intent 공개</button>}
-      {snapshot.mode !== 'INTRO' && !soloLearningTurn && !(submissionPresentation && snapshot.mode === 'PLAYER_TURN') && <CombatTurnBanner snapshot={snapshot} />}
-      {snapshot.mode !== 'INTRO' && snapshot.mode !== 'PLAYER_TURN' && snapshot.mode !== 'SEAL_UNLOCKED' && <div className="combat-notice"><span />{snapshot.notice}</div>}
-      {snapshot.mode === 'ALLY_TURN' && party.length > 1 && <PolicyReadout snapshot={snapshot} />}
+      {snapshot.mode !== 'INTRO' && !soloLearningTurn && !(submissionPresentation && (snapshot.mode === 'PLAYER_TURN' || snapshot.mode === 'ALLY_TURN')) && <CombatTurnBanner snapshot={snapshot} />}
+      {snapshot.mode !== 'INTRO' && snapshot.mode !== 'PLAYER_TURN' && snapshot.mode !== 'SEAL_UNLOCKED' && !(submissionPresentation && snapshot.mode === 'ALLY_TURN') && <div className="combat-notice"><span />{snapshot.notice}</div>}
+      {snapshot.mode === 'ALLY_TURN' && party.length > 1 && <PolicyReadout snapshot={snapshot} compact={submissionPresentation} />}
       {firstLearningTurn && (soloLearningTurn ? <SoloCombatGuide snapshot={snapshot} /> : <FirstCombatCue snapshot={snapshot} />)}
       {snapshot.mode === 'PLAYER_TURN' && <CombatControls snapshot={snapshot} controller={controller} onboarding={soloLearningTurn} compact={submissionPresentation && !soloLearningTurn} />}
       {snapshot.mode === 'INTRO' && (prologueEncounter
@@ -454,12 +454,37 @@ function EnemyIntentCard({ intent, owner, unit, concealed }: { readonly intent: 
   </article>;
 }
 
-function PolicyReadout({ snapshot }: { readonly snapshot: SliceSnapshot }) {
+function PolicyReadout({ snapshot, compact = false }: { readonly snapshot: SliceSnapshot; readonly compact?: boolean }) {
+  if (compact) {
+    const active = snapshot.activePolicyStep;
+    return <div className="ally-turn-readout submission-policy-execution" data-policy-execution="ACTIVE">
+      <div className="policy-execution-ladder">{snapshot.policy.map((id, index) => <span key={`${id}-${index}`} className={active?.selectedPolicyId === id ? 'is-active' : ''}><b>{index + 1}</b>{id === 'EMPTY' ? <i>—</i> : <img src={`${BASE_URL}assets/ui/intent-${policyIcon(id)}.svg`} alt="" />}</span>)}</div>
+      {active && <div className="policy-execution-result" data-policy-selected={active.selectedPolicyId ?? 'EMPTY'}><i aria-hidden="true">✓</i><b>{active.selectedPolicyId ? snapshot.policy.indexOf(active.selectedPolicyId) + 1 : '—'}</b>{active.selectedPolicyId && <img src={`${BASE_URL}assets/ui/intent-${policyIcon(active.selectedPolicyId)}.svg`} alt="" />}<span><strong>{active.selectedName}</strong><small>{active.reason}</small></span></div>}
+    </div>;
+  }
   return <div className="ally-turn-readout"><div className="ally-policy-slots">{snapshot.policy.map((id, index) => <span key={`${id}-${index}`} className={snapshot.activePolicyStep?.selectedPolicyId === id ? 'is-active' : id === 'EMPTY' ? 'is-empty' : ''}><i>{index + 1}</i>{POLICY_COPY[id].name}</span>)}</div>{snapshot.activePolicyStep && <div className="ally-action-result"><strong>{snapshot.activePolicyStep.selectedName}</strong><small>{snapshot.activePolicyStep.reason}</small></div>}</div>;
 }
 
-function AllyIntentPanel({ snapshot }: { readonly snapshot: SliceSnapshot }) {
+function AllyIntentPanel({ snapshot, compact = false }: { readonly snapshot: SliceSnapshot; readonly compact?: boolean }) {
   const steps = snapshot.allyIntent?.steps ?? [];
+  if (compact) {
+    const basis = snapshot.plannedActions.length ? 'PLANNED' : 'CURRENT';
+    const signature = steps.map((step) => `${step.policyRank}:${step.policyId}:${step.id}`).join('|') || 'WAIT';
+    const usedRanks = new Set(steps.map((step) => step.policyRank));
+    return <details className={`ally-intent-panel is-policy-linked ${basis === 'PLANNED' ? 'is-plan-linked' : ''}`} data-forecast-basis={basis} data-forecast-signature={signature}>
+      <summary aria-label="동료 예정 행동과 정책 근거 펼치기">
+        <img className="ally-forecast-portrait" src={`${BASE_URL}assets/submission/archer-v1.png`} alt="" />
+        <span className="ally-forecast-link" aria-hidden="true">{basis === 'PLANNED' ? '◇→' : '○→'}</span>
+        <div key={`${basis}-${signature}`}>{steps.length ? steps.map((step, index) => <span className="ally-forecast-token" data-policy-rank={step.policyRank} data-policy-id={step.policyId} key={`${step.id}-${index}`}><b>{step.policyRank}</b><img src={`${BASE_URL}assets/ui/intent-${step.icon.toLowerCase()}.svg`} alt={step.label} /></span>) : <b>—</b>}</div>
+        <i aria-hidden="true">⌄</i>
+      </summary>
+      <header className="policy-source-strip" aria-label="동료 정책 우선순위">{snapshot.policy.map((id, index) => <span key={`${id}-${index}`} className={usedRanks.has(index + 1) ? 'is-used' : id === 'EMPTY' ? 'is-empty' : ''}><b>{index + 1}</b>{id === 'EMPTY' ? <i>—</i> : <img src={`${BASE_URL}assets/ui/intent-${policyIcon(id)}.svg`} alt={POLICY_COPY[id].name} />}</span>)}</header>
+      <div className="ally-intent-sequence">{steps.length
+        ? steps.map((step, index) => <div key={`${step.id}-${index}`} className="ally-intent-step is-policy-step" tabIndex={0}><i>{step.policyRank}</i><img src={`${BASE_URL}assets/ui/intent-${step.icon.toLowerCase()}.svg`} alt="" /><div><strong>{step.label}</strong><small>{step.policyReason}</small>{step.blockedBeforeSelection.length > 0 && <em>{step.blockedBeforeSelection.map((blocked) => `${snapshot.policy.indexOf(blocked.policyId) + 1}× ${blocked.reason}`).join(' · ')}</em>}</div>{step.damage !== undefined && <b>{step.damage}</b>}</div>)
+        : <p>실행 가능한 전술이 없어 대기합니다.</p>}
+      </div>
+    </details>;
+  }
   return <details className="ally-intent-panel">
     <summary aria-label="동료 예정 행동 펼치기"><span>ALLY</span><div>{steps.length ? steps.map((step, index) => <img key={`${step.id}-${index}`} src={`${BASE_URL}assets/ui/intent-${step.icon.toLowerCase()}.svg`} alt={step.label} />) : <b>—</b>}</div><i aria-hidden="true">⌄</i></summary>
     <header><div><small>ALLY PLAN · LOCKED FORECAST</small><strong>원거리 동료</strong></div><span>{snapshot.plannedActions.length ? '내 계획 반영' : '현재 상태 기준'}</span></header>

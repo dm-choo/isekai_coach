@@ -17,10 +17,11 @@ export function SubmissionApp() {
   const query = new URLSearchParams(window.location.search);
   const verification = import.meta.env.DEV && query.has('verify');
   const failureFixture = verification && query.has('failure');
+  const policyFixture = verification && query.has('policy');
   const [controller] = useState(() => {
     const saveData = verification ? undefined : parseSubmissionSave(window.localStorage.getItem(SUBMISSION_SAVE_KEY));
     return new SubmissionController(verification
-      ? { playbackSpeed: 12, phaseDelayScale: 0.03, ...(failureFixture ? { initialVitals: { administratorHp: 1, allyHp: 1 } } : {}) }
+      ? { playbackSpeed: 12, phaseDelayScale: policyFixture ? 0.5 : 0.03, ...(failureFixture ? { initialVitals: { administratorHp: 1, allyHp: 1 } } : {}) }
       : saveData ? { saveData } : {});
   });
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);

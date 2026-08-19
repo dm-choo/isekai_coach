@@ -60,6 +60,28 @@ try {
     throw new Error('Public normal combat hierarchy regressed');
   }
   await page.screenshot({ path: new URL('03-public-normal-combat.png', artifactDir).pathname });
+  const publicSlam = page.locator('.submission-action-dock .skill-button[data-executable="true"]').filter({ hasText: '내려찍기' });
+  if (!await publicSlam.count()) throw new Error('Public solo combat cannot finish its authored second turn');
+  await publicSlam.click();
+  await page.locator('[data-combat-primary="execute-plan"]').click();
+  await page.locator('.result-overlay').waitFor({ timeout: 30_000 });
+  await page.keyboard.press('Space');
+  await page.locator('[data-submission-primary="release-companion"]').waitFor();
+  await page.keyboard.press('Space');
+  await page.locator('[data-submission-primary="depart-with-companion"]').waitFor();
+  await page.keyboard.press('d');
+  await page.locator('.submission-corridor').waitFor();
+  for (let step = 0; step < 100 && await page.locator('.encounter-overlay:not(.is-prologue)').count() === 0; step += 1) {
+    await page.keyboard.press('d');
+  }
+  await page.locator('.encounter-overlay:not(.is-prologue)').waitFor();
+  await page.keyboard.press('Space');
+  const publicAllyForecast = page.locator('.ally-intent-panel.is-policy-linked[data-forecast-basis="CURRENT"]');
+  await publicAllyForecast.waitFor({ timeout: 30_000 });
+  if (await publicAllyForecast.locator('.ally-forecast-token[data-policy-rank][data-policy-id]').count() === 0 || await publicAllyForecast.getAttribute('open') !== null) {
+    throw new Error('Public ally forecast lacks policy source or opens detail by default');
+  }
+  await page.screenshot({ path: new URL('04-public-ally-policy.png', artifactDir).pathname });
 
   const regression = {};
   for (const [path, expectedTitle] of [['slice1', 'Slice1'], ['slice2', 'Slice2']]) {
@@ -86,6 +108,7 @@ try {
     checkpointRestored: true,
     soloCombat: { progressiveDisclosure: true, unsafePlanRevises: true, safePlanExecutes: true },
     normalCombat: { sceneFirst: true, actionDock: true, detailOnDemand: true },
+    allyPolicy: { rankedForecast: true, detailDefaultClosed: true, publicFirstJointEncounter: true },
     regression,
     browserErrors: errors,
   };

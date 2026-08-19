@@ -58,6 +58,10 @@ export interface IntentPreviewStep {
   readonly icon: IntentIconKind;
   readonly description: string;
   readonly damage?: number;
+  readonly policyId: SlicePolicyId;
+  readonly policyRank: number;
+  readonly policyReason: string;
+  readonly blockedBeforeSelection: readonly { readonly policyId: SlicePolicyId; readonly reason: string }[];
   readonly movementPath: readonly GridPosition[];
   readonly effectCells: readonly GridPosition[];
 }
@@ -548,9 +552,13 @@ export class SliceController {
         const state = engine.getState();
       const ally = state.units.find((unit) => unit.id === this.allyId && unit.hp > 0);
         if (!ally || ally.ap <= 0) break;
-        const selected = evaluatePolicy(state, this.allyId, this.policyOrder, this.policyDirectives).selected;
+        const decision = evaluatePolicy(state, this.allyId, this.policyOrder, this.policyDirectives);
+        const selected = decision.selected;
         if (!selected?.action) break;
-        steps.push(previewStep(selected.policyId, selected.action, state));
+        const selectedIndex = decision.evaluations.findIndex((evaluation) => evaluation === selected);
+        steps.push(previewStep(selected.policyId, selected.action, state, selected.reason, selectedIndex + 1, decision.evaluations
+          .slice(0, selectedIndex)
+          .map((evaluation) => ({ policyId: evaluation.policyId, reason: evaluation.reason }))));
         if (!engine.performStudentAction(selected.action).executable) break;
       }
       return steps;
@@ -740,6 +748,9 @@ function previewStep(
   policyId: SlicePolicyId,
   action: CombatAction,
   state: BattleState,
+  policyReason: string,
+  policyRank: number,
+  blockedBeforeSelection: readonly { readonly policyId: SlicePolicyId; readonly reason: string }[],
 ): IntentPreviewStep {
   const copy = POLICY_COPY[policyId];
   if (action.type === 'MOVE') {
@@ -749,6 +760,10 @@ function previewStep(
       glyph: '◆',
       icon: 'MOVE',
       description: `${copy.name}: ${directionCopy(state.units.find((unit) => unit.id === action.actorId)?.position, action.to)} 1칸 이동합니다.`,
+      policyId,
+      policyRank,
+      policyReason,
+      blockedBeforeSelection,
       movementPath: [{ ...action.to }],
       effectCells: [],
     };
@@ -770,6 +785,10 @@ function previewStep(
     icon: policyId === 'SHOOT' ? 'SHOOT' : policyId === 'PUSH' ? 'PUSH' : 'ATTACK',
     description: policyDescription(policyId, target ? unitDisplayName(target) : undefined, damage?.type === 'DAMAGE' ? damage.amount : undefined),
     damage: damage?.type === 'DAMAGE' ? damage.amount : undefined,
+    policyId,
+    policyRank,
+    policyReason,
+    blockedBeforeSelection,
     movementPath: [],
     effectCells,
   };

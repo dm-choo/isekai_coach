@@ -12,6 +12,7 @@ const steps = [
   ['submission-interaction', ['run', 'verify:submission:interaction']],
   ['submission-solo-combat', ['run', 'verify:submission:solo-combat']],
   ['submission-normal-combat', ['run', 'verify:submission:normal-combat']],
+  ['submission-ally-policy', ['run', 'verify:submission:ally-policy']],
   ['submission-failure-recovery', ['run', 'verify:submission:failure']],
   ['submission-golden-path', ['run', 'verify:submission:golden']],
   ['slice1-build', ['run', 'build:slice']],

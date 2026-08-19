@@ -610,6 +610,44 @@ button:disabled { cursor: not-allowed; }
 .submission-action-dock.phase-planning .plan-strip { border-color: rgba(106,218,197,.52); background: rgba(13,39,32,.92); }
 .submission-action-dock.phase-planning .action-control { opacity: .78; }
 
+/* P12 — policy source stays attached to ally forecast and execution. */
+.ally-intent-panel.is-policy-linked { top: 148px; width: 238px; border-left-color: #59cfe2; background: rgba(5,22,27,.94); }
+.ally-intent-panel.is-policy-linked summary { min-height: 51px; gap: 6px; padding: 4px 7px; }
+.ally-intent-panel.is-policy-linked summary > .ally-forecast-portrait { width: 35px; height: 43px; flex: 0 0 35px; padding: 0; object-fit: contain; object-position: center bottom; background: none; filter: drop-shadow(0 5px 3px #000a); }
+.ally-forecast-link { flex: 0 0 auto; color: #78c8d5 !important; font: 800 10px ui-monospace,monospace !important; letter-spacing: 0 !important; }
+.is-plan-linked .ally-forecast-link { color: #8af0db !important; text-shadow: 0 0 7px rgba(92,226,201,.38); }
+.ally-intent-panel.is-policy-linked summary > div { min-width: 0; gap: 4px; animation: ally-forecast-update .25s ease-out both; }
+.ally-forecast-token { position: relative; display: grid; width: 33px; height: 36px; flex: 0 0 33px; place-items: center; border: 1px solid rgba(100,205,219,.26); background: rgba(35,91,98,.28); }
+.ally-forecast-token > b { position: absolute; z-index: 1; top: -4px; left: -4px; display: grid; width: 15px; height: 15px; place-items: center; border-radius: 50%; background: #286d78; color: #e4fcff; font: 900 7px ui-monospace,monospace; box-shadow: 0 2px 5px #0009; }
+.ally-intent-panel.is-policy-linked .ally-forecast-token > img { width: 27px; height: 27px; padding: 1px; background: none; }
+.ally-intent-panel.is-policy-linked[open] { width: 310px; }
+.ally-intent-panel.is-policy-linked .policy-source-strip { display: flex; justify-content: flex-start; gap: 5px; padding: 7px 9px; }
+.policy-source-strip > span { position: relative; display: grid; width: 42px; height: 38px; place-items: center; border: 1px solid #334d4d; background: rgba(9,29,30,.8); opacity: .48; }
+.policy-source-strip > span.is-used { border-color: #65cbd8; background: #184b51; opacity: 1; box-shadow: 0 0 10px rgba(85,197,211,.18); }
+.policy-source-strip > span.is-empty { border-style: dashed; }
+.policy-source-strip span > b { position: absolute; top: 2px; left: 3px; color: #82a5a7; font: 800 7px ui-monospace,monospace; }
+.policy-source-strip span > img { width: 25px; height: 25px; margin-top: 5px; }
+.policy-source-strip span > i { color: #607373; font-style: normal; }
+.ally-intent-step.is-policy-step { grid-template-columns: 19px 28px 1fr auto; }
+.ally-intent-step.is-policy-step > div em { display: block; margin-top: 3px; color: #c49678; font-size: 7px; font-style: normal; line-height: 1.35; }
+.ally-intent-step.is-policy-step > b { min-width: 18px; color: #8ce4ee; font-size: 10px; text-align: center; }
+@keyframes ally-forecast-update { from { opacity: .3; transform: translateX(-5px); } to { opacity: 1; transform: none; } }
+
+.submission-policy-execution { bottom: 20px; display: grid; width: min(560px,82%); justify-items: center; }
+.policy-execution-ladder { display: flex; gap: 6px; padding: 7px 9px; border: 1px solid rgba(89,207,226,.2); background: rgba(4,16,18,.9); }
+.policy-execution-ladder > span { position: relative; display: grid; width: 47px; height: 42px; place-items: center; border: 1px solid #304649; background: #0c1919; opacity: .43; }
+.policy-execution-ladder > span.is-active { transform: translateY(-5px); border-color: #82e8f1; background: #19535a; opacity: 1; box-shadow: 0 0 18px rgba(94,215,228,.3); }
+.policy-execution-ladder span > b { position: absolute; top: 2px; left: 4px; color: #91a6a5; font: 800 7px ui-monospace,monospace; }
+.policy-execution-ladder span > img { width: 29px; height: 29px; margin-top: 5px; }
+.policy-execution-ladder span > i { color: #708282; font-style: normal; }
+.policy-execution-result { display: grid; min-width: 280px; grid-template-columns: 22px 22px 34px 1fr; align-items: center; gap: 7px; margin-top: 7px; padding: 7px 10px; border: 1px solid #6ed5dd; background: rgba(11,49,53,.95); box-shadow: 0 8px 24px #000a; text-align: left; }
+.policy-execution-result > i { display: grid; width: 20px; height: 20px; place-items: center; border-radius: 50%; background: #37858b; color: #edffff; font-style: normal; }
+.policy-execution-result > b { display: grid; width: 20px; height: 20px; place-items: center; border-radius: 50%; background: #265e63; color: #dffcff; font: 900 8px ui-monospace,monospace; }
+.policy-execution-result > img { width: 31px; height: 31px; }
+.policy-execution-result strong,.policy-execution-result small { display: block; }
+.policy-execution-result strong { color: #dcfbff; font-size: 10px; }
+.policy-execution-result small { margin-top: 2px; color: #96b9ba; font-size: 8px; }
+
 @media (max-aspect-ratio: 4 / 3) {
   .slice2-stage { width: 100vw; min-height: 100svh; aspect-ratio: auto; }
   .run-route span { min-width: 0; }.run-route span { font-size: 0; }.run-route i { font-size: 9px; }
@@ -626,6 +664,8 @@ button:disabled { cursor: not-allowed; }
   .combat-actor-panel > img { width: 66px; }
   .submission-action-dock .skill-button { width: 86px; }
   .submission-action-dock .input-feedback { max-width: 84px; }
+  .ally-intent-panel.is-policy-linked { left: 14px; width: 225px; }
+  .ally-intent-panel.is-policy-linked[open] { width: 292px; }
 }
 
 /* Submission — persistent territory and barrier contour */

@@ -9,6 +9,7 @@ related:
   - ../research/submission-retrospective-p8.md
   - p10-retrospective.md
   - p11-retrospective.md
+  - p12-retrospective.md
 ---
 
 # 제출본 수용 기준 증거 매트릭스
@@ -41,6 +42,7 @@ related:
 | 모든 시점의 primary action 하나 | 첫 이동 `D`, 봉인 `SPACE`, 이후 contextual `assertPrimaryAction`과 critical-fit | A+V |
 | 첫 단독 전투가 위협→이동→예정 결과→실행 순으로 공개됨 | `verify:submission:solo-combat`의 위험/안전 preview, controller input gate, 둘째 턴 full-control assertion | A+V, 무설명 이해는 H REQUIRED |
 | 정상 전투가 전장→응답→계획 결과→실행 위계를 유지함 | `verify:submission:normal-combat`의 scene-first Intent, dock containment, demand tooltip, INPUT/OUTCOME assertion | A+V, 실제 신경 소모 감소는 H REQUIRED |
+| 동료 forecast→정책 번호→계획 재계산→실행이 같은 인과 문법을 사용함 | `verify:submission:ally-policy`의 CURRENT/PLANNED signature와 동일 policy ID 실행 포착 | A+V, 번호의 의미 이해는 H REQUIRED |
 | keyboard/pointer와 accepted/rejected/result 구분 | `verify:submission:interaction`, golden keyboard route·pointer restart | A |
 | 불가 행동은 state 불변과 구체 이유 | controller early-activation test + blocker copy | A |
 | 적 Intent/관리자 plan/동료 prediction 비색상 문법 | 기존 `verify:combat-ux`, Slice 1 browser regression | A+V |
@@ -78,6 +80,7 @@ related:
 | first experience | `npm run verify:submission:interaction` | text-independent solo opening, D/pointer, v2 checkpoint |
 | first solo combat | `npm run verify:submission:solo-combat` | threat→unsafe revise→safe execute→full controls, both ratios, error 0 |
 | normal combat hierarchy | `npm run verify:submission:normal-combat` | scene-first action dock, result focus, both ratios, error 0 |
+| ally policy causality | `npm run verify:submission:ally-policy` | closed forecast, 5-slot source, plan recomputation, forecast/execution policy identity, both ratios, error 0 |
 | failure contract | `npm run verify:submission:failure` | safe retreat, persistent cost, no reroll, browser error 0 |
 | product golden | `npm run verify:submission:golden` | EXPANDED, both ratios, browser error 0 |
 | cumulative technical RC | `npm run verify:submission-rc` | clean exact SHA, submission + Slice 1·2 전부 통과 |
