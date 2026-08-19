@@ -176,6 +176,7 @@ try {
     if (run.mode !== 'COMBAT') throw new Error(`Unexpected run mode ${run.mode}`);
     if (combat.mode === 'INTRO') {
       combatCount += 1;
+      await page.locator('[data-combat-presentation="READY"]').waitFor();
       if (run.isBossEncounter) {
         bossReached = true;
         const administrator = combat.state.units.find((unit) => unit.id === 'administrator-slice2');
@@ -312,6 +313,7 @@ try {
     if ((await runSnapshot(night)).mode !== 'EXPLORE') break;
     await night.keyboard.press('d');
   }
+  await night.locator('[data-combat-presentation="READY"]').waitFor();
   await night.keyboard.press('Space');
   await night.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot.mode === 'PLAYER_TURN' && !window.__ISEKAI_COACH_COMBAT__?.snapshot.isBusy);
   const concealedBeforeLight = await night.evaluate(() => window.__ISEKAI_COACH_COMBAT__?.snapshot.concealedIntentIds.length ?? 0);

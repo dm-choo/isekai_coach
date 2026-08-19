@@ -34,7 +34,10 @@ try {
   for (let step = 0; step < 160; step += 1) {
     const combat = await combatSnapshot(page);
     lastCombat = combat;
-    if (combat.mode === 'INTRO') await page.keyboard.press('Space');
+    if (combat.mode === 'INTRO') {
+      await page.locator('[data-combat-presentation="READY"]').waitFor();
+      await page.keyboard.press('Space');
+    }
     else if (combat.mode === 'PLAYER_TURN' && !combat.isBusy) {
       const administrator = combat.previewState.units.find((unit) => unit.id === 'administrator-slice2');
       if (combat.state.turn === 1) {

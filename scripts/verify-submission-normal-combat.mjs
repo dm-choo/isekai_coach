@@ -102,6 +102,7 @@ try {
 async function enterSecondPlayerTurn(page) {
   for (let step = 0; step < 20; step += 1) await page.keyboard.press('d');
   await page.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot?.mode === 'INTRO');
+  await page.locator('[data-combat-presentation="READY"]').waitFor();
   await page.keyboard.press('Space');
   await page.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot?.mode === 'PLAYER_TURN');
   await page.locator('.solo-learning-controls .wasd-grid button').filter({ hasText: 'W' }).click();

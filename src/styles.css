@@ -54,6 +54,88 @@ button:disabled { cursor: not-allowed; }
 .phaser-host canvas { width: 100% !important; height: 100% !important; }
 .phaser-host canvas { display: block; object-fit: contain; }
 
+.slice2-combat.is-presentation-loading > :not(.phaser-host):not(.combat-readiness-gate) {
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+.combat-readiness-gate {
+  position: absolute;
+  z-index: 180;
+  inset: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 73% 48%, rgba(132,35,24,.08), transparent 18%),
+    linear-gradient(180deg, rgba(2,6,3,.12), rgba(2,6,3,.5)),
+    var(--combat-readiness-background) center / cover no-repeat,
+    #071009;
+  pointer-events: auto;
+}
+.combat-readiness-gate::before {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background: linear-gradient(90deg, transparent 0 54%, rgba(4,10,6,.1) 70%, rgba(2,5,3,.44));
+  animation: combat-readiness-breathe 1.35s ease-in-out infinite alternate;
+}
+.combat-readiness-threat {
+  position: absolute;
+  top: 42%;
+  right: 21%;
+  display: grid;
+  width: 58px;
+  height: 58px;
+  grid-template-columns: 19px 25px;
+  place-content: center;
+  gap: 3px;
+  border: 1px solid rgba(255,111,84,.78);
+  border-radius: 50%;
+  background: rgba(43,9,6,.76);
+  box-shadow: 0 0 0 8px rgba(235,73,48,.08), 0 0 30px rgba(235,73,48,.32);
+  animation: combat-readiness-threat 1.05s ease-in-out infinite;
+}
+.combat-readiness-threat i {
+  display: grid;
+  width: 19px;
+  height: 19px;
+  place-items: center;
+  border-radius: 50%;
+  background: #ff725e;
+  color: #240806;
+  font: 900 11px ui-monospace, monospace;
+  font-style: normal;
+}
+.combat-readiness-threat img {
+  width: 25px;
+  height: 25px;
+  filter: sepia(1) saturate(4) hue-rotate(325deg) brightness(1.4);
+}
+.combat-readiness-gate > b {
+  position: absolute;
+  right: 21%;
+  bottom: 22%;
+  width: 74px;
+  height: 2px;
+  overflow: hidden;
+  background: rgba(255,255,255,.08);
+}
+.combat-readiness-gate > b::after {
+  display: block;
+  width: 42%;
+  height: 100%;
+  content: '';
+  background: #ff866d;
+  box-shadow: 0 0 10px rgba(255,105,78,.6);
+  animation: combat-readiness-scan 1.05s ease-in-out infinite;
+}
+@keyframes combat-readiness-breathe { to { filter: brightness(.82) saturate(.86); } }
+@keyframes combat-readiness-threat { 50% { transform: scale(1.08); box-shadow: 0 0 0 13px rgba(235,73,48,.035), 0 0 38px rgba(235,73,48,.4); } }
+@keyframes combat-readiness-scan { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+@media (prefers-reduced-motion: reduce) {
+  .combat-readiness-gate::before,
+  .combat-readiness-threat,
+  .combat-readiness-gate > b::after { animation: none; }
+}
+
 .stage-vignette {
   position: absolute;
   z-index: 3;

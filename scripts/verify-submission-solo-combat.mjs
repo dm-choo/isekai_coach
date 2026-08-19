@@ -20,6 +20,7 @@ try {
   });
   await waitForServer(baseUrl, server);
   browser = await chromium.launch({ headless: true });
+  const readiness = await verifyDelayedReadiness(browser, baseUrl, artifactDir);
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   const errors = [];
   observeErrors(page, errors);
@@ -94,6 +95,7 @@ try {
   if (errors.length) throw new Error(`Browser errors:\n${errors.join('\n')}`);
   const report = {
     status: 'SOLO_COMBAT_INTERACTION_PASS',
+    readiness,
     viewport: { width: 1280, height: 720 },
     threat: { focusedIntent: 1, visibleVocabulary: ['enemy intent', 'world telegraph', 'movement'] },
     unsafeOutcome: { preview: { x: 2, y: 1 }, primaryAction: 'Z', spaceLocked: true },
@@ -113,11 +115,93 @@ try {
 async function enterSoloCombat(page) {
   for (let step = 0; step < 20; step += 1) await page.keyboard.press('d');
   await page.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot?.mode === 'INTRO');
+  await page.locator('[data-combat-presentation="READY"]').waitFor();
   await page.keyboard.press('Space');
   await page.waitForFunction(() => {
     const snapshot = window.__ISEKAI_COACH_COMBAT__?.snapshot;
     return snapshot?.mode === 'PLAYER_TURN' && snapshot.state.turn === 1 && !snapshot.isBusy;
   });
+}
+
+async function verifyDelayedReadiness(browser, url, artifactDirectory) {
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  const errors = [];
+  observeErrors(page, errors);
+  await page.route(/(?:PhaserCanvas\.tsx|phaser(?:\.esm)?\.js|frontier-combat-v1\.png|ground-atlas-v1\.png)/, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1_500));
+    await route.continue();
+  });
+  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  await page.locator('[data-submission-primary="advance-prologue"]').waitFor();
+  for (let step = 0; step < 20; step += 1) await page.keyboard.press('d');
+  await page.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot?.mode === 'INTRO');
+  const enteredAt = Date.now();
+  const stage = page.locator('[data-combat-presentation]');
+  if (await stage.getAttribute('data-combat-presentation') !== 'LOADING') throw new Error('Delayed first contact did not expose the readiness gate');
+  if (!await page.locator('[data-combat-readiness="LOADING"]').isVisible()) throw new Error('Readiness continuity gate is not visible');
+  if (await page.locator('[aria-label="첫 전투 시작"]').isVisible()) throw new Error('Combat primary is visible before presentation readiness');
+  const beforeInput = await combatSnapshot(page);
+  await page.keyboard.press('Space');
+  await page.keyboard.press('a');
+  await page.keyboard.press('q');
+  await page.mouse.click(640, 650);
+  await page.mouse.click(160, 650);
+  await page.waitForTimeout(100);
+  const afterBlockedInput = await combatSnapshot(page);
+  if (JSON.stringify(afterBlockedInput) !== JSON.stringify(beforeInput)) throw new Error('Readiness-gated keyboard or pointer input changed combat state');
+  await page.screenshot({ path: new URL('00-readiness-100ms.png', artifactDirectory).pathname });
+  await page.waitForTimeout(400);
+  if (!await page.locator('[data-combat-readiness="LOADING"]').isVisible()) throw new Error('500ms delayed frame retired the continuity gate too early');
+  await page.screenshot({ path: new URL('00-readiness-500ms.png', artifactDirectory).pathname });
+  await page.locator('[data-combat-presentation="READY"]').waitFor();
+  const readyMs = Date.now() - enteredAt;
+  if (await page.locator('[data-combat-readiness]').count() !== 0) throw new Error('Readiness gate remained after Phaser presentation attached');
+  if (!await page.locator('[aria-label="첫 전투 시작"]').isVisible()) throw new Error('Combat primary did not appear after presentation readiness');
+  await page.screenshot({ path: new URL('00-readiness-ready.png', artifactDirectory).pathname });
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => {
+    const snapshot = window.__ISEKAI_COACH_COMBAT__?.snapshot;
+    return snapshot?.mode === 'PLAYER_TURN' && !snapshot.isBusy;
+  });
+  await page.evaluate(() => {
+    window.__P21_INPUT_LATENCY__ = { startedAt: null, feedbackAt: null };
+    window.addEventListener('keydown', (event) => {
+      if (event.key.toLowerCase() === 'a') window.__P21_INPUT_LATENCY__.startedAt = performance.now();
+    }, { once: true });
+    const sampleFeedback = () => {
+      if (window.__P21_INPUT_LATENCY__.startedAt !== null && document.querySelector('.solo-input-feedback.is-accepted')) {
+        window.__P21_INPUT_LATENCY__.feedbackAt = performance.now();
+        return;
+      }
+      requestAnimationFrame(sampleFeedback);
+    };
+    requestAnimationFrame(sampleFeedback);
+  });
+  await page.keyboard.press('a');
+  try {
+    await page.waitForFunction(() => window.__P21_INPUT_LATENCY__?.feedbackAt !== null, undefined, { timeout: 2_000 });
+  } catch {
+    const debug = await page.evaluate(() => ({
+      latency: window.__P21_INPUT_LATENCY__,
+      inputFeedback: window.__ISEKAI_COACH_COMBAT__?.snapshot.inputFeedback,
+      plannedActions: window.__ISEKAI_COACH_COMBAT__?.snapshot.plannedActions,
+      presentation: document.querySelector('[data-combat-presentation]')?.getAttribute('data-combat-presentation'),
+      feedbackClass: document.querySelector('.solo-input-feedback')?.className,
+    }));
+    throw new Error(`Ready input did not expose accepted feedback: ${JSON.stringify(debug)}`);
+  }
+  const inputFeedbackMs = Math.round(await page.evaluate(() => window.__P21_INPUT_LATENCY__.feedbackAt - window.__P21_INPUT_LATENCY__.startedAt));
+  if (inputFeedbackMs > 100) throw new Error(`First ready input feedback took ${inputFeedbackMs}ms`);
+  if (errors.length) throw new Error(`Delayed readiness browser errors:\n${errors.join('\n')}`);
+  await page.close();
+  return {
+    delayedRequestsMs: 1_500,
+    hiddenControlsBeforeReady: true,
+    blockedKeyboardAndPointerPreservedState: true,
+    continuityFrames: ['100ms', '500ms'],
+    combatEntryToReadyMs: readyMs,
+    firstInputToFeedbackMs: inputFeedbackMs,
+  };
 }
 
 function assertSoloState(snapshot, expected) {

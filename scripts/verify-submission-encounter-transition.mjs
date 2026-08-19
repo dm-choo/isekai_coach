@@ -53,6 +53,7 @@ try {
   await page.setViewportSize({ width: 1280, height: 720 });
 
   await page.evaluate(() => { window.__P13_COMBAT_STAGE__ = document.querySelector('.slice2-combat'); });
+  await page.locator('[data-combat-presentation="READY"]').waitFor();
   await page.keyboard.press('Space');
   await page.waitForFunction(() => {
     const snapshot = window.__ISEKAI_COACH_COMBAT__?.snapshot;
@@ -118,6 +119,7 @@ try {
     const snapshot = window.__ISEKAI_COACH_SUBMISSION__?.snapshot;
     return snapshot?.mode === 'COMBAT' && snapshot.encounterId === 'CENTER_GUARD' && snapshot.combat?.mode === 'INTRO';
   });
+  await page.locator('[data-combat-presentation="READY"]').waitFor();
   await page.keyboard.press('Space');
   await page.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot?.mode === 'PLAYER_TURN');
   const beforeCenterCombat = await submissionSnapshot(page);
@@ -382,6 +384,7 @@ try {
 async function enterFirstJointEncounter(page) {
   for (let step = 0; step < 20; step += 1) await page.keyboard.press('d');
   await page.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot?.mode === 'INTRO');
+  await page.locator('[data-combat-presentation="READY"]').waitFor();
   await page.keyboard.press('Space');
   await page.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot?.mode === 'PLAYER_TURN');
   await page.locator('.solo-learning-controls .wasd-grid button').filter({ hasText: 'W' }).click();

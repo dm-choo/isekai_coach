@@ -49,6 +49,7 @@ try {
   if (run.mode !== 'COMBAT' || run.encounterId !== 'SOLO_WARRIOR' || run.prologueProgress !== 100 || soloStudents.length !== 1 || soloStudents[0].visualKey !== 'administrator_submission_01') {
     throw new Error(`Prologue did not enter the fixed solo encounter: ${JSON.stringify({ mode: run.mode, encounterId: run.encounterId, progress: run.prologueProgress, soloStudents })}`);
   }
+  await page.locator('[data-combat-presentation="READY"]').waitFor();
   await capture(page, '01-solo-encounter');
   let firstInputFeedback;
   if (verifyP5) firstInputFeedback = await verifyFirstCombatInput(page);
@@ -94,6 +95,7 @@ try {
     if (await page.locator('.encounter-title,.encounter-overlay.is-seamless h1,.encounter-overlay.is-seamless p').count()) throw new Error('First joint encounter is blocked by a title card');
     if (await page.locator('[data-combat-primary="start-encounter"]').count() !== 1) throw new Error('First joint encounter does not expose one combat start action');
   }
+  await page.locator('[data-combat-presentation="READY"]').waitFor();
   await capture(page, '02-first-encounter');
   await page.keyboard.press('Space');
   await page.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot?.mode === 'PLAYER_TURN');
@@ -438,6 +440,7 @@ async function completeCurrentCombat(page) {
     const combat = await combatSnapshot(page);
     if (!combat) throw new Error('Combat snapshot disappeared during encounter');
     if (combat.mode === 'INTRO') {
+      await page.locator('[data-combat-presentation="READY"]').waitFor();
       await page.keyboard.press('Space');
       await page.waitForFunction(() => {
         const snapshot = window.__ISEKAI_COACH_COMBAT__?.snapshot;

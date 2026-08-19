@@ -8,9 +8,10 @@ interface PresentationController {
   selectTarget(unitId: string): void;
 }
 
-export function PhaserCanvas({ controller, visualTheme = 'SLICE' }: {
+export function PhaserCanvas({ controller, visualTheme = 'SLICE', onReady }: {
   readonly controller: PresentationController;
   readonly visualTheme?: BattleVisualTheme;
+  readonly onReady?: () => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
 
@@ -28,6 +29,7 @@ export function PhaserCanvas({ controller, visualTheme = 'SLICE' }: {
           return;
         }
         detach = controller.attachPresentation(presentation);
+        onReady?.();
       }, controller.selectTarget, visualTheme);
     });
 
@@ -36,7 +38,7 @@ export function PhaserCanvas({ controller, visualTheme = 'SLICE' }: {
       detach?.();
       game?.destroy(true);
     };
-  }, [controller, visualTheme]);
+  }, [controller, onReady, visualTheme]);
 
   return <div className="phaser-host" ref={hostRef} aria-label="Phaser combat presentation" />;
 }

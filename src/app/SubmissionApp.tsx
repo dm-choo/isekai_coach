@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { type SliceActionId } from '../game/slice';
 import {
   SubmissionController,
@@ -8,12 +8,16 @@ import {
   type SubmissionPolicyChoice,
   type SubmissionTileState,
 } from '../game/submission';
-import { CombatStage } from './Slice2App';
+import { CombatStage, preloadCombatPresentation } from './Slice2App';
 
 const BASE_URL = import.meta.env.BASE_URL;
 const SUBMISSION_SAVE_KEY = 'isekai-coach:submission:v2';
 
 export function SubmissionApp() {
+  const combatPresentationReady = useRef(false);
+  const handleCombatPresentationReadyChange = useCallback((ready: boolean) => {
+    combatPresentationReady.current = ready;
+  }, []);
   const query = new URLSearchParams(window.location.search);
   const verification = import.meta.env.DEV && query.has('verify');
   const failureFixture = verification && query.has('failure');
@@ -25,8 +29,17 @@ export function SubmissionApp() {
       : saveData ? { saveData } : {});
   });
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+  const snapshotRef = useRef(snapshot);
+  snapshotRef.current = snapshot;
 
   useEffect(() => () => controller.destroy(), [controller]);
+  useEffect(() => {
+    if (snapshot.mode !== 'SOLO_APPROACH') return;
+    preloadCombatPresentation('SUBMISSION');
+  }, [snapshot.mode]);
+  useEffect(() => {
+    if (snapshot.mode !== 'COMBAT') combatPresentationReady.current = false;
+  }, [snapshot.mode]);
   useEffect(() => {
     if (verification) return;
     const save = controller.exportSave();
@@ -44,12 +57,14 @@ export function SubmissionApp() {
   }, [snapshot.combat]);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      const current = snapshotRef.current;
       if (event.repeat) return;
+      if (current.mode === 'COMBAT' && !combatPresentationReady.current) return;
       if (event.key === ' ') {
         if (controller.performPrimaryAction()) event.preventDefault();
         return;
       }
-      if (snapshot.mode === 'POLICY_REVIEW') {
+      if (current.mode === 'POLICY_REVIEW') {
         if (['1', 'q', 'Q'].includes(event.key)) {
           event.preventDefault();
           controller.choosePolicy('PUSH_FIRST');
@@ -59,7 +74,7 @@ export function SubmissionApp() {
         }
         return;
       }
-      if (snapshot.mode !== 'COMBAT' || snapshot.combat?.mode !== 'PLAYER_TURN') return;
+      if (current.mode !== 'COMBAT' || current.combat?.mode !== 'PLAYER_TURN') return;
       const directions = { w: 'UP', ArrowUp: 'UP', a: 'LEFT', ArrowLeft: 'LEFT', s: 'DOWN', ArrowDown: 'DOWN', d: 'RIGHT', ArrowRight: 'RIGHT' } as const;
       const direction = directions[event.key as keyof typeof directions];
       if (direction) {
@@ -67,15 +82,15 @@ export function SubmissionApp() {
         controller.move(direction);
       } else if (['1', 'q', 'Q'].includes(event.key)) {
         event.preventDefault();
-        const action = snapshot.combat.actions[0];
+        const action = current.combat.actions[0];
         if (action) controller.useAction(action.id as SliceActionId);
       } else if (['2', 'e', 'E'].includes(event.key)) {
         event.preventDefault();
-        const action = snapshot.combat.actions[1];
+        const action = current.combat.actions[1];
         if (action) controller.useAction(action.id as SliceActionId);
       } else if (['3', 'r', 'R'].includes(event.key)) {
         event.preventDefault();
-        const action = snapshot.combat.actions[2];
+        const action = current.combat.actions[2];
         if (action) controller.useAction(action.id as SliceActionId);
       } else if (event.key.toLowerCase() === 'z') {
         event.preventDefault();
@@ -84,7 +99,7 @@ export function SubmissionApp() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [controller, snapshot]);
+  }, [controller]);
 
   return (
     <main className="submission-shell">
@@ -97,6 +112,7 @@ export function SubmissionApp() {
               encounter={snapshot.encounterContent}
               visualTheme="SUBMISSION"
               prologueEncounter={snapshot.encounterId === 'SOLO_WARRIOR'}
+              onPresentationReadyChange={handleCombatPresentationReadyChange}
             />
           : snapshot.mode === 'AWAKENING' || snapshot.mode === 'SOLO_APPROACH'
             ? <PrologueStage snapshot={snapshot} controller={controller} />

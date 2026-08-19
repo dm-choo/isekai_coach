@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
 import type { Intent, Unit } from '../game/combat';
 import type { BattleVisualTheme } from '../game/assets/AssetManifest';
 import { POLICY_COPY, type SliceActionId, type SliceSnapshot } from '../game/slice';
@@ -13,12 +13,60 @@ import {
 } from '../game/slice2';
 
 const BASE_URL = import.meta.env.BASE_URL;
+let phaserCanvasModulePromise: ReturnType<typeof importPhaserCanvas> | undefined;
+const combatPreloadImages = new Map<string, HTMLImageElement>();
+
+function importPhaserCanvas() {
+  return import('./PhaserCanvas');
+}
+
+function loadPhaserCanvasModule() {
+  phaserCanvasModulePromise ??= importPhaserCanvas();
+  return phaserCanvasModulePromise;
+}
+
 const PhaserCanvas = lazy(async () => {
-  const module = await import('./PhaserCanvas');
+  const module = await loadPhaserCanvasModule();
   return { default: module.PhaserCanvas };
 });
 
+export function preloadCombatPresentation(visualTheme: BattleVisualTheme = 'SLICE'): void {
+  void loadPhaserCanvasModule();
+  if (typeof Image === 'undefined') return;
+  const assets = visualTheme === 'SUBMISSION'
+    ? [
+        'assets/submission/frontier-combat-v1.png',
+        'assets/submission/ground-atlas-v1.png',
+        'assets/submission/administrator-v1.png',
+        'assets/submission/archer-v1.png',
+        'assets/submission/goblin-warrior-v1.png',
+        'assets/submission/goblin-archer-v1.png',
+        'assets/submission/goblin-bomber-v1.png',
+      ]
+    : [
+        'assets/slice1/jungle-background-v3.png',
+        'assets/slice1/jungle-ground-atlas-v2.png',
+        'assets/slice1/administrator-v2.png',
+        'assets/slice1/archer-v2.png',
+        'assets/slice2/goblin-warrior-v1.png',
+        'assets/slice2/goblin-archer-v1.png',
+        'assets/slice2/goblin-bomber-v1.png',
+      ];
+  for (const asset of assets) {
+    const url = `${BASE_URL}${asset}`;
+    if (combatPreloadImages.has(url)) continue;
+    const image = new Image();
+    image.decoding = 'async';
+    image.src = url;
+    combatPreloadImages.set(url, image);
+  }
+}
+
 export function Slice2App() {
+  const combatPresentationReady = useRef(false);
+  const handleCombatPresentationReadyChange = useCallback((ready: boolean) => {
+    combatPresentationReady.current = ready;
+  }, []);
   const [controller] = useState(() => {
     const query = new URLSearchParams(window.location.search);
     const verification = import.meta.env.DEV && query.has('verify');
@@ -31,8 +79,17 @@ export function Slice2App() {
     });
   });
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+  const snapshotRef = useRef(snapshot);
+  snapshotRef.current = snapshot;
 
   useEffect(() => () => controller.destroy(), [controller]);
+  useEffect(() => {
+    if (snapshot.mode === 'INTRO') return;
+    preloadCombatPresentation();
+  }, [snapshot.mode]);
+  useEffect(() => {
+    if (snapshot.mode !== 'COMBAT') combatPresentationReady.current = false;
+  }, [snapshot.mode]);
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     window.__ISEKAI_COACH_SLICE2__ = { snapshot };
@@ -45,27 +102,29 @@ export function Slice2App() {
   }, [snapshot.combat]);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      const current = snapshotRef.current;
       if (event.repeat) return;
+      if (current.mode === 'COMBAT' && !combatPresentationReady.current) return;
       if (event.key === ' ') {
-        if (snapshot.mode === 'INTRO') controller.startRun();
-        else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'INTRO') controller.startEncounter();
-        else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'PLAYER_TURN') controller.confirmPlan();
-        else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'VICTORY') snapshot.isBossEncounter ? controller.unlockSeal() : controller.completeEncounter();
-        else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'SEAL_UNLOCKED') controller.completeEncounter();
-        else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'DEFEAT') controller.retryEncounter();
-        else if (snapshot.mode === 'EXPLORE' && snapshot.canAdvanceTile) controller.advanceTile();
-        else if (snapshot.mode === 'DEFEAT') controller.retryEncounter();
-        else if (snapshot.mode === 'VICTORY') controller.restartRun();
+        if (current.mode === 'INTRO') controller.startRun();
+        else if (current.mode === 'COMBAT' && current.combat?.mode === 'INTRO') controller.startEncounter();
+        else if (current.mode === 'COMBAT' && current.combat?.mode === 'PLAYER_TURN') controller.confirmPlan();
+        else if (current.mode === 'COMBAT' && current.combat?.mode === 'VICTORY') current.isBossEncounter ? controller.unlockSeal() : controller.completeEncounter();
+        else if (current.mode === 'COMBAT' && current.combat?.mode === 'SEAL_UNLOCKED') controller.completeEncounter();
+        else if (current.mode === 'COMBAT' && current.combat?.mode === 'DEFEAT') controller.retryEncounter();
+        else if (current.mode === 'EXPLORE' && current.canAdvanceTile) controller.advanceTile();
+        else if (current.mode === 'DEFEAT') controller.retryEncounter();
+        else if (current.mode === 'VICTORY') controller.restartRun();
         else return;
         event.preventDefault();
         return;
       }
-      if (snapshot.mode === 'COMBAT' && snapshot.isBossEncounter && snapshot.combat?.mode === 'VICTORY' && event.key.toLowerCase() === 'e') {
+      if (current.mode === 'COMBAT' && current.isBossEncounter && current.combat?.mode === 'VICTORY' && event.key.toLowerCase() === 'e') {
         event.preventDefault();
         controller.unlockSeal();
         return;
       }
-      if (snapshot.mode !== 'COMBAT' || !snapshot.combat || snapshot.combat.mode !== 'PLAYER_TURN') return;
+      if (current.mode !== 'COMBAT' || !current.combat || current.combat.mode !== 'PLAYER_TURN') return;
       const directions = { w: 'UP', ArrowUp: 'UP', a: 'LEFT', ArrowLeft: 'LEFT', s: 'DOWN', ArrowDown: 'DOWN', d: 'RIGHT', ArrowRight: 'RIGHT' } as const;
       const direction = directions[event.key as keyof typeof directions];
       if (direction) {
@@ -73,15 +132,15 @@ export function Slice2App() {
         controller.move(direction);
       } else if (['1', 'q', 'Q'].includes(event.key)) {
         event.preventDefault();
-        const action = snapshot.combat.actions[0];
+        const action = current.combat.actions[0];
         if (action) controller.useAction(action.id as SliceActionId);
       } else if (['2', 'e', 'E'].includes(event.key)) {
         event.preventDefault();
-        const action = snapshot.combat.actions[1];
+        const action = current.combat.actions[1];
         if (action) controller.useAction(action.id as SliceActionId);
       } else if (['3', 'r', 'R'].includes(event.key)) {
         event.preventDefault();
-        const action = snapshot.combat.actions[2];
+        const action = current.combat.actions[2];
         if (action) controller.useAction(action.id as SliceActionId);
       } else if (event.key.toLowerCase() === 'z') {
         event.preventDefault();
@@ -90,13 +149,13 @@ export function Slice2App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [controller, snapshot.combat, snapshot.mode]);
+  }, [controller]);
 
   return (
     <main className="slice2-shell">
       <section className="slice2-stage" aria-label="네 월드 타일 원정">
         {snapshot.mode === 'COMBAT' && snapshot.combat
-          ? <CombatStage snapshot={snapshot.combat} run={snapshot} controller={controller} encounter={snapshot.currentEncounter?.content} />
+          ? <CombatStage snapshot={snapshot.combat} run={snapshot} controller={controller} encounter={snapshot.currentEncounter?.content} onPresentationReadyChange={handleCombatPresentationReadyChange} />
           : <ExplorationStage snapshot={snapshot} controller={controller} />}
         {snapshot.mode !== 'INTRO' && snapshot.mode !== 'COMBAT' && snapshot.elapsedBattleTurns > 0 && <ExpeditionPartyPanel snapshot={snapshot} controller={controller} />}
         {snapshot.mode !== 'INTRO' && <RunHud snapshot={snapshot} />}
@@ -285,14 +344,27 @@ export interface CombatRunView {
   readonly defeatReturnsToTerritory?: boolean;
 }
 
-export function CombatStage({ snapshot, run, controller, encounter, visualTheme, prologueEncounter = false }: {
+export function CombatStage({ snapshot, run, controller, encounter, visualTheme, prologueEncounter = false, onPresentationReadyChange }: {
   readonly snapshot: SliceSnapshot;
   readonly run: CombatRunView;
   readonly controller: CombatViewController;
   readonly encounter?: EncounterContent;
   readonly visualTheme?: BattleVisualTheme;
   readonly prologueEncounter?: boolean;
+  readonly onPresentationReadyChange?: (ready: boolean) => void;
 }) {
+  const [presentationReady, setPresentationReady] = useState(false);
+  const presentationStartedAt = useRef(performance.now());
+  const [presentationReadyMs, setPresentationReadyMs] = useState<number | null>(null);
+  const handlePresentationReady = useCallback(() => {
+    onPresentationReadyChange?.(true);
+    setPresentationReady(true);
+    setPresentationReadyMs(Math.round(performance.now() - presentationStartedAt.current));
+  }, [onPresentationReadyChange]);
+  useEffect(() => {
+    onPresentationReadyChange?.(false);
+    return () => onPresentationReadyChange?.(false);
+  }, [onPresentationReadyChange]);
   const state = snapshot.mode === 'PLAYER_TURN' ? snapshot.previewState : snapshot.state;
   const party = state.units.filter((unit) => unit.faction === 'STUDENT');
   const enemies = state.units.filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0);
@@ -304,10 +376,16 @@ export function CombatStage({ snapshot, run, controller, encounter, visualTheme,
   const centralScoutingResult = submissionPresentation && encounter === 'GOBLIN_ARCHER_WARRIOR';
   const sceneFirstVictory = firstJointPathResult || centralScoutingResult;
   return (
-    <div className={`slice2-combat ${run.isNight ? 'is-night' : ''} ${submissionPresentation && snapshot.mode === 'INTRO' && !prologueEncounter ? 'is-encounter-reveal' : ''} ${soloLearningTurn ? `is-solo-learning is-${soloLearningPhase}` : ''}`} data-world-minute={run.worldMinute}>
+    <div className={`slice2-combat ${run.isNight ? 'is-night' : ''} ${submissionPresentation ? 'is-submission-presentation' : ''} ${presentationReady ? 'is-presentation-ready' : 'is-presentation-loading'} ${submissionPresentation && snapshot.mode === 'INTRO' && !prologueEncounter ? 'is-encounter-reveal' : ''} ${soloLearningTurn ? `is-solo-learning is-${soloLearningPhase}` : ''}`} data-world-minute={run.worldMinute} data-combat-presentation={presentationReady ? 'READY' : 'LOADING'} data-presentation-ready-ms={presentationReadyMs ?? undefined}>
       <Suspense fallback={<div className="phaser-host phaser-loading" aria-label="전장 불러오는 중"><i /><span>전장 불러오는 중</span></div>}>
-        <PhaserCanvas controller={controller} visualTheme={visualTheme} />
+        <PhaserCanvas controller={controller} visualTheme={visualTheme} onReady={handlePresentationReady} />
       </Suspense>
+      {!presentationReady && <div
+        className="combat-readiness-gate"
+        data-combat-readiness="LOADING"
+        aria-label="위협과 전장을 확인하는 중"
+        style={{ '--combat-readiness-background': `url("${BASE_URL}${submissionPresentation ? 'assets/submission/awakening-sanctuary-v1.png' : 'assets/slice1/jungle-background-v3.png'}")` } as CSSProperties}
+      ><span className="combat-readiness-threat" aria-hidden="true"><i>!</i><img src={`${BASE_URL}assets/ui/intent-attack.svg`} alt="" /></span><b aria-hidden="true" /></div>}
       <div className="stage-vignette" />
       <header className="slice2-combat-hud">
         <div className="slice2-party-bars">{party.map((unit) => <UnitBar key={unit.id} unit={unit} />)}</div>

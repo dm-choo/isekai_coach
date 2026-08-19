@@ -133,6 +133,7 @@ try {
 async function enterFirstJointCombat(page) {
   for (let step = 0; step < 20; step += 1) await page.keyboard.press('d');
   await page.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot?.mode === 'INTRO');
+  await page.locator('[data-combat-presentation="READY"]').waitFor();
   await page.keyboard.press('Space');
   await page.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot?.mode === 'PLAYER_TURN');
   await page.locator('.solo-learning-controls .wasd-grid button').filter({ hasText: 'W' }).click();
@@ -155,6 +156,7 @@ async function enterFirstJointCombat(page) {
     await page.keyboard.press('d');
   }
   await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'COMBAT' && window.__ISEKAI_COACH_SUBMISSION__.snapshot.encounterId === 'FIRST_WARRIOR');
+  await page.locator('[data-combat-presentation="READY"]').waitFor();
   await page.keyboard.press('Space');
   await page.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot?.mode === 'PLAYER_TURN' && !window.__ISEKAI_COACH_COMBAT__.snapshot.isBusy);
 }

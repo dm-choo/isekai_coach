@@ -6,6 +6,7 @@ related:
   - _meta/documentation-governance.md
   - submission/scope.md
   - research/index.md
+  - product/index.md
 ---
 
 # Isekai Coach canonical documentation
@@ -20,6 +21,7 @@ related:
 - [Art](./art/index.md): 캐릭터, UI, VFX의 시각 언어
 - [Development](./development/index.md): 구현 경계, 현재 scaffold, Codex 생산 절차
 - [Submission](./submission/index.md): 이번 Web Build 제출 범위와 acceptance criteria
+- [Product quality](./product/index.md): 상용 출시 품질 기준, 반복 감사와 현재 최우선 Goal
 - [ADR](./adr/index.md): 구조적 결정과 대안
 - [Templates](./_templates/index.md): canonical 문서와 ADR 작성 형식
 

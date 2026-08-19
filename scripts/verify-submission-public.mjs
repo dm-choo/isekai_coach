@@ -41,6 +41,7 @@ try {
     await page.keyboard.press('d');
   }
   await page.locator('.encounter-overlay.is-prologue').waitFor();
+  await page.locator('[data-combat-presentation="READY"]').waitFor();
   await page.keyboard.press('Space');
   await page.locator('.solo-learning-controls.is-threat').waitFor();
   if (await page.locator('.solo-learning-controls .skill-button,.solo-learning-controls .plan-strip,[data-onboarding-primary]').count()) {
@@ -82,6 +83,7 @@ try {
   if (await publicEncounterGate.locator('[data-combat-primary="start-encounter"] img,kbd').count() !== 2) {
     throw new Error('Public encounter gate lacks its icon and SPACE action');
   }
+  await page.locator('[data-combat-presentation="READY"]').waitFor();
   await page.keyboard.press('Space');
   const publicAllyForecast = page.locator('.ally-intent-panel.is-policy-linked[data-forecast-basis="CURRENT"]');
   await publicAllyForecast.waitFor({ timeout: 30_000 });
@@ -124,6 +126,7 @@ try {
   await page.keyboard.press('Space');
   const centralEncounterGate = page.locator('.encounter-overlay.is-seamless[data-encounter-transition="THREAT_REVEALED"]');
   await centralEncounterGate.waitFor();
+  await page.locator('[data-combat-presentation="READY"]').waitFor();
   await page.keyboard.press('Space');
   await page.locator('.submission-action-dock:not(.is-busy)').waitFor({ timeout: 30_000 });
   const beforeCenterMinute = Number(await page.locator('.slice2-combat').getAttribute('data-world-minute'));
