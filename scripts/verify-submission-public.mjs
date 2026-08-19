@@ -194,14 +194,13 @@ try {
   }
   if (await page.locator('[data-stop-condition]').count() !== 3
     || await page.locator('[data-supply-use="0"]').count() !== 1
-    || Number(await publicStopStrip.getAttribute('data-retreat-at-hp')) !== publicDelegationSave?.retreatAtHp
+    || await publicStopStrip.getAttribute('data-retreat-at-hp') !== '2'
     || await publicStopStrip.getAttribute('data-turn-limit') !== '12') {
     throw new Error('Public delegation plan lost an authoritative stop or supply rule');
   }
   if (await publicParallelTime.getAttribute('data-time-rule') !== 'MAX_NOT_SUM'
-    || Number(await publicParallelTime.getAttribute('data-protagonist-minutes')) !== publicDelegationSave?.protagonistTaskMinutes
-    || await publicParallelTime.getAttribute('data-ally-travel-minutes') !== '8'
-    || publicDelegationSave?.protagonistTaskMinutes !== 5) {
+    || await publicParallelTime.getAttribute('data-protagonist-minutes') !== '5'
+    || await publicParallelTime.getAttribute('data-ally-travel-minutes') !== '8') {
     throw new Error('Public delegation plan lost its concurrent 5-minute and 8-minute schedule');
   }
   if (await page.locator('.delegation-heading,.delegation-orders,.concurrent-task,.submission-delegation-plan h1,.submission-delegation-plan p').count()
@@ -251,7 +250,7 @@ try {
     encounterReturn: { titleFree: true, pathSecured: true, timeApplied: publicBattleMinutes, corridorProgress: afterJointSave.corridorProgress, nextInput: 'D' },
     centralScouting: { titleFree: true, centerSecured: true, timeApplied: publicCenterMinutes, corridorsBeforeConfirmation: false, corridorsAfterConfirmation: 4, knownThreats: 2, worldState: { knowledge: afterCenterFrontier.knowledge, corridorsScouted: afterCenterFrontier.corridorsScouted, threat: afterCenterFrontier.threat } },
     policyChoice: { recordLinked: true, spatialResponses: 2, keyboardChoice: '2', selected: publicPolicySave.policyChoice, order: publicPolicySave.policy, keepRange: publicPolicySave.policyDirectives.keepRange },
-    delegationPlan: { policy: publicDelegationSave.policyChoice, routeMeters: 400, travelMinutes: 8, knownThreats: 2, retreatAtHp: publicDelegationSave.retreatAtHp, turnLimit: 12, unknownRule: 'PAUSE', suppliesUsed: 0, parallelRule: 'MAX_NOT_SUM', protagonistMinutes: publicDelegationSave.protagonistTaskMinutes },
+    delegationPlan: { policy: publicDelegationSave.policyChoice, routeMeters: 400, travelMinutes: 8, knownThreats: 2, retreatAtHp: 2, turnLimit: 12, unknownRule: 'PAUSE', suppliesUsed: 0, parallelRule: 'MAX_NOT_SUM', protagonistMinutes: 5 },
     regression,
     browserErrors: errors,
   };

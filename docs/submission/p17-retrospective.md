@@ -22,9 +22,12 @@ related:
 - `npm run verify:submission:encounter-transition`: `ENCOUNTER_TRANSITION_PASS`; KEEP_RANGE state parity, 400m·8분·위협 2, stop condition 3, HP 2·12턴·unknown pause·보급 0, 주인공 5분과 `MAX_NOT_SUM`, text panel 0, 4:3 overflow 0, browser error 0
 - 같은 focused lifecycle을 시각 수정 뒤 반복 실행: 동일 결과
 - `npm run verify:submission:p3`: KEEP_RANGE는 TIME_LIMIT/HP 8/20분, PUSH_FIRST는 SECURED/HP 4/14분이며 routeSafe·anchorPrepared true, territory OUTSIDE, browser error 0
+- exact-SHA `037d24e6c3da12e25dafbbc5d8fe165bd9f31d7b` 누적 RC: `TECHNICAL_PASS`, worktree clean, 13 files/93 tests, 제출본 EXPANDED, Slice1과 Slice2 4타일·7전투 회귀 통과
+- 공개 release `/srv/ooh/releases/20260819T143040Z-037d24e-submission`과 root·Slice1/2 health pass
+- `npm run verify:submission:public`: `PUBLIC_BROWSER_PASS`; 실제 저장된 KEEP_RANGE, 400m·8분·위협 2, HP 2·12턴·unknown pause·보급 0, 5분 `MAX_NOT_SUM`, Slice1/2 title과 browser error 0
 - 직접 비교: `16-delegation-route-plan`, `17-delegation-route-text-off`, `18-delegation-route-4x3`
 
-exact-SHA 누적 RC와 공개 배포 증거는 implementation commit 뒤 현재 SHA에서 새로 수집한다. 자동·시각 증거는 계획 정보의 존재와 상태 일치를 닫지만, 신규 사용자가 세 stop symbol과 두 병렬 lane을 올바르게 설명하는지는 human gate 전까지 REQUIRED다.
+자동·시각·공개 증거는 계획 정보의 존재와 상태 일치를 닫지만, 신규 사용자가 세 stop symbol과 두 병렬 lane을 올바르게 설명하는지는 human gate 전까지 REQUIRED다.
 
 ## Initial model
 
@@ -47,6 +50,7 @@ exact-SHA 누적 RC와 공개 배포 증거는 implementation commit 뒤 현재 
 - 첫 구현의 병렬 시간은 공통 시계 뒤에 주인공과 동료를 한 줄로 배치했다. 데이터와 bounds test는 통과했지만 캡처에서는 `주인공 다음 동료`의 순차 작업처럼 읽혔다. 자동 검증의 `MAX_NOT_SUM` attribute를 실제 시각 의미로 착각한 오류였다. 공통 시계에서 위·아래 lane으로 갈라지고 5분 endpoint가 더 짧으며 `8+?`가 더 길게 끝난 뒤 합쳐지도록 고쳤다.
 - stop strip의 심볼은 text-off에서도 남지만, heart·clock·question과 pause가 신규 사용자에게 정확히 같은 문법으로 읽힌다는 증거는 없다. 익숙한 기호를 썼다는 이유로 human comprehension을 통과 처리하지 않는다.
 - 경로의 적 위치는 알려진 순서를 설명하지만 실제 위임 전투의 초기 grid 좌표를 의미하지 않는다. route plan과 combat preview가 섞이지 않도록 grid cell이나 예상 공격 범위는 넣지 않았다.
+- 공개 검증 첫 실행은 snapshot의 파생 값인 `retreatAtHp`·`protagonistTaskMinutes`를 localStorage payload에 있다고 가정해 실패했다. 두 번째는 이를 고치면서 production에서 의도적으로 닫힌 debug global을 요구해 다시 실패했다. 제품 결함과 검증 소스 결함을 분리하지 못한 오류다. 최종적으로 persistence가 소유하는 policy는 save와, 공개 DOM 계약값은 실제 렌더와 비교하고, source parity는 exact-SHA focused RC가 소유하도록 층을 분리했다.
 
 ## User and delegation boundary
 
@@ -58,7 +62,7 @@ exact-SHA 누적 RC와 공개 배포 증거는 implementation commit 뒤 현재 
 
 production bundle은 직전 P16 공개본 대비 CSS `107,353→113,059` bytes(+5,706), SubmissionApp JS `112,521→113,332` bytes(+811)다. 첫 build에서 CSS가 +7,741 bytes였지만 제거된 제목·주문서·동시작업 card의 죽은 규칙을 찾아 2,035 bytes를 회수했다. route·stop·branch/merge shape가 남긴 순증은 수용하되 P18은 새 dashboard vocabulary를 더하지 않고 P17의 경로와 actor primitive를 재사용한다.
 
-재작업은 한 번 발생했다. 원인은 병렬이라는 추상 관계를 DOM attribute로만 명세하고, `두 lane이 실제로 갈라져 보여야 한다`는 shape acceptance를 구현 전에 더 엄격히 쓰지 않은 것이다. 다음 Goal부터 관계형 UI는 state parity 외에 text-off 캡처에서 source·branch·merge가 실제로 구분되는지를 첫 visual gate로 둔다.
+시각 재작업은 한 번 발생했고 공개 검증은 잘못된 evidence source 때문에 세 번의 전체 재생이 필요했다. 병렬이라는 추상 관계를 DOM attribute로만 명세한 것과, public verifier가 접근 가능한 production surface를 구현 전에 감사하지 않은 것이 원인이다. 다음 Goal부터 관계형 UI는 text-off의 source·branch·merge를 첫 visual gate로 두고, public assertion은 `persistence`, `rendered contract`, `debug-only state` 중 어느 계층을 읽는지 코드 작성 전에 표시한다. 공개 말단만 수정할 때는 배포 앱을 바꾸지 않는 한 저장된 정상 checkpoint를 이용한 짧은 P17 smoke를 먼저 돌리고, 최종 한 번만 full public path를 실행한다.
 
 ## Next rules
 
@@ -67,6 +71,7 @@ production bundle은 직전 P16 공개본 대비 CSS `107,353→113,059` bytes(+
 3. 하나의 authoritative 수치는 한 장면에서 가장 가까운 actor 또는 path 한 곳만 소유한다.
 4. 기존 자동 검증이 copy를 찾으면 구조·state parity assertion으로 바꾼다.
 5. human comprehension이 없는 familiar icon은 검증 완료가 아니라 명시적 human 질문으로 남긴다.
+6. 공개 검증은 production에서 실제 노출되는 상태만 읽고, debug global을 요구하지 않는다.
 
 ## Next task
 
