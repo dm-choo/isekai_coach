@@ -257,10 +257,32 @@ function DungeonMiniMap({ snapshot }: { readonly snapshot: ReturnType<Slice2RunC
 function directionArrow(direction: WorldDirection): string { return ({ NORTH: '↑', EAST: '→', SOUTH: '↓', WEST: '←' })[direction]; }
 function directionKey(direction: WorldDirection): string { return ({ NORTH: 'W', EAST: 'D', SOUTH: 'S', WEST: 'A' })[direction]; }
 
-function CombatStage({ snapshot, run, controller, encounter }: {
+export interface CombatViewController {
+  attachPresentation: Slice2RunController['attachPresentation'];
+  selectTarget: Slice2RunController['selectTarget'];
+  startEncounter: Slice2RunController['startEncounter'];
+  move: Slice2RunController['move'];
+  useAction: Slice2RunController['useAction'];
+  setActionHover: Slice2RunController['setActionHover'];
+  undoLastAction: Slice2RunController['undoLastAction'];
+  confirmPlan: Slice2RunController['confirmPlan'];
+  useLight: Slice2RunController['useLight'];
+  unlockSeal: Slice2RunController['unlockSeal'];
+  completeEncounter: Slice2RunController['completeEncounter'];
+  retryEncounter: Slice2RunController['retryEncounter'];
+}
+
+export interface CombatRunView {
+  readonly isNight: boolean;
+  readonly canUseLight: boolean;
+  readonly elapsedBattleTurns: number;
+  readonly isBossEncounter: boolean;
+}
+
+export function CombatStage({ snapshot, run, controller, encounter }: {
   readonly snapshot: SliceSnapshot;
-  readonly run: ReturnType<Slice2RunController['getSnapshot']>;
-  readonly controller: Slice2RunController;
+  readonly run: CombatRunView;
+  readonly controller: CombatViewController;
   readonly encounter?: EncounterContent;
 }) {
   const state = snapshot.mode === 'PLAYER_TURN' ? snapshot.previewState : snapshot.state;
@@ -313,7 +335,7 @@ function FirstCombatCue({ snapshot }: { readonly snapshot: SliceSnapshot }) {
   </aside>;
 }
 
-function CombatControls({ snapshot, controller }: { readonly snapshot: SliceSnapshot; readonly controller: Slice2RunController }) {
+function CombatControls({ snapshot, controller }: { readonly snapshot: SliceSnapshot; readonly controller: CombatViewController }) {
   const administrator = snapshot.previewState.units.find((unit) => unit.id === 'administrator-slice2');
   const enemies = snapshot.previewState.units.filter((unit) => snapshot.targetableEnemyIds.includes(unit.id));
   const phase = snapshot.isBusy ? 'EXECUTING' : snapshot.plannedActions.length ? 'PLANNING' : 'INPUT';
@@ -336,7 +358,7 @@ function CombatControls({ snapshot, controller }: { readonly snapshot: SliceSnap
   );
 }
 
-function ActionButton({ action, index, busy, feedbackKind, controller }: { readonly action: SliceSnapshot['actions'][number]; readonly index: number; readonly busy: boolean; readonly feedbackKind?: 'ACCEPTED' | 'REJECTED' | 'COMMITTED'; readonly controller: Slice2RunController }) {
+function ActionButton({ action, index, busy, feedbackKind, controller }: { readonly action: SliceSnapshot['actions'][number]; readonly index: number; readonly busy: boolean; readonly feedbackKind?: 'ACCEPTED' | 'REJECTED' | 'COMMITTED'; readonly controller: CombatViewController }) {
   return <button type="button" className={`skill-button ${action.executable ? 'is-ready' : 'is-disabled'} ${feedbackKind ? `feedback-${feedbackKind.toLowerCase()}` : ''}`} disabled={busy} data-executable={action.executable} aria-label={`${action.label}, AP ${action.apCost}${action.executable ? ', 사용 가능' : `, ${action.failureMessage ?? '사용 불가'}`}`} onClick={() => controller.useAction(action.id as SliceActionId)} onMouseEnter={() => controller.setActionHover(action.id as SliceActionId)} onMouseLeave={() => controller.setActionHover()}><kbd>{index === 0 ? '1 / Q' : index === 1 ? '2 / E' : index === 2 ? '3 / R' : index + 1}</kbd><img src={`${BASE_URL}assets/ui/intent-${action.icon.toLowerCase()}.svg`} alt="" /><strong>{action.label}</strong><small>AP {action.apCost}</small><span className={`skill-state ${action.executable ? 'is-ready' : ''}`}>{action.executable ? '사용 가능' : action.failureMessage ?? '사용 불가'}</span><span className="skill-tooltip"><b>{action.label}</b>{action.description}{!action.executable && <em>{action.failureMessage ?? '현재 계획에서 실행할 수 없습니다.'}</em>}<small>{action.tags.join(' ')}</small></span></button>;
 }
 
