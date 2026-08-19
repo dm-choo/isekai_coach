@@ -286,6 +286,7 @@ function CorridorStage({ snapshot, controller }: { readonly snapshot: Submission
 }
 
 function ScoutedStage({ snapshot, controller }: { readonly snapshot: SubmissionSnapshot; readonly controller: SubmissionController }) {
+  const restRequired = snapshot.preDelegationRestRequired;
   return <div className="submission-scouted">
     <div className="submission-sky" /><div className="submission-canopy" />
     <div className="scout-map" data-scout-map-state="FOUR_CORRIDORS_SCOUTED" aria-label="확보한 중앙 방에서 정찰된 북쪽, 동쪽, 남쪽, 서쪽 통로">
@@ -302,7 +303,9 @@ function ScoutedStage({ snapshot, controller }: { readonly snapshot: SubmissionS
       <em aria-hidden="true" />
       <span className="scout-record-glyph" aria-hidden="true"><i /><i /><b /></span>
     </aside>
-    <button type="button" className="submission-flow-primary is-icon-first" data-submission-primary="review-record" data-primary-key="SPACE" aria-label="전투 기록을 열어 동료 정책 검토" onClick={controller.performPrimaryAction}><span className="scout-record-glyph" aria-hidden="true"><i /><i /><b /></span><i className="flow-forward" aria-hidden="true" /><kbd>SPACE</kbd></button>
+    {restRequired
+      ? <button type="button" className="submission-flow-primary is-icon-first scout-rest-primary" data-submission-primary="rest-at-center" data-primary-key="SPACE" data-rest-minutes="20" data-rest-heal="3" aria-label="안전한 중앙 방에서 물과 식량 하나씩 사용하고 20분 동안 휴식해 체력을 3 회복" onClick={controller.performPrimaryAction}><span className="scout-rest-costs"><span className="scout-rest-supplies"><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="" /><img src={`${BASE_URL}assets/ui/supply-ration.svg`} alt="" /><b>−1</b></span><span className="scout-rest-time"><i className="delegation-clock-glyph" /><b>20</b></span></span><i className="flow-forward" aria-hidden="true" /><span className="scout-rest-heart"><i /><b>+3</b></span><kbd>SPACE</kbd></button>
+      : <button type="button" className="submission-flow-primary is-icon-first" data-submission-primary="review-record" data-primary-key="SPACE" aria-label="전투 기록을 열어 동료 정책 검토" onClick={controller.performPrimaryAction}><span className="scout-record-glyph" aria-hidden="true"><i /><i /><b /></span><i className="flow-forward" aria-hidden="true" /><kbd>SPACE</kbd></button>}
   </div>;
 }
 

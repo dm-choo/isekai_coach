@@ -146,7 +146,7 @@ try {
   await page.keyboard.press('Space');
   await page.locator('[data-scout-map-state="FOUR_CORRIDORS_SCOUTED"]').waitFor();
   await page.waitForTimeout(900);
-  const afterCenterSave = await savedSubmission(page);
+  let afterCenterSave = await savedSubmission(page);
   const afterCenterFrontier = afterCenterSave?.world?.tiles?.find((tile) => tile.id === 'frontier-east');
   if (afterCenterSave?.worldMinute !== beforeCenterMinute + publicCenterMinutes || !afterCenterFrontier?.corridorsScouted || afterCenterFrontier.knowledge !== 'SCOUTED' || afterCenterFrontier.threat !== 'CONTESTED') {
     throw new Error(`Public central scouting lost time or world state: ${JSON.stringify({ beforeCenterMinute, publicCenterMinutes, afterCenterSave, afterCenterFrontier })}`);
@@ -154,10 +154,36 @@ try {
   if (await page.locator('.scout-line').count() !== 4 || await page.locator('.scout-room').count() !== 4 || await page.locator('.scout-threat').count() !== 2 || await page.locator('.scout-policy-hook').count() !== 1) {
     throw new Error('Public scouted scene lost its four routes, known threats, or policy hook');
   }
-  if (await page.locator('.scouted-copy,.scout-causality,.scouted-next').count() || await page.locator('[data-submission-primary="review-record"][data-primary-key="SPACE"]').count() !== 1) {
-    throw new Error('Public scouted scene restored explanation panels or lost its single next action');
+  const publicRestRequired = afterCenterSave.vitals.allyHp <= 6 && afterCenterSave.supplies.water > 0 && afterCenterSave.supplies.food > 0;
+  const expectedScoutedPrimary = publicRestRequired ? 'rest-at-center' : 'review-record';
+  if (await page.locator('.scouted-copy,.scout-causality,.scouted-next').count() || await page.locator(`[data-submission-primary="${expectedScoutedPrimary}"][data-primary-key="SPACE"]`).count() !== 1) {
+    throw new Error(`Public scouted scene restored explanation panels or lost its ${expectedScoutedPrimary} action`);
   }
   await page.screenshot({ path: new URL('08-public-four-corridors-scouted.png', artifactDir).pathname });
+
+  let publicCenterRest = { required: publicRestRequired, applied: false, minutes: 0, healed: 0, waterSpent: 0, foodSpent: 0 };
+  if (publicRestRequired) {
+    const beforeRest = afterCenterSave;
+    const restAction = page.locator('[data-submission-primary="rest-at-center"][data-rest-minutes="20"][data-rest-heal="3"]');
+    if (await restAction.count() !== 1 || await restAction.locator('.scout-rest-supplies img').count() !== 2 || await restAction.locator('.scout-rest-time').count() !== 1 || await restAction.locator('.scout-rest-time b').innerText() !== '20' || await restAction.locator('.scout-rest-heart').count() !== 1) {
+      throw new Error('Public pre-delegation rest lost its water, food, recovery, time, or single action');
+    }
+    await page.keyboard.press('Space');
+    await page.locator('[data-submission-primary="review-record"][data-primary-key="SPACE"]').waitFor();
+    afterCenterSave = await savedSubmission(page);
+    const expectedAdministratorHp = Math.min(14, beforeRest.vitals.administratorHp + 3);
+    const expectedAllyHp = Math.min(12, beforeRest.vitals.allyHp + 3);
+    if (afterCenterSave.mode !== 'SCOUTED'
+      || afterCenterSave.worldMinute !== beforeRest.worldMinute + 20
+      || afterCenterSave.vitals.administratorHp !== expectedAdministratorHp
+      || afterCenterSave.vitals.allyHp !== expectedAllyHp
+      || afterCenterSave.supplies.water !== beforeRest.supplies.water - 1
+      || afterCenterSave.supplies.food !== beforeRest.supplies.food - 1) {
+      throw new Error(`Public center rest diverged from its 20 minute, two-supply, +3 recovery rule: ${JSON.stringify({ beforeRest, afterCenterSave })}`);
+    }
+    publicCenterRest = { required: true, applied: true, minutes: 20, healed: 3, waterSpent: 1, foodSpent: 1 };
+    await page.screenshot({ path: new URL('08a-public-center-rested.png', artifactDir).pathname });
+  }
 
   await page.keyboard.press('Space');
   await page.locator('[data-policy-evidence="ADJACENT_SHOOT_BLOCKED"]').waitFor();
@@ -351,7 +377,7 @@ try {
     normalCombat: { sceneFirst: true, actionDock: true, detailOnDemand: true },
     allyPolicy: { rankedForecast: true, detailDefaultClosed: true, publicFirstJointEncounter: true },
     encounterReturn: { titleFree: true, pathSecured: true, timeApplied: publicBattleMinutes, corridorProgress: afterJointSave.corridorProgress, nextInput: 'D' },
-    centralScouting: { titleFree: true, centerSecured: true, timeApplied: publicCenterMinutes, corridorsBeforeConfirmation: false, corridorsAfterConfirmation: 4, knownThreats: 2, worldState: { knowledge: afterCenterFrontier.knowledge, corridorsScouted: afterCenterFrontier.corridorsScouted, threat: afterCenterFrontier.threat } },
+    centralScouting: { titleFree: true, centerSecured: true, timeApplied: publicCenterMinutes, corridorsBeforeConfirmation: false, corridorsAfterConfirmation: 4, knownThreats: 2, worldState: { knowledge: afterCenterFrontier.knowledge, corridorsScouted: afterCenterFrontier.corridorsScouted, threat: afterCenterFrontier.threat }, preDelegationRest: publicCenterRest },
     policyChoice: { recordLinked: true, spatialResponses: 2, keyboardChoice: '2', selected: publicPolicySave.policyChoice, order: publicPolicySave.policy, keepRange: publicPolicySave.policyDirectives.keepRange },
     delegationPlan: { policy: publicDelegationSave.policyChoice, routeMeters: 400, travelMinutes: 8, knownThreats: 2, retreatAtHp: 2, turnLimit: 12, unknownRule: 'PAUSE', suppliesUsed: 0, parallelRule: 'MAX_NOT_SUM', protagonistMinutes: 5 },
     delegationResult: { outcome: publicOperation.outcome, routeSafe: false, turns: publicOperation.turns, damageTaken: publicOperation.damageTaken, elapsedMinutes: publicOperation.elapsedMinutes, finalHp: publicOperation.finalHp, livingEnemies: publicLivingEnemies, routeTraceLength: publicOperation.route.length, sharedMinutes: Math.max(5, publicOperation.elapsedMinutes) },

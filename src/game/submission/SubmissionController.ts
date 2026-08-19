@@ -77,6 +77,7 @@ export interface SubmissionSnapshot {
   readonly incorporationBlocker?: IncorporationBlocker;
   readonly defeatCount: number;
   readonly lastDefeatCost?: SubmissionDefeatCost;
+  readonly preDelegationRestRequired: boolean;
   readonly defeatReturnsToTerritory: true;
   readonly isNight: false;
   readonly canUseLight: false;
@@ -122,6 +123,8 @@ type Listener = () => void;
 
 const START_MINUTE = 10 * 60;
 const TRAVEL_MINUTES_PER_100M = 2;
+const PRE_DELEGATION_REST_HP = 6;
+const REST_MINUTES = 20;
 
 export class SubmissionController {
   private readonly listeners = new Set<Listener>();
@@ -205,6 +208,7 @@ export class SubmissionController {
     if (this.mode === 'COMPANION_SEALED') this.releaseCompanion();
     else if (this.mode === 'INTRO') this.startExpedition();
     else if (this.mode === 'CENTER_GATE') this.enterCenter();
+    else if (this.mode === 'SCOUTED' && this.requiresPreDelegationRest()) this.restAtSecuredCenter();
     else if (this.mode === 'SCOUTED') this.beginPolicyReview();
     else if (this.mode === 'POLICY_REVIEW' && this.policyChoice) this.openDelegationPlan();
     else if (this.mode === 'DELEGATION_PLAN') this.runDelegation();
@@ -221,6 +225,16 @@ export class SubmissionController {
     else if (this.mode === 'COMBAT' && this.combat?.getSnapshot().mode === 'DEFEAT') this.retryEncounter();
     else return false;
     return true;
+  };
+
+  public restAtSecuredCenter = (): void => {
+    if (this.mode !== 'SCOUTED' || !this.requiresPreDelegationRest()) return;
+    const result = applySubmissionRest({ vitals: this.vitals, supplies: this.supplies });
+    this.vitals = result.vitals;
+    this.supplies = result.supplies;
+    this.worldMinute += result.elapsedMinutes;
+    this.notice = '안전한 중앙 방에서 물과 식량을 사용해 원정대를 회복했다.';
+    this.publish();
   };
 
   public advancePrologue = (): void => {
@@ -448,6 +462,10 @@ export class SubmissionController {
     return this.encounterId === 'SOLO_WARRIOR' && combat?.mode === 'PLAYER_TURN' && combat.state.turn === 1;
   }
 
+  private requiresPreDelegationRest(): boolean {
+    return this.vitals.allyHp <= PRE_DELEGATION_REST_HP && this.supplies.water > 0 && this.supplies.food > 0;
+  }
+
   private isSoloLearningDestinationThreatened(): boolean {
     const combat = this.combat?.getSnapshot();
     const administrator = combat?.previewState.units.find((unit) => unit.id === SLICE2_ADMINISTRATOR_ID);
@@ -633,6 +651,7 @@ export class SubmissionController {
       incorporationBlocker: this.lastIncorporationBlocker,
       defeatCount: this.defeatCount,
       lastDefeatCost: this.lastDefeatCost,
+      preDelegationRestRequired: this.requiresPreDelegationRest(),
       defeatReturnsToTerritory: true,
       isNight: false,
       canUseLight: false,
@@ -741,5 +760,26 @@ export function applySubmissionDefeatCost(input: {
       : input.supplies,
     elapsedMinutes: Math.max(1, input.battleTurns) + 5,
     usedCampSupplies,
+  };
+}
+
+export function applySubmissionRest(input: {
+  readonly vitals: ExpeditionVitals;
+  readonly supplies: { readonly water: number; readonly food: number };
+}): {
+  readonly vitals: ExpeditionVitals;
+  readonly supplies: { readonly water: number; readonly food: number };
+  readonly elapsedMinutes: number;
+} {
+  if (input.supplies.water < 1 || input.supplies.food < 1) {
+    return { vitals: input.vitals, supplies: input.supplies, elapsedMinutes: 0 };
+  }
+  return {
+    vitals: {
+      administratorHp: Math.min(14, input.vitals.administratorHp + 3),
+      allyHp: Math.min(12, input.vitals.allyHp + 3),
+    },
+    supplies: { water: input.supplies.water - 1, food: input.supplies.food - 1 },
+    elapsedMinutes: REST_MINUTES,
   };
 }

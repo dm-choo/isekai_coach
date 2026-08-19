@@ -19,8 +19,8 @@ D와 pointer hold는 동일한 authoritative action을 사용해 step당 5m를 �
 ## Verification evidence
 
 - `npm run verify:submission:p4`: EXPANDED; pointer·keyboard progress parity, 주인공 screen x 고정과 backdrop·ground 이동, 400m +8분, 도착 후 routeSafe·anchorPrepared·protagonistAtAnchor true와 territory OUTSIDE, SPACE 뒤에만 편입·contour 6·샘 활성·물 +1, browser error 0
-- 13 files, 93 unit tests: pass
-- production build: pass; P18 공개본 대비 CSS `117,340→120,902` bytes(+3,562), SubmissionApp JS `115,778→116,648` bytes(+870)
+- 13 files, 94 unit tests: pass
+- production build: pass; P18 공개본 대비 CSS `117,340→122,118` bytes(+4,778), SubmissionApp JS `115,778→118,605` bytes(+2,827). 이 중 공개 P0 휴식 보완은 최초 P19 build보다 CSS +1,216, JS +1,957 bytes다.
 - 직접 비교: golden `12-anchor-approach`, `12-anchor-approach-text-off`, `12-anchor-approach-4x3`, `13-anchor-ready`, `13-anchor-ready-text-off`, `13-anchor-ready-4x3`
 - 1280×720과 960×720에서 protagonist·anchor·route rail·primary가 viewport 안이고 overflow 0
 
@@ -46,7 +46,7 @@ D와 pointer hold는 동일한 authoritative action을 사용해 step당 5m를 �
 
 - ready glow를 강하게 만들수록 거점이 이미 활성화됐다고 읽힐 위험이 있다. 이를 막기 위해 main glyph의 자물쇠와 OUTSIDE state를 SPACE 직전까지 유지했지만, 사람이 실제로 `활성화 가능`과 `활성화 완료`를 구분하는지는 아직 증거가 없다.
 - route rail의 작은 actor는 인과용 표식이고 main actor가 실제 주인공이다. 자동 검증은 각 역할의 개수를 판정하지만, 작은 주인공이 별도 부대로 오인되는지는 human gate에서 관찰해야 한다.
-- 현재 public 전체 경로의 TIME_LIMIT 결과는 이전 전투 피해가 누적돼 재시도 시작 HP가 낮다. P19 공개 검증은 실제 저장된 SCOUTED checkpoint를 복원한 뒤 성공 정책을 선택해 거점 상태를 검증하도록 설계했다. 이는 anchor 메카닉을 production state에서 고립해 검증하는 branch이지, 사람의 정상 플레이 동선을 대체하는 증거가 아니다.
+- 최초 public 검증은 이전 전투 피해가 누적된 SCOUTED checkpoint를 복원하면 성공 정책이 그대로 SECURED가 될 것이라고 가정했다. 실제 HP 6에서는 HP≤2 후퇴가 3턴에 먼저 발동해 P19에 진입하지 못했다. focused fixture HP 8의 결과를 production checkpoint에도 성립한다고 일반화한 검증 오류였다.
 - CSS 순증 +3,562 bytes는 기존 route primitive를 재사용했어도 main anchor·grounding·responsive 규칙이 추가된 결과다. P20에서 또 다른 progress rail이나 goal shape를 만드는 것은 허용하지 않는다.
 
 ## User and delegation boundary
@@ -59,6 +59,14 @@ D와 pointer hold는 동일한 authoritative action을 사용해 step당 5m를 �
 
 가장 중요한 과정 개선은 구현 전에 `ready지만 OUTSIDE`를 계약의 부정 조건으로 고정한 것이다. 덕분에 화려한 활성화 연출을 먼저 만들었다가 state 의미를 되돌리는 재작업이 없었다. 반면 CSS가 단일 파일에 계속 누적되는 구조는 검색과 삭제 범위를 넓힌다. P20은 새 스타일을 쓰기 전에 P15 contour, P17 goal, P19 anchor primitive의 조합으로 장면을 만들 수 있는지 먼저 판정한다.
 
+## Release blocker correction
+
+exact-SHA `16b2045e3359ffe26a58bdf3f81b2e4a127420a6`은 누적 RC를 통과했지만 첫 공개 검증에서 실패했다. 공개 정상 입력의 중앙 전투 종료 HP는 동료 6이었다. 이 상태에서 KEEP_RANGE는 HP 4 TIME_LIMIT, PUSH_FIRST는 HP 2 RETREATED이므로 확보 경로 뒤 P19가 아니라 실제 제출 cycle 자체가 막혔다. 자동 골든의 HP 여유가 제품 진행 가능성을 대신한 P0였다.
+
+정본에 이미 있는 안전 방 휴식 규칙을 중앙 방과 위임 사이에 연결했다. 동료 HP가 6 이하이고 물·식량이 있으면 다음 단일 primary는 `물+식량 −1 · 시계 20 → HP +3 · SPACE`가 된다. 실행 뒤에도 SCOUTED 장면을 유지하고 시간·보급·HP가 실제 state에 반영된 다음, primary가 전투 기록으로 바뀐다. 공개 정상 상태는 HP `6→9`, 보급 `1/1→0/0`, 시간 `+20`이 되어 KEEP_RANGE `9→7` 뒤 PUSH_FIRST `7→3`으로 실제 연속 cycle을 완료한다.
+
+로컬 production build에 공개 verifier의 동일 save/reload 입력을 적용해 rest→TIME_LIMIT→SCOUTED checkpoint restore→SECURED→P19 400m 도착까지 통과했다. root-only 로컬 preview라 마지막 `/slice1/` title 회귀에서 의도대로 중단됐으므로, 이 결과를 full public pass라고 부르지 않는다. 보완 commit의 exact-SHA RC·재배포·공개 root와 Slice1/2 검증을 다시 통과해야 release blocker가 닫힌다.
+
 ## Next rules
 
 1. 도착·상호작용 가능·활성화 완료는 서로 다른 state와 시각 표식으로 유지한다.
@@ -66,6 +74,7 @@ D와 pointer hold는 동일한 authoritative action을 사용해 step당 5m를 �
 3. progress bar만 그리지 않고 authoritative 거리와 world layer motion을 함께 검증한다.
 4. public의 중간 메카닉 검증 branch와 사람의 정상 동선을 같은 증거로 부르지 않는다.
 5. 새 장면은 기존 contour·route·goal·anchor vocabulary를 먼저 재조합한다.
+6. fixture HP의 성공 결과를 production 누적 HP에 일반화하지 않고, 가장 낮은 실제 checkpoint에서 complete cycle을 검증한다.
 
 ## Next task
 

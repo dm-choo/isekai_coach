@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applySubmissionDefeatCost, parseSubmissionSave, SubmissionController } from './SubmissionController';
+import { applySubmissionDefeatCost, applySubmissionRest, parseSubmissionSave, SubmissionController } from './SubmissionController';
 
 describe('SubmissionController direct exploration', () => {
   it('starts alone and turns world movement into the first approach', () => {
@@ -134,6 +134,42 @@ describe('SubmissionController direct exploration', () => {
       elapsedMinutes: 9,
       usedCampSupplies: false,
     });
+  });
+
+  it('spends the one camp ration before delegation when the ally reaches the safe center badly hurt', () => {
+    expect(applySubmissionRest({
+      vitals: { administratorHp: 9, allyHp: 6 },
+      supplies: { water: 1, food: 1 },
+    })).toEqual({
+      vitals: { administratorHp: 12, allyHp: 9 },
+      supplies: { water: 0, food: 0 },
+      elapsedMinutes: 20,
+    });
+
+    const base = new SubmissionController();
+    const save = base.exportSave()!;
+    base.destroy();
+    const controller = new SubmissionController({
+      saveData: {
+        ...save,
+        mode: 'SCOUTED',
+        vitals: { administratorHp: 9, allyHp: 6 },
+        worldMinute: 640,
+        notice: '중앙 방 확보.',
+      },
+    });
+    expect(controller.getSnapshot().preDelegationRestRequired).toBe(true);
+    expect(controller.performPrimaryAction()).toBe(true);
+    expect(controller.getSnapshot()).toMatchObject({
+      mode: 'SCOUTED',
+      worldMinute: 660,
+      vitals: { administratorHp: 12, allyHp: 9 },
+      supplies: { water: 0, food: 0 },
+      preDelegationRestRequired: false,
+    });
+    expect(controller.performPrimaryAction()).toBe(true);
+    expect(controller.getSnapshot().mode).toBe('POLICY_REVIEW');
+    controller.destroy();
   });
 });
 

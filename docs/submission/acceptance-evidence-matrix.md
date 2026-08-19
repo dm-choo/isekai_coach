@@ -67,6 +67,7 @@ related:
 |---|---|---|
 | 지식·위협·영토·효용 독립 | `world.test.ts` | A |
 | 중앙 방 해결만으로 네 통로 결정론적 정찰 | controller transition + encounter lifecycle의 확인 전 false/확인 후 true + golden map-state assertion | A+V, 원인 설명은 H REQUIRED |
+| 낮은 HP로 중앙 방을 확보해도 기존 휴식 비용을 거쳐 위임 cycle이 이어짐 | public production checkpoint의 동료 HP≤6에서 단일 rest primary, 물·식량 각 -1·20분·양 캐릭터 HP +3, rest 뒤에도 SCOUTED 유지와 연속 TIME_LIMIT→SECURED→P19 진입 | A+V, 비용 이해는 H REQUIRED |
 | 직접/위임이 동일 grid·ability·intent·collision·time 규칙 사용 | independent action-trace replay through `BattleEngine` | A |
 | 공유 월드 시간, Decision은 해당 부대만 정지 | golden이 병렬 작업 시간을 합산하지 않고 `max()`로 검증 | A |
 | 패배가 재추첨·비용 초기화 없이 안전 영토로 복귀 | `verify:submission:failure` defeat→retreat→re-entry | A+V |
