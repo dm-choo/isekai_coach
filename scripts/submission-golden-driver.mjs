@@ -155,11 +155,32 @@ try {
     await capture(page, '06-policy-review');
     await page.keyboard.press('Space');
     await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'DELEGATION_PLAN');
-    const planText = await page.locator('.delegation-orders').innerText();
-    if (!planText.includes('400m') || !planText.includes('HP 2 이하') || !planText.includes('전투 12턴') || !planText.includes('즉시 Decision') || !planText.includes('보급') || !planText.includes('사용 안 함')) {
-      throw new Error(`Delegation plan omits route or stop conditions: ${planText}`);
+    const delegationPlan = await submissionSnapshot(page);
+    const delegationScene = page.locator('.submission-delegation-plan.is-map-first');
+    const stopStrip = page.locator('.delegation-stop-strip');
+    const parallelTime = page.locator('.delegation-parallel-time');
+    if (await delegationScene.getAttribute('data-delegation-policy') !== delegationPlan.policyChoice
+      || await delegationScene.getAttribute('data-route-distance') !== '400'
+      || await delegationScene.getAttribute('data-route-travel-minutes') !== '8'
+      || await delegationScene.getAttribute('data-known-threats') !== '2') {
+      throw new Error('Delegation route does not match its selected policy or known path');
     }
-    if (await page.locator('.route-threat').count() !== 2) throw new Error('Known route does not expose both observed enemies');
+    if (await page.locator('.route-party').count() !== 1 || await page.locator('.route-threat').count() !== 2 || await page.locator('.route-goal').count() !== 1) {
+      throw new Error('Delegation route lost its party, two known threats, or boundary room');
+    }
+    if (await page.locator('[data-stop-condition]').count() !== 3 || await page.locator('[data-supply-use="0"]').count() !== 1
+      || Number(await stopStrip.getAttribute('data-retreat-at-hp')) !== delegationPlan.retreatAtHp
+      || await stopStrip.getAttribute('data-turn-limit') !== '12') {
+      throw new Error('Delegation plan lost an authoritative stop or supply rule');
+    }
+    if (await parallelTime.getAttribute('data-time-rule') !== 'MAX_NOT_SUM'
+      || Number(await parallelTime.getAttribute('data-protagonist-minutes')) !== delegationPlan.protagonistTaskMinutes
+      || await parallelTime.getAttribute('data-ally-travel-minutes') !== '8') {
+      throw new Error('Delegation plan does not expose its concurrent schedule');
+    }
+    if (await page.locator('.delegation-heading,.delegation-orders,.concurrent-task,.submission-delegation-plan h1,.submission-delegation-plan p').count()) {
+      throw new Error('Delegation plan regressed to explanation-first dashboard panels');
+    }
     if (verifyP5) await assertPrimaryAction(page, 'run-delegation', 'SPACE');
     await capture(page, '07-keep-range-plan');
     await page.keyboard.press('Space');

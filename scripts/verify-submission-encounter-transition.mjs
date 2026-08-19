@@ -217,6 +217,48 @@ try {
   await page.screenshot({ path: new URL('15-policy-keep-range-4x3.png', artifactDir).pathname });
   await page.setViewportSize({ width: 1280, height: 720 });
 
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'DELEGATION_PLAN');
+  const delegationSnapshot = await submissionSnapshot(page);
+  const delegationScene = page.locator('.submission-delegation-plan.is-map-first');
+  const stopStrip = page.locator('.delegation-stop-strip');
+  const parallelTime = page.locator('.delegation-parallel-time');
+  await expectCount(page, '.delegation-route.is-map-first .route-party', 1, 'one delegated party on its route');
+  await expectCount(page, '.delegation-route.is-map-first .route-threat', 2, 'two known route threats');
+  await expectCount(page, '.delegation-route.is-map-first .route-goal', 1, 'one route boundary goal');
+  await expectCount(page, '[data-stop-condition]', 3, 'three delegation stop conditions');
+  await expectCount(page, '[data-supply-use="0"]', 1, 'no-supply marker');
+  await expectCount(page, '[data-submission-primary="run-delegation"][data-primary-key="SPACE"]', 1, 'single delegation start action');
+  await expectCount(page, '.delegation-heading,.delegation-orders,.concurrent-task,.submission-delegation-plan h1,.submission-delegation-plan p', 0, 'retired delegation dashboard copy');
+  if (await delegationScene.getAttribute('data-delegation-policy') !== delegationSnapshot.policyChoice
+    || await delegationScene.getAttribute('data-route-distance') !== '400'
+    || await delegationScene.getAttribute('data-route-travel-minutes') !== '8'
+    || await delegationScene.getAttribute('data-known-threats') !== '2') {
+    throw new Error('Delegation route does not match its authoritative snapshot and known path');
+  }
+  if (Number(await stopStrip.getAttribute('data-retreat-at-hp')) !== delegationSnapshot.retreatAtHp
+    || await stopStrip.getAttribute('data-turn-limit') !== '12') {
+    throw new Error('Delegation stop strip does not match authoritative limits');
+  }
+  if (await parallelTime.getAttribute('data-time-rule') !== 'MAX_NOT_SUM'
+    || Number(await parallelTime.getAttribute('data-protagonist-minutes')) !== delegationSnapshot.protagonistTaskMinutes
+    || await parallelTime.getAttribute('data-ally-travel-minutes') !== '8'
+    || delegationSnapshot.protagonistTaskMinutes !== 5) {
+    throw new Error('Delegation parallel-time lane does not preserve the 5-minute and 8-minute concurrent schedule');
+  }
+  await assertCriticalFit(page, ['.submission-delegation-plan', '.delegation-route', '.delegation-stop-strip', '.delegation-parallel-time', '[data-submission-primary="run-delegation"]']);
+  await page.screenshot({ path: new URL('16-delegation-route-plan.png', artifactDir).pathname });
+  const delegationTextOff = await page.addStyleTag({ content: '.submission-delegation-plan b,.submission-delegation-plan strong,.submission-delegation-plan small,.submission-delegation-plan kbd,.submission-topbar strong,.submission-topbar small{visibility:hidden!important}' });
+  await page.screenshot({ path: new URL('17-delegation-route-text-off.png', artifactDir).pathname });
+  await delegationTextOff.evaluate((element) => element.remove());
+
+  await page.setViewportSize({ width: 960, height: 720 });
+  await assertCriticalFit(page, ['.submission-delegation-plan', '.delegation-route', '.delegation-stop-strip', '.delegation-parallel-time', '[data-submission-primary="run-delegation"]']);
+  const delegationCompactOverflow = await page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth));
+  if (delegationCompactOverflow !== 0) throw new Error(`Compact delegation route horizontally overflows by ${delegationCompactOverflow}px`);
+  await page.screenshot({ path: new URL('18-delegation-route-4x3.png', artifactDir).pathname });
+  await page.setViewportSize({ width: 1280, height: 720 });
+
   if (errors.length) throw new Error(`Browser errors:\n${errors.join('\n')}`);
   const report = {
     status: 'ENCOUNTER_TRANSITION_PASS',
@@ -257,6 +299,16 @@ try {
       keepRange: policyChanged.policyDirectives.keepRange,
       changedSlots: 1,
       compactOverflow: policyCompactOverflow,
+    },
+    delegationPlan: {
+      policy: delegationSnapshot.policyChoice,
+      routeMeters: 400,
+      travelMinutes: 8,
+      knownThreats: 2,
+      stopConditions: { retreatAtHp: delegationSnapshot.retreatAtHp, turnLimit: 12, unknownRule: 'PAUSE', suppliesUsed: 0 },
+      parallelTime: { rule: 'MAX_NOT_SUM', protagonistMinutes: delegationSnapshot.protagonistTaskMinutes, allyTravelMinutes: 8 },
+      textPanels: 0,
+      compactOverflow: delegationCompactOverflow,
     },
     browserErrors: errors,
   };

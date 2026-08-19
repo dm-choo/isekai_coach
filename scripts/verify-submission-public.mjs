@@ -178,6 +178,50 @@ try {
   }
   await page.screenshot({ path: new URL('09-public-policy-spatial-choice.png', artifactDir).pathname });
 
+  await page.keyboard.press('Space');
+  await page.locator('.submission-delegation-plan.is-map-first[data-delegation-policy="KEEP_RANGE"]').waitFor();
+  const publicDelegationSave = await savedSubmission(page);
+  const publicDelegation = page.locator('.submission-delegation-plan.is-map-first');
+  const publicStopStrip = page.locator('.delegation-stop-strip');
+  const publicParallelTime = page.locator('.delegation-parallel-time');
+  if (await publicDelegation.getAttribute('data-route-distance') !== '400'
+    || await publicDelegation.getAttribute('data-route-travel-minutes') !== '8'
+    || await publicDelegation.getAttribute('data-known-threats') !== '2'
+    || await page.locator('.delegation-route .route-party').count() !== 1
+    || await page.locator('.delegation-route .route-threat').count() !== 2
+    || await page.locator('.delegation-route .route-goal').count() !== 1) {
+    throw new Error('Public delegation route lost its selected policy, distance, party, known threats, or boundary room');
+  }
+  if (await page.locator('[data-stop-condition]').count() !== 3
+    || await page.locator('[data-supply-use="0"]').count() !== 1
+    || Number(await publicStopStrip.getAttribute('data-retreat-at-hp')) !== publicDelegationSave?.retreatAtHp
+    || await publicStopStrip.getAttribute('data-turn-limit') !== '12') {
+    throw new Error('Public delegation plan lost an authoritative stop or supply rule');
+  }
+  if (await publicParallelTime.getAttribute('data-time-rule') !== 'MAX_NOT_SUM'
+    || Number(await publicParallelTime.getAttribute('data-protagonist-minutes')) !== publicDelegationSave?.protagonistTaskMinutes
+    || await publicParallelTime.getAttribute('data-ally-travel-minutes') !== '8'
+    || publicDelegationSave?.protagonistTaskMinutes !== 5) {
+    throw new Error('Public delegation plan lost its concurrent 5-minute and 8-minute schedule');
+  }
+  if (await page.locator('.delegation-heading,.delegation-orders,.concurrent-task,.submission-delegation-plan h1,.submission-delegation-plan p').count()
+    || await page.locator('[data-submission-primary="run-delegation"][data-primary-key="SPACE"]').count() !== 1) {
+    throw new Error('Public delegation plan restored dashboard copy or lost its single start action');
+  }
+  const publicDelegationLayout = await page.locator('.delegation-route,.delegation-stop-strip,.delegation-parallel-time,[data-submission-primary="run-delegation"]').evaluateAll((elements) => ({
+    viewport: { width: innerWidth, height: innerHeight },
+    overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    bounds: elements.map((element) => {
+      const box = element.getBoundingClientRect();
+      return { left: box.left, top: box.top, right: box.right, bottom: box.bottom };
+    }),
+  }));
+  if (publicDelegationLayout.bounds.some((box) => box.left < -1 || box.top < -1 || box.right > publicDelegationLayout.viewport.width + 1 || box.bottom > publicDelegationLayout.viewport.height + 1)
+    || publicDelegationLayout.overflow > 1) {
+    throw new Error(`Public delegation plan does not fit 4:3: ${JSON.stringify(publicDelegationLayout)}`);
+  }
+  await page.screenshot({ path: new URL('10-public-delegation-route-plan.png', artifactDir).pathname });
+
   const regression = {};
   for (const [path, expectedTitle] of [['slice1', 'Slice1'], ['slice2', 'Slice2']]) {
     const regressionPage = await context.newPage();
@@ -207,6 +251,7 @@ try {
     encounterReturn: { titleFree: true, pathSecured: true, timeApplied: publicBattleMinutes, corridorProgress: afterJointSave.corridorProgress, nextInput: 'D' },
     centralScouting: { titleFree: true, centerSecured: true, timeApplied: publicCenterMinutes, corridorsBeforeConfirmation: false, corridorsAfterConfirmation: 4, knownThreats: 2, worldState: { knowledge: afterCenterFrontier.knowledge, corridorsScouted: afterCenterFrontier.corridorsScouted, threat: afterCenterFrontier.threat } },
     policyChoice: { recordLinked: true, spatialResponses: 2, keyboardChoice: '2', selected: publicPolicySave.policyChoice, order: publicPolicySave.policy, keepRange: publicPolicySave.policyDirectives.keepRange },
+    delegationPlan: { policy: publicDelegationSave.policyChoice, routeMeters: 400, travelMinutes: 8, knownThreats: 2, retreatAtHp: publicDelegationSave.retreatAtHp, turnLimit: 12, unknownRule: 'PAUSE', suppliesUsed: 0, parallelRule: 'MAX_NOT_SUM', protagonistMinutes: publicDelegationSave.protagonistTaskMinutes },
     regression,
     browserErrors: errors,
   };

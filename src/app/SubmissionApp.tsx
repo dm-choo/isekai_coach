@@ -357,22 +357,29 @@ function PolicySlot({ policyId, rank, changed, directive = false }: { readonly p
 }
 
 function DelegationPlanStage({ snapshot, controller }: { readonly snapshot: SubmissionSnapshot; readonly controller: SubmissionController }) {
-  return <div className="submission-delegation-plan">
+  const policyIcon = snapshot.policyChoice === 'PUSH_FIRST' ? 'intent-push.svg' : 'intent-move.svg';
+  return <div className="submission-delegation-plan is-map-first" data-delegation-policy={snapshot.policyChoice} data-route-distance="400" data-route-travel-minutes="8" data-known-threats="2">
     <div className="submission-sky" /><div className="submission-canopy" />
-    <section className="delegation-heading"><small>KNOWN ROUTE · DELEGATION</small><h1>아는 길은<br />동료에게 맡긴다.</h1><p>새 규칙이나 미확인 사건을 만나면 진행하지 않고 멈춘다.</p></section>
-    <section className="delegation-route" aria-label="정찰된 동쪽 400미터 통로">
+    <section className="delegation-route is-map-first" aria-label={`원거리 동료에게 ${snapshot.policyChoice === 'PUSH_FIRST' ? '밀치기 우선' : '사거리 유지'} 정책으로 맡길 정찰된 동쪽 400미터 통로`}>
       <div className="route-line"><i /><b style={{ left: '0%' }}>0m</b><b style={{ left: '50%' }}>200m</b><b style={{ left: '100%' }}>400m</b></div>
-      <span className="route-party"><img src={`${BASE_URL}assets/submission/archer-v1.png`} alt="원거리 동료" /><small>별동대</small></span>
-      <span className="route-threat is-warrior"><img src={`${BASE_URL}assets/submission/goblin-warrior-v1.png`} alt="고블린 전사" /><small>관찰됨</small></span>
-      <span className="route-threat is-archer"><img src={`${BASE_URL}assets/submission/goblin-archer-v1.png`} alt="고블린 궁수" /><small>관찰됨</small></span>
-      <span className="route-goal">◇<small>경계 방</small></span>
+      <span className="route-party"><img src={`${BASE_URL}assets/submission/archer-v1.png`} alt="원거리 동료" /><i className="route-party-vitals"><b style={{ width: `${snapshot.vitals.allyHp / 12 * 100}%` }} /></i><em className="route-policy-badge"><img src={`${BASE_URL}assets/ui/${policyIcon}`} alt="" /><b>{snapshot.policyChoice === 'PUSH_FIRST' ? '4→1' : '3+'}</b></em></span>
+      <span className="route-threat is-warrior" aria-label="200미터 부근 고블린 전사"><img src={`${BASE_URL}assets/submission/goblin-warrior-v1.png`} alt="" /><i><img src={`${BASE_URL}assets/ui/intent-attack.svg`} alt="" /></i></span>
+      <span className="route-threat is-archer" aria-label="300미터 부근 고블린 궁수"><img src={`${BASE_URL}assets/submission/goblin-archer-v1.png`} alt="" /><i><img src={`${BASE_URL}assets/ui/intent-shoot.svg`} alt="" /></i></span>
+      <span className="route-goal" aria-label="400미터 경계 방"><i /><small>400m</small></span>
     </section>
-    <aside className="delegation-orders">
-      <header><span><img src={`${BASE_URL}assets/submission/archer-v1.png`} alt="" /><b>원거리 동료</b></span><strong>HP {snapshot.vitals.allyHp}/12</strong></header>
-      <dl><div><dt>경로</dt><dd>정찰된 동쪽 통로 · 400m</dd></div><div><dt>전술 변경</dt><dd>{snapshot.policyChoice === 'PUSH_FIRST' ? '접근 시 밀치기 우선' : '최소 사거리 유지'}</dd></div><div className="delegation-supply"><dt>보급</dt><dd><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="물" />{snapshot.supplies.water}<img src={`${BASE_URL}assets/ui/supply-ration.svg`} alt="식량" />{snapshot.supplies.food}<em>이번 위임 사용 안 함</em></dd></div><div><dt>후퇴</dt><dd>HP {snapshot.retreatAtHp} 이하</dd></div><div><dt>시간 한도</dt><dd>전투 12턴</dd></div><div><dt>미확인 규칙</dt><dd>즉시 Decision · 대기</dd></div></dl>
+    <aside className="delegation-stop-strip" data-retreat-at-hp={snapshot.retreatAtHp} data-turn-limit="12" aria-label="위임 중단 조건: 체력 2 이하, 전투 12턴, 미확인 규칙. 물과 식량은 사용하지 않음">
+      <span data-stop-condition="HP"><i className="stop-hp-glyph"><b /></i><strong>≤ {snapshot.retreatAtHp}</strong><em className="stop-pause-glyph" /></span>
+      <span data-stop-condition="TURN"><i className="delegation-clock-glyph" /><strong>12</strong><em className="stop-pause-glyph" /></span>
+      <span data-stop-condition="UNKNOWN"><i className="stop-unknown-glyph">?</i><strong>!</strong><em className="stop-pause-glyph" /></span>
+      <span data-supply-use="0"><i className="stop-supply-icons"><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="" /><img src={`${BASE_URL}assets/ui/supply-ration.svg`} alt="" /></i><strong>×0</strong></span>
     </aside>
-    <div className="concurrent-task"><span><b>주인공</b><small>중앙 방 · 확장 회로 준비</small><em>{snapshot.protagonistTaskMinutes ? `${snapshot.protagonistTaskMinutes}분` : '준비 완료'}</em></span><i>{snapshot.protagonistTaskMinutes ? '동시에' : '기완료'}</i><span><b>별동대</b><small>400m 이동 + 실제 전투 턴</small><em>8분 + ?</em></span></div>
-    <button type="button" className="submission-flow-primary" data-submission-primary="run-delegation" data-primary-key="SPACE" onClick={controller.performPrimaryAction}><span><small>{snapshot.protagonistTaskMinutes ? '두 작전은 같은 세계 시간을 사용' : '주인공 준비는 이미 완료'}</small><strong>작전 시작</strong></span><kbd>SPACE</kbd></button>
+    <section className="delegation-parallel-time" data-time-rule="MAX_NOT_SUM" data-protagonist-minutes={snapshot.protagonistTaskMinutes} data-ally-travel-minutes="8" aria-label={`같은 세계 시간에 주인공은 중앙 방에서 ${snapshot.protagonistTaskMinutes || 0}분 준비하고 동료는 8분 이동 뒤 실제 전투를 수행`}>
+      <i className="parallel-origin"><span className="delegation-clock-glyph" /></i>
+      <span className="parallel-task is-protagonist"><img src={`${BASE_URL}assets/submission/administrator-v1.png`} alt="주인공" /><i /><b>{snapshot.protagonistTaskMinutes ? `${snapshot.protagonistTaskMinutes}` : '✓'}</b></span>
+      <span className="parallel-task is-ally"><img src={`${BASE_URL}assets/submission/archer-v1.png`} alt="원거리 동료" /><i /><b>8 + ?</b></span>
+      <em aria-hidden="true"><i /><i /></em>
+    </section>
+    <button type="button" className="submission-flow-primary is-icon-first delegation-start-primary" data-submission-primary="run-delegation" data-primary-key="SPACE" aria-label="표시된 정책과 중단 조건으로 위임 작전 시작" onClick={controller.performPrimaryAction}><img src={`${BASE_URL}assets/ui/${policyIcon}`} alt="" /><i className="flow-forward" aria-hidden="true" /><span className="delegation-play-glyph" aria-hidden="true" /><kbd>SPACE</kbd></button>
   </div>;
 }
 
