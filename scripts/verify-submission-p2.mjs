@@ -7,6 +7,7 @@ const port = Number(process.env.SUBMISSION_P2_PORT ?? 4183);
 const suppliedUrl = process.env.SUBMISSION_P2_URL;
 const baseUrl = suppliedUrl ?? `http://127.0.0.1:${port}/?verify=1`;
 const artifactDir = new URL('../artifacts/submission-p2/', import.meta.url);
+const verifyP3 = process.env.SUBMISSION_VERIFY_STAGE === 'P3';
 let server;
 let browser;
 
@@ -84,11 +85,101 @@ try {
   }
   await capture(page, '04-scouted');
 
+  let delegationReport;
+  if (verifyP3) {
+    const scoutedMinute = run.worldMinute;
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'POLICY_REVIEW');
+    const evidenceText = await page.locator('.policy-evidence-focus').innerText();
+    if (!evidenceText.includes('ACTUAL RECORD') || !evidenceText.includes('사격 판정') || !evidenceText.includes('유효 사거리')) {
+      throw new Error(`Policy review is not grounded in the previous combat record: ${evidenceText}`);
+    }
+    await page.locator('.policy-choice-list button').filter({ hasText: '사격 거리를 계속 지킨다' }).click();
+    let policyRun = await submissionSnapshot(page);
+    if (policyRun.policyChoice !== 'KEEP_RANGE' || policyRun.policyDirectives.keepRange !== true) {
+      throw new Error('Keep-range choice did not change the spatial directive');
+    }
+    await capture(page, '06-policy-review');
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'DELEGATION_PLAN');
+    const planText = await page.locator('.delegation-orders').innerText();
+    if (!planText.includes('400m') || !planText.includes('HP 2 이하') || !planText.includes('전투 12턴') || !planText.includes('즉시 Decision')) {
+      throw new Error(`Delegation plan omits route or stop conditions: ${planText}`);
+    }
+    if (await page.locator('.route-threat').count() !== 2) throw new Error('Known route does not expose both observed enemies');
+    await capture(page, '07-keep-range-plan');
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'DELEGATION_RESULT');
+    run = await submissionSnapshot(page);
+    const pausedResult = run.delegationResult;
+    if (!pausedResult || pausedResult.outcome !== 'TIME_LIMIT' || pausedResult.finalHp <= 0) {
+      throw new Error(`Keep-range trade-off did not preserve HP and stop at its time limit: ${JSON.stringify(pausedResult)}`);
+    }
+    const pausedFrontier = run.world.tiles.find((tile) => tile.id === 'frontier-east');
+    if (pausedFrontier?.routeSafe || pausedFrontier?.threat !== 'CONTESTED' || !pausedFrontier?.anchorPrepared || pausedFrontier?.territory !== 'OUTSIDE') {
+      throw new Error(`Paused operation changed the wrong territory axes: ${JSON.stringify(pausedFrontier)}`);
+    }
+    const pausedMinute = run.worldMinute;
+    if (pausedMinute !== scoutedMinute + Math.max(run.protagonistTaskMinutes, pausedResult.elapsedMinutes)) {
+      throw new Error('First concurrent operation did not use the longer duration');
+    }
+    await capture(page, '08-time-limit-result');
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'POLICY_REVIEW');
+    await page.locator('.policy-choice-list button').filter({ hasText: '가까우면 먼저 밀친다' }).click();
+    policyRun = await submissionSnapshot(page);
+    if (policyRun.policyChoice !== 'PUSH_FIRST' || policyRun.policy[0] !== 'PUSH') {
+      throw new Error(`Push-first choice did not change the first policy slot: ${JSON.stringify(policyRun.policy)}`);
+    }
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'DELEGATION_PLAN');
+    if ((await submissionSnapshot(page)).protagonistTaskMinutes !== 0) {
+      throw new Error('Prepared protagonist task was scheduled a second time on retry');
+    }
+    await capture(page, '09-revised-plan');
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'DELEGATION_RESULT');
+    run = await submissionSnapshot(page);
+    const result = run.delegationResult;
+    if (!result || result.outcome !== 'SECURED') {
+      throw new Error(`Recommended one-place policy change did not secure the known route: ${JSON.stringify(result)}`);
+    }
+    const delegatedFrontier = run.world.tiles.find((tile) => tile.id === 'frontier-east');
+    if (!delegatedFrontier?.routeSafe || delegatedFrontier.threat !== 'SECURED' || !delegatedFrontier.anchorPrepared || delegatedFrontier.territory !== 'OUTSIDE') {
+      throw new Error(`Delegation changed the wrong territory axes: ${JSON.stringify(delegatedFrontier)}`);
+    }
+    const expectedSharedMinute = pausedMinute + Math.max(run.protagonistTaskMinutes, result.elapsedMinutes);
+    if (run.worldMinute !== expectedSharedMinute) {
+      throw new Error(`Shared time was summed or dropped: expected ${expectedSharedMinute}, got ${run.worldMinute}`);
+    }
+    if (await page.locator('.operation-causality article').count() !== 3 || await page.locator('.operation-log > div').count() === 0) {
+      throw new Error('Operation result cannot reconstruct source, decision, and actual result');
+    }
+    await capture(page, '10-delegation-result');
+    delegationReport = {
+      firstAttempt: {
+        choice: 'KEEP_RANGE', outcome: pausedResult.outcome, turns: pausedResult.turns,
+        finalHp: pausedResult.finalHp, elapsedMinutes: pausedResult.elapsedMinutes,
+      },
+      choice: run.policyChoice,
+      outcome: result.outcome,
+      turns: result.turns,
+      finalHp: result.finalHp,
+      damageTaken: result.damageTaken,
+      elapsedMinutes: result.elapsedMinutes,
+      sharedWorldMinutes: run.worldMinute - pausedMinute,
+      selectedCounts: result.selectedCounts,
+      routeSafe: delegatedFrontier.routeSafe,
+      anchorPrepared: delegatedFrontier.anchorPrepared,
+      territory: delegatedFrontier.territory,
+    };
+  }
+
   await page.setViewportSize({ width: 960, height: 720 });
   await page.waitForTimeout(100);
   const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   if (horizontalOverflow > 1) throw new Error(`4:3 scouted layout overflows horizontally by ${horizontalOverflow}px`);
-  await capture(page, '05-scouted-4x3');
+  await capture(page, verifyP3 ? '11-delegation-result-4x3' : '05-scouted-4x3');
   if (errors.length) throw new Error(`Browser errors:\n${errors.join('\n')}`);
 
   const report = {
@@ -97,6 +188,7 @@ try {
     finalMode: run.mode,
     corridorProgress: run.corridorProgress,
     worldTime: run.worldTime,
+    vitals: run.vitals,
     frontier: {
       knowledge: frontier.knowledge,
       threat: frontier.threat,
@@ -107,6 +199,7 @@ try {
     partyAnchored: beforeTravel.partyX === afterTravel.partyX,
     worldScrolled: beforeTravel.backdropPosition !== afterTravel.backdropPosition && beforeTravel.groundPosition !== afterTravel.groundPosition,
     centralRoomCausality: true,
+    ...(delegationReport ? { delegation: delegationReport } : {}),
     horizontalOverflow4x3: horizontalOverflow,
     browserErrors: errors,
   };

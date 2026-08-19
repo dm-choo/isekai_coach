@@ -44,6 +44,11 @@ export interface PolicyDecision {
   readonly selected?: PolicyEvaluation;
 }
 
+export interface PolicyDirectives {
+  /** When an enemy is inside the bow's minimum range, create distance before closing again. */
+  readonly keepRange?: boolean;
+}
+
 export interface PolicyExecutionStep {
   readonly cycle: number;
   readonly selectedPolicyId: SlicePolicyId | null;
@@ -56,22 +61,23 @@ export function evaluatePolicy(
   state: BattleState,
   allyId: string,
   order: readonly SlicePolicyId[] = DEFAULT_SLICE_POLICY,
+  directives: PolicyDirectives = {},
 ): PolicyDecision {
   const ally = state.units.find((unit) => unit.id === allyId);
   if (!ally || ally.hp <= 0) return { evaluations: [] };
   const evaluations: PolicyEvaluation[] = [];
   for (const policyId of order) {
-    const evaluation = evaluateOne(state, ally, policyId);
+    const evaluation = evaluateOne(state, ally, policyId, directives);
     evaluations.push(evaluation);
     if (evaluation.executable) return { evaluations, selected: evaluation };
   }
   return { evaluations };
 }
 
-function evaluateOne(state: BattleState, ally: Unit, policyId: SlicePolicyId): PolicyEvaluation {
+function evaluateOne(state: BattleState, ally: Unit, policyId: SlicePolicyId, directives: PolicyDirectives): PolicyEvaluation {
   switch (policyId) {
     case 'EVADE': return evaluateEvade(state, ally);
-    case 'POSITION': return evaluatePosition(state, ally);
+    case 'POSITION': return evaluatePosition(state, ally, directives);
     case 'SHOOT': return evaluateShoot(state, ally);
     case 'PUSH': return evaluatePush(state, ally);
     case 'EMPTY': return blocked(policyId, '장착된 전술이 없음');
@@ -91,7 +97,7 @@ function evaluateEvade(state: BattleState, ally: Unit): PolicyEvaluation {
     : blocked('EVADE', currentDamage === 0 ? '현재 위치가 이미 안전함' : '더 안전한 인접 칸이 없음');
 }
 
-function evaluatePosition(state: BattleState, ally: Unit): PolicyEvaluation {
+function evaluatePosition(state: BattleState, ally: Unit, directives: PolicyDirectives): PolicyEvaluation {
   if (ally.ap < MOVE_AP_COST) return blocked('POSITION', 'AP 부족');
   const target = frontmostEnemy(state, ally);
   if (!target) return blocked('POSITION', '표적 없음');
@@ -106,17 +112,27 @@ function evaluatePosition(state: BattleState, ally: Unit): PolicyEvaluation {
       index,
       canShoot: shootDirection(state, position, ally.facing) !== null,
       distance: distanceBetween(target.position, position),
+      laneGap: Math.abs(target.position.y - position.y),
       danger: predictedDamage(state, position),
     }))
-    .filter((candidate) => candidate.canShoot || candidate.distance < currentDistance)
+    .filter((candidate) => candidate.canShoot || (directives.keepRange
+      ? currentDistance < 3
+        ? candidate.distance > currentDistance
+        : currentDistance > 6
+          ? candidate.distance < currentDistance
+          : candidate.distance >= 3
+      : candidate.distance < currentDistance))
     .sort((left, right) =>
       Number(right.canShoot) - Number(left.canShoot) ||
       left.danger - right.danger ||
-      left.distance - right.distance ||
+      (directives.keepRange ? left.laneGap - right.laneGap : 0) ||
+      (directives.keepRange ? Math.abs(left.distance - 3) - Math.abs(right.distance - 3) : left.distance - right.distance) ||
       left.index - right.index,
     )[0]?.position;
   return destination
-    ? executable('POSITION', '가장 앞의 적을 기준으로 사격 위치에 접근', moveAction(ally.id, destination))
+    ? executable('POSITION', directives.keepRange
+      ? currentDistance < 3 ? '최소 사거리 밖으로 물러나 사격선 확보' : '최소 사거리를 유지하며 사격선 정렬'
+      : '가장 앞의 적을 기준으로 사격 위치에 접근', moveAction(ally.id, destination))
     : blocked('POSITION', '한 칸 이동으로 사격 위치에 가까워질 수 없음');
 }
 

@@ -24,6 +24,7 @@ import {
   POLICY_COPY,
   evaluatePolicy,
   type PolicyExecutionStep,
+  type PolicyDirectives,
   type SlicePolicyId,
 } from './policy';
 import {
@@ -128,6 +129,7 @@ export interface SliceControllerOptions {
   readonly allyId?: string;
   readonly initialTargetId?: string;
   readonly policy?: readonly SlicePolicyId[];
+  readonly policyDirectives?: PolicyDirectives;
   readonly introNotice?: string;
   readonly playbackSpeed?: number;
   readonly phaseDelayScale?: number;
@@ -140,6 +142,7 @@ export class SliceController {
   private readonly administratorId: string;
   private readonly allyId: string;
   private readonly policyOrder: readonly SlicePolicyId[];
+  private readonly policyDirectives: PolicyDirectives;
   private readonly introNotice: string;
   private readonly playbackSpeed: number;
   private readonly phaseDelayScale: number;
@@ -170,6 +173,7 @@ export class SliceController {
     this.administratorId = options.administratorId ?? ADMINISTRATOR_ID;
     this.allyId = options.allyId ?? ARCHER_ID;
     this.policyOrder = [...(options.policy ?? DEFAULT_SLICE_POLICY)];
+    this.policyDirectives = { ...options.policyDirectives };
     this.introNotice = options.introNotice ?? '결계문 앞을 지키는 존재가 길을 막고 있다.';
     this.playbackSpeed = options.playbackSpeed ?? 1;
     this.phaseDelayScale = options.phaseDelayScale ?? 1;
@@ -382,7 +386,7 @@ export class SliceController {
       const state = this.engine.getState();
       const ally = state.units.find((unit) => unit.id === this.allyId);
       if (!ally || ally.hp <= 0 || ally.ap <= 0 || state.outcome !== 'ONGOING') break;
-      const decision = evaluatePolicy(state, this.allyId, this.policyOrder);
+      const decision = evaluatePolicy(state, this.allyId, this.policyOrder, this.policyDirectives);
       const selected = decision.selected;
       const trace: PolicyExecutionStep = {
         cycle,
@@ -544,7 +548,7 @@ export class SliceController {
         const state = engine.getState();
       const ally = state.units.find((unit) => unit.id === this.allyId && unit.hp > 0);
         if (!ally || ally.ap <= 0) break;
-        const selected = evaluatePolicy(state, this.allyId, this.policyOrder).selected;
+        const selected = evaluatePolicy(state, this.allyId, this.policyOrder, this.policyDirectives).selected;
         if (!selected?.action) break;
         steps.push(previewStep(selected.policyId, selected.action, state));
         if (!engine.performStudentAction(selected.action).executable) break;

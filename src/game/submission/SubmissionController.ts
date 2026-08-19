@@ -5,6 +5,7 @@ import {
   POLICY_COPY,
   SliceController,
   type PolicyExecutionStep,
+  type PolicyDirectives,
   type SliceActionId,
   type SlicePolicyId,
   type SliceSnapshot,
@@ -18,15 +19,20 @@ import {
   type ExpeditionVitals,
 } from '../slice2';
 import { createSubmissionWorld, updateSubmissionTile, type SubmissionWorldState } from './world';
+import { simulateDelegatedOperation, type DelegatedOperationResult } from './delegation';
 
-export type SubmissionMode = 'INTRO' | 'CORRIDOR' | 'CENTER_GATE' | 'COMBAT' | 'SCOUTED' | 'DEFEAT';
+export type SubmissionMode =
+  | 'INTRO' | 'CORRIDOR' | 'CENTER_GATE' | 'COMBAT' | 'SCOUTED'
+  | 'POLICY_REVIEW' | 'DELEGATION_PLAN' | 'DELEGATION_RESULT' | 'DEFEAT';
 export type SubmissionEncounterId = 'FIRST_WARRIOR' | 'CENTER_GUARD';
+export type SubmissionPolicyChoice = 'PUSH_FIRST' | 'KEEP_RANGE';
 
 export interface SubmissionCombatSummary {
   readonly encounterId: SubmissionEncounterId;
   readonly turns: number;
   readonly selectedCounts: Readonly<Partial<Record<SlicePolicyId, number>>>;
   readonly primaryBlocked?: { readonly policyId: SlicePolicyId; readonly reason: string; readonly count: number };
+  readonly blockedByPolicy: Readonly<Partial<Record<SlicePolicyId, { readonly reason: string; readonly count: number }>>>;
 }
 
 export interface SubmissionSnapshot {
@@ -44,6 +50,13 @@ export interface SubmissionSnapshot {
   readonly encounterContent?: EncounterContent;
   readonly elapsedBattleTurns: number;
   readonly lastCombatSummary?: SubmissionCombatSummary;
+  readonly policyChoice?: SubmissionPolicyChoice;
+  readonly policyDirectives: PolicyDirectives;
+  readonly retreatAtHp: number;
+  readonly protagonistTaskMinutes: number;
+  readonly delegationAttempt: number;
+  readonly delegationBaseline?: DelegatedOperationResult;
+  readonly delegationResult?: DelegatedOperationResult;
   readonly isNight: false;
   readonly canUseLight: false;
   readonly isBossEncounter: false;
@@ -68,6 +81,7 @@ export class SubmissionController {
   private vitals: ExpeditionVitals = { administratorHp: 14, allyHp: 12 };
   private supplies = { water: 1, food: 1 };
   private policy: readonly SlicePolicyId[] = [...DEFAULT_SLICE_POLICY];
+  private policyDirectives: PolicyDirectives = {};
   private notice = '동쪽 경계 너머에서 오래 멈춘 물소리가 들린다.';
   private combat: SliceController | null = null;
   private combatUnsubscribe: (() => void) | null = null;
@@ -76,6 +90,13 @@ export class SubmissionController {
   private firstEncounterResolved = false;
   private elapsedBattleTurns = 0;
   private lastCombatSummary: SubmissionCombatSummary | undefined;
+  private policyChoice: SubmissionPolicyChoice | undefined;
+  private readonly retreatAtHp = 2;
+  private readonly initialProtagonistTaskMinutes = 5;
+  private lastProtagonistTaskMinutes = 0;
+  private delegationAttempt = 0;
+  private delegationBaseline: DelegatedOperationResult | undefined;
+  private delegationResult: DelegatedOperationResult | undefined;
   private snapshot: SubmissionSnapshot;
 
   public constructor(private readonly options: SubmissionControllerOptions = {}) {
@@ -120,6 +141,73 @@ export class SubmissionController {
   public enterCenter = (): void => {
     if (this.mode !== 'CENTER_GATE') return;
     this.beginCombat('CENTER_GUARD', 'GOBLIN_ARCHER_WARRIOR');
+  };
+
+  public beginPolicyReview = (): void => {
+    if (this.mode !== 'SCOUTED' && this.mode !== 'DELEGATION_RESULT') return;
+    this.mode = 'POLICY_REVIEW';
+    this.notice = '직전 전투 기록을 보고 동료의 공간 대응 한 곳을 바꾼다.';
+    this.publish();
+  };
+
+  public choosePolicy = (choice: SubmissionPolicyChoice): void => {
+    if (this.mode !== 'POLICY_REVIEW') return;
+    this.policyChoice = choice;
+    if (choice === 'PUSH_FIRST') {
+      this.policy = ['PUSH', 'EVADE', 'POSITION', 'SHOOT', 'EMPTY'];
+      this.policyDirectives = {};
+      this.notice = '접근 대응 선택 · 인접한 적은 밀쳐낸 뒤 기존 전술을 평가한다.';
+    } else {
+      this.policy = [...DEFAULT_SLICE_POLICY];
+      this.policyDirectives = { keepRange: true };
+      this.notice = '사거리 유지 선택 · 최소 사거리 안에서는 거리를 다시 만든다.';
+    }
+    this.publish();
+  };
+
+  public openDelegationPlan = (): void => {
+    if (this.mode !== 'POLICY_REVIEW' || !this.policyChoice) return;
+    this.mode = 'DELEGATION_PLAN';
+    this.notice = '정찰된 동쪽 통로 · 알려진 두 적 · HP 2 이하 후퇴.';
+    this.publish();
+  };
+
+  public runDelegation = (): void => {
+    if (this.mode !== 'DELEGATION_PLAN' || !this.policyChoice) return;
+    this.delegationAttempt += 1;
+    this.delegationBaseline = simulateDelegatedOperation({
+      allyHp: this.vitals.allyHp,
+      retreatAtHp: this.retreatAtHp,
+      worldMinute: this.worldMinute,
+    });
+    this.delegationResult = simulateDelegatedOperation({
+      allyHp: this.vitals.allyHp,
+      policy: this.policy,
+      directives: this.policyDirectives,
+      retreatAtHp: this.retreatAtHp,
+      worldMinute: this.worldMinute,
+    });
+    const result = this.delegationResult;
+    const frontierBeforeOperation = this.world.tiles.find((tile) => tile.id === 'frontier-east');
+    this.lastProtagonistTaskMinutes = frontierBeforeOperation?.anchorPrepared ? 0 : this.initialProtagonistTaskMinutes;
+    const sharedElapsed = Math.max(this.lastProtagonistTaskMinutes, result.elapsedMinutes);
+    this.worldMinute += sharedElapsed;
+    this.vitals = { ...this.vitals, allyHp: result.finalHp };
+    this.world = updateSubmissionTile(this.world, 'frontier-east', {
+      anchorPrepared: true,
+      ...(result.outcome === 'SECURED' ? { threat: 'SECURED' as const, routeSafe: true } : {}),
+    });
+    this.mode = 'DELEGATION_RESULT';
+    this.notice = result.outcome === 'SECURED'
+      ? this.lastProtagonistTaskMinutes > 0
+        ? '동쪽 통로 확보. 같은 시간 동안 주인공의 확장 회로 준비도 끝났다.'
+        : '동쪽 통로 확보. 먼저 준비된 확장 회로와 안전 경로가 연결됐다.'
+      : result.outcome === 'TIME_LIMIT'
+        ? '시간 한도 도달. 동료는 안전하지만 통로 위협이 남았다.'
+        : result.outcome === 'RETREATED'
+          ? '후퇴 조건 발동. 동료는 돌아왔지만 통로 위협이 남았다.'
+          : '별동대 전투 불능. 이 작전은 경로를 확보하지 못했다.';
+    this.publish();
   };
 
   public attachPresentation = (presentation: PresentationPort): (() => void) => (
@@ -190,6 +278,7 @@ export class SubmissionController {
       administratorId: SLICE2_ADMINISTRATOR_ID,
       allyId: SLICE2_ALLY_ID,
       policy: this.policy,
+      policyDirectives: this.policyDirectives,
       introNotice: encounterId === 'FIRST_WARRIOR'
         ? '빠르게 접근하는 적 하나가 통로를 막았다.'
         : '궁수의 사격선과 전사의 접근 경로가 겹친다.',
@@ -225,6 +314,15 @@ export class SubmissionController {
       encounterContent: this.encounterContent,
       elapsedBattleTurns: this.elapsedBattleTurns,
       lastCombatSummary: this.lastCombatSummary,
+      policyChoice: this.policyChoice,
+      policyDirectives: this.policyDirectives,
+      retreatAtHp: this.retreatAtHp,
+      protagonistTaskMinutes: this.mode === 'DELEGATION_RESULT'
+        ? this.lastProtagonistTaskMinutes
+        : this.world.tiles.find((tile) => tile.id === 'frontier-east')?.anchorPrepared ? 0 : this.initialProtagonistTaskMinutes,
+      delegationAttempt: this.delegationAttempt,
+      delegationBaseline: this.delegationBaseline,
+      delegationResult: this.delegationResult,
       isNight: false,
       canUseLight: false,
       isBossEncounter: false,
@@ -254,7 +352,20 @@ function summarizeCombat(
     }
   }
   const primaryBlocked = [...blocked.values()].sort((left, right) => right.count - left.count)[0];
-  return { encounterId, turns, selectedCounts, ...(primaryBlocked ? { primaryBlocked } : {}) };
+  const blockedByPolicy: Partial<Record<SlicePolicyId, { reason: string; count: number }>> = {};
+  for (const entry of blocked.values()) {
+    const current = blockedByPolicy[entry.policyId];
+    if (!current || blockedReasonPriority(entry.reason) > blockedReasonPriority(current.reason) || (
+      blockedReasonPriority(entry.reason) === blockedReasonPriority(current.reason) && entry.count > current.count
+    )) blockedByPolicy[entry.policyId] = { reason: entry.reason, count: entry.count };
+  }
+  return { encounterId, turns, selectedCounts, blockedByPolicy, ...(primaryBlocked ? { primaryBlocked } : {}) };
+}
+
+function blockedReasonPriority(reason: string): number {
+  if (reason.includes('유효 사거리') || reason.includes('인접한 적')) return 3;
+  if (reason.includes('AP 부족')) return 0;
+  return 1;
 }
 
 export function submissionPolicyName(policyId: SlicePolicyId): string {

@@ -4,6 +4,7 @@ import {
   SubmissionController,
   computeBarrierContour,
   type SubmissionSnapshot,
+  type SubmissionPolicyChoice,
   type SubmissionTileState,
 } from '../game/submission';
 import { CombatStage } from './Slice2App';
@@ -34,6 +35,10 @@ export function SubmissionApp() {
       if (event.key === ' ') {
         if (snapshot.mode === 'INTRO') controller.startExpedition();
         else if (snapshot.mode === 'CENTER_GATE') controller.enterCenter();
+        else if (snapshot.mode === 'SCOUTED') controller.beginPolicyReview();
+        else if (snapshot.mode === 'POLICY_REVIEW' && snapshot.policyChoice) controller.openDelegationPlan();
+        else if (snapshot.mode === 'DELEGATION_PLAN') controller.runDelegation();
+        else if (snapshot.mode === 'DELEGATION_RESULT' && snapshot.delegationResult?.outcome !== 'SECURED') controller.beginPolicyReview();
         else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'INTRO') controller.startEncounter();
         else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'PLAYER_TURN') controller.confirmPlan();
         else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'VICTORY') controller.completeEncounter();
@@ -77,7 +82,13 @@ export function SubmissionApp() {
           : snapshot.mode === 'CORRIDOR' || snapshot.mode === 'CENTER_GATE'
             ? <CorridorStage snapshot={snapshot} controller={controller} />
             : snapshot.mode === 'SCOUTED'
-              ? <ScoutedStage snapshot={snapshot} />
+              ? <ScoutedStage snapshot={snapshot} controller={controller} />
+              : snapshot.mode === 'POLICY_REVIEW'
+                ? <PolicyReviewStage snapshot={snapshot} controller={controller} />
+                : snapshot.mode === 'DELEGATION_PLAN'
+                  ? <DelegationPlanStage snapshot={snapshot} controller={controller} />
+                  : snapshot.mode === 'DELEGATION_RESULT'
+                    ? <DelegationResultStage snapshot={snapshot} controller={controller} />
               : <TerritoryStage snapshot={snapshot} onStart={controller.startExpedition} />}
         {snapshot.mode !== 'COMBAT' && <SubmissionHud snapshot={snapshot} />}
       </section>
@@ -160,7 +171,7 @@ function CorridorStage({ snapshot, controller }: { readonly snapshot: Submission
   </div>;
 }
 
-function ScoutedStage({ snapshot }: { readonly snapshot: SubmissionSnapshot }) {
+function ScoutedStage({ snapshot, controller }: { readonly snapshot: SubmissionSnapshot; readonly controller: SubmissionController }) {
   return <div className="submission-scouted">
     <div className="submission-sky" /><div className="submission-canopy" />
     <div className="scouted-copy"><small>CENTRAL ROOM SECURED</small><h1>길의 모양을<br />알아냈다.</h1><p>중앙 방과 연결된 네 통로가 동시에 정찰되었다.</p></div>
@@ -172,6 +183,72 @@ function ScoutedStage({ snapshot }: { readonly snapshot: SubmissionSnapshot }) {
     </div>
     <div className="scout-causality"><span><b>1</b>중앙 방 확보</span><i>→</i><span><b>4</b>모든 통로 정찰</span></div>
     <aside className="scouted-next"><small>관찰된 문제</small><strong>동료는 적이 너무 가까워지면 사격하지 못했다.</strong><p>다음 단계에서 이 전투 기록으로 동료 정책을 한 번 수정합니다.</p></aside>
+    <button type="button" className="submission-flow-primary" onClick={controller.beginPolicyReview}><span><small>다음 행동</small><strong>전투 기록 확인</strong></span><kbd>SPACE</kbd></button>
+  </div>;
+}
+
+function PolicyReviewStage({ snapshot, controller }: { readonly snapshot: SubmissionSnapshot; readonly controller: SubmissionController }) {
+  const shootBlocked = snapshot.lastCombatSummary?.blockedByPolicy.SHOOT;
+  const choices: readonly { id: SubmissionPolicyChoice; eyebrow: string; title: string; detail: string; icon: string }[] = [
+    { id: 'PUSH_FIRST', eyebrow: '접근 대응', title: '가까우면 먼저 밀친다', detail: '밀치기를 1순위로 올려 공간을 직접 되찾습니다.', icon: 'intent-push.svg' },
+    { id: 'KEEP_RANGE', eyebrow: '거리 보존', title: '사격 거리를 계속 지킨다', detail: '최소 사거리 안으로 들어오면 공격보다 이동을 우선합니다.', icon: 'intent-move.svg' },
+  ];
+  return <div className="submission-policy-review">
+    <div className="submission-sky" /><div className="submission-canopy" />
+    <section className="policy-evidence-focus">
+      <small>LAST COMBAT · ACTUAL RECORD</small><h1>왜 사격하지<br />못했을까?</h1>
+      <div className="evidence-lane"><span className="evidence-ally"><img src={`${BASE_URL}assets/slice1/archer-v2.png`} alt="원거리 동료" /><i /></span><b>1</b><span className="evidence-enemy"><img src={`${BASE_URL}assets/slice2/goblin-warrior-v1.png`} alt="고블린 전사" /></span></div>
+      <article className="evidence-reason"><img src={`${BASE_URL}assets/ui/intent-shoot.svg`} alt="" /><div><small>사격 판정 · {shootBlocked?.count ?? 0}회 막힘</small><strong>{shootBlocked?.reason ?? '유효 사거리에 적이 없음'}</strong></div></article>
+      <p>활은 바로 앞 2칸을 쏠 수 없다. 바꾼 정책은 이전 기록을 고치지 않고 다음 작전부터 적용된다.</p>
+    </section>
+    <section className="policy-choice-panel">
+      <header><small>CHANGE ONE RULE</small><h2>이 상황에 어떻게 대응할까?</h2><p>둘 다 안전과 시간을 다르게 바꾼다. 결과는 위임 작전에서 확인한다.</p></header>
+      <div className="policy-choice-list">{choices.map((choice) => <button key={choice.id} type="button" className={snapshot.policyChoice === choice.id ? 'is-selected' : ''} onClick={() => controller.choosePolicy(choice.id)}>
+        <i><img src={`${BASE_URL}assets/ui/${choice.icon}`} alt="" /></i><span><small>{choice.eyebrow}</small><strong>{choice.title}</strong><em>{choice.detail}</em></span><b>{snapshot.policyChoice === choice.id ? '✓' : '○'}</b>
+      </button>)}</div>
+      <div className="policy-order-preview"><small>현재 평가 순서</small>{snapshot.policy.map((policyId, index) => <span key={policyId} className={index === 0 ? 'is-first' : ''}><i>{index + 1}</i>{policyName(policyId)}</span>)}</div>
+    </section>
+    <button type="button" className="submission-flow-primary" disabled={!snapshot.policyChoice} onClick={controller.openDelegationPlan}><span><small>{snapshot.policyChoice ? '변경은 다음 작전부터 적용' : '대응 하나를 선택'}</small><strong>위임 경로 확인</strong></span><kbd>SPACE</kbd></button>
+  </div>;
+}
+
+function DelegationPlanStage({ snapshot, controller }: { readonly snapshot: SubmissionSnapshot; readonly controller: SubmissionController }) {
+  return <div className="submission-delegation-plan">
+    <div className="submission-sky" /><div className="submission-canopy" />
+    <section className="delegation-heading"><small>KNOWN ROUTE · DELEGATION</small><h1>아는 길은<br />동료에게 맡긴다.</h1><p>새 규칙이나 미확인 사건을 만나면 진행하지 않고 멈춘다.</p></section>
+    <section className="delegation-route" aria-label="정찰된 동쪽 400미터 통로">
+      <div className="route-line"><i /><b style={{ left: '0%' }}>0m</b><b style={{ left: '50%' }}>200m</b><b style={{ left: '100%' }}>400m</b></div>
+      <span className="route-party"><img src={`${BASE_URL}assets/slice1/archer-v2.png`} alt="원거리 동료" /><small>별동대</small></span>
+      <span className="route-threat is-warrior"><img src={`${BASE_URL}assets/slice2/goblin-warrior-v1.png`} alt="고블린 전사" /><small>관찰됨</small></span>
+      <span className="route-threat is-archer"><img src={`${BASE_URL}assets/slice2/goblin-archer-v1.png`} alt="고블린 궁수" /><small>관찰됨</small></span>
+      <span className="route-goal">◇<small>경계 방</small></span>
+    </section>
+    <aside className="delegation-orders">
+      <header><span><img src={`${BASE_URL}assets/slice1/archer-v2.png`} alt="" /><b>원거리 동료</b></span><strong>HP {snapshot.vitals.allyHp}/12</strong></header>
+      <dl><div><dt>경로</dt><dd>정찰된 동쪽 통로 · 400m</dd></div><div><dt>전술 변경</dt><dd>{snapshot.policyChoice === 'PUSH_FIRST' ? '접근 시 밀치기 우선' : '최소 사거리 유지'}</dd></div><div><dt>후퇴</dt><dd>HP {snapshot.retreatAtHp} 이하</dd></div><div><dt>시간 한도</dt><dd>전투 12턴</dd></div><div><dt>미확인 규칙</dt><dd>즉시 Decision · 대기</dd></div></dl>
+    </aside>
+    <div className="concurrent-task"><span><b>주인공</b><small>중앙 방 · 확장 회로 준비</small><em>{snapshot.protagonistTaskMinutes ? `${snapshot.protagonistTaskMinutes}분` : '준비 완료'}</em></span><i>{snapshot.protagonistTaskMinutes ? '동시에' : '기완료'}</i><span><b>별동대</b><small>400m 이동 + 실제 전투 턴</small><em>8분 + ?</em></span></div>
+    <button type="button" className="submission-flow-primary" onClick={controller.runDelegation}><span><small>{snapshot.protagonistTaskMinutes ? '두 작전은 같은 세계 시간을 사용' : '주인공 준비는 이미 완료'}</small><strong>작전 시작</strong></span><kbd>SPACE</kbd></button>
+  </div>;
+}
+
+function DelegationResultStage({ snapshot, controller }: { readonly snapshot: SubmissionSnapshot; readonly controller: SubmissionController }) {
+  const result = snapshot.delegationResult;
+  if (!result) return null;
+  const secured = result.outcome === 'SECURED';
+  const outcomeCopy = result.outcome === 'SECURED' ? ['ROUTE SECURED', '동쪽 통로 확보'] : result.outcome === 'TIME_LIMIT' ? ['OPERATION PAUSED', '시간 한도에서 중단'] : result.outcome === 'RETREATED' ? ['DETACHMENT RETURNED', '후퇴 조건 발동'] : ['DETACHMENT DOWN', '별동대 전투 불능'];
+  const notableSteps = result.policySteps.filter((step) => step.selectedPolicyId === 'PUSH' || step.selectedPolicyId === 'SHOOT' || step.reason.includes('최소 사거리')).slice(0, 4);
+  return <div className={`submission-delegation-result ${secured ? 'is-secured' : 'is-paused'}`}>
+    <div className="submission-sky" /><div className="submission-canopy" />
+    <section className="operation-outcome"><small>{outcomeCopy[0]}</small><h1>{outcomeCopy[1]}</h1><p>{snapshot.notice}</p><div><span><b>{result.turns}</b><small>전투 턴</small></span><span><b>{result.damageTaken}</b><small>받은 피해</small></span><span><b>{result.elapsedMinutes}</b><small>별동대 분</small></span><span><b>{result.finalHp}</b><small>남은 HP</small></span></div></section>
+    <section className="operation-causality">
+      <article><i>1</i><small>SOURCE</small><strong>정찰된 두 적</strong><p>궁수 + 접근 전사<br />400m 알려진 통로</p></article><b>→</b>
+      <article><i>2</i><small>DECISION</small><strong>{snapshot.policyChoice === 'PUSH_FIRST' ? '밀치기 우선' : '사거리 유지'}</strong><p>HP {snapshot.retreatAtHp} 이하 후퇴<br />12턴 시간 한도</p></article><b>→</b>
+      <article className="is-result"><i>3</i><small>RESULT</small><strong>{secured ? '안전 경로 생성' : '위협 잔존'}</strong><p>{secured ? '확장 거점까지 이동 가능' : '정책 조정 후 재시도 가능'}<br />세계 시각 {snapshot.worldTime}</p></article>
+    </section>
+    <section className="operation-log"><header><span><small>ACTUAL POLICY LOG</small><strong>같은 좌표 규칙의 실제 행동</strong></span><b>{result.eventCount} events</b></header>{notableSteps.map((step, index) => <div key={`${step.turn}-${step.cycle}-${index}`}><i>T{step.turn}</i><img src={`${BASE_URL}assets/ui/intent-${step.selectedPolicyId === 'PUSH' ? 'push' : step.selectedPolicyId === 'SHOOT' ? 'shoot' : 'move'}.svg`} alt="" /><span><strong>{step.action?.label ?? policyName(step.selectedPolicyId ?? 'EMPTY')}</strong><small>{step.reason}</small></span>{step.action?.to && <em>{step.action.from.x},{step.action.from.y} → {step.action.to.x},{step.action.to.y}</em>}</div>)}</section>
+    <aside className="shared-time-result"><small>SHARED WORLD TIME</small><div><span>주인공 준비 <b>{snapshot.protagonistTaskMinutes ? `${snapshot.protagonistTaskMinutes}분` : '기완료'}</b></span><span>별동대 작전 <b>{result.elapsedMinutes}분</b></span></div><p>합산하지 않고 더 오래 걸린 작전만큼 세계 시간이 흘렀다.</p></aside>
+    <button type="button" className="submission-flow-primary" disabled={secured} onClick={controller.beginPolicyReview}><span><small>{secured ? '다음: 주인공이 경계 거점으로 이동' : '이전 결과는 기록에 남음'}</small><strong>{secured ? '안전 경로 확보 완료' : '정책 다시 조정'}</strong></span>{!secured && <kbd>SPACE</kbd>}</button>
   </div>;
 }
 
@@ -195,4 +272,8 @@ function WorldTile({ tile }: { readonly tile: SubmissionTileState }) {
 
 function tilePosition(x: number, y: number): React.CSSProperties {
   return { left: `calc(38% + ${x * 224}px)`, top: `calc(50% + ${y * 148}px)` };
+}
+
+function policyName(policyId: SubmissionSnapshot['policy'][number]): string {
+  return ({ EVADE: '회피', POSITION: '포지셔닝', SHOOT: '사격', PUSH: '밀치기', EMPTY: '빈 슬롯' })[policyId];
 }
