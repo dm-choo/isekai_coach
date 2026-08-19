@@ -1,7 +1,7 @@
 ---
 title: Sector 1 Golden Run
-status: accepted
-last_updated: 2026-08-17
+status: deferred
+last_updated: 2026-08-19
 related:
   - scope.md
   - first-15-minutes.md
@@ -12,7 +12,7 @@ related:
 
 # Sector 1 golden run
 
-이 문서는 첫 섹터에서 canonical mechanics를 보여주는 대표 진행 순서를 소유한다. 각 단계의 규칙은 링크된 gameplay·narrative·UX owner가 소유한다.
+이 문서는 초기의 전체 섹터 후보를 보존한다. M0 범위 축소에 따라 현재 제출 계약에서는 **deferred**이며, 철광산·대장간·별동대·상세 경제를 제출 완료 조건으로 사용하지 않는다. M6에서 [축소된 scope](./scope.md)에 맞는 20~30분 골든 패스로 다시 저작한다.
 
 ## Awakening
 

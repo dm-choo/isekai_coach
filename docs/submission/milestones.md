@@ -1,0 +1,59 @@
+---
+title: Submission Product Milestones
+status: accepted
+last_updated: 2026-08-19
+related:
+  - scope.md
+  - acceptance-criteria.md
+  - ../research/validation-agenda-slice-2.md
+---
+
+# Submission product milestones
+
+수직 슬라이스 이후의 제작은 기능 수가 아니라 플레이어가 획득하는 멘탈모델을 누적한다. 앞 gate가 실패하면 뒤 시스템을 추가하지 않는다.
+
+```text
+M0 범위 고정
+→ M1 조작 피드백
+→ M2 전투 시각 문법
+→ M3 행동으로 배우는 온보딩
+→ M4 선택 충돌과 정책 수정
+→ M5 RUN 통합
+→ M6 제출 골든 패스
+→ M7 Release Candidate
+```
+
+## Current state
+
+- M0: accepted. [Scope](./scope.md)의 축소된 증명 범위를 사용한다.
+- M1: implemented, automated validation passed, public build deployed. 무설명 사람 검증은 다음 외부 테스트 시 누적한다.
+- M2: next.
+- M3~M7: pending.
+
+## Economical validation ladder
+
+| Gate | Evidence | Frequency |
+|---|---|---|
+| V0 | typecheck와 변경 모듈 unit test | 모든 변경 |
+| V1 | 결정론적 상태 시나리오 | 규칙 변경 |
+| V2 | Goal 전용 browser interaction과 최대 3장 screenshot | UI Goal 종료 |
+| V3 | 디렉터의 3~5분 확인 | Goal 배포 뒤 |
+| V4 | 새로운 사람 1명 | 3~5개 Goal 누적 뒤 |
+| V5 | 새로운 사람 2~3명 | 큰 milestone 종료 |
+| V6 | 누적 5명 이상과 전체 release 검증 | RC |
+
+성공 로그는 요약하고 실패 상태만 상세 보존한다. V0가 실패하면 V1 이후를 실행하지 않으며, 일반 UI 변경마다 4타일 전체 완주나 다인 테스트를 반복하지 않는다.
+
+## Goal contract
+
+각 작업은 하나의 플레이어 결과만 소유한다.
+
+```text
+Goal
+player-visible outcome
+preserved contracts
+one browser scene
+stop condition
+```
+
+게임 규칙, 범위 또는 승인된 방향을 바꾸지 않는 세부 구현은 Goal 안에서 자율적으로 결정한다.

@@ -1,7 +1,7 @@
 ---
 title: First 15 Minutes Submission Flow
-status: accepted
-last_updated: 2026-08-17
+status: deferred
+last_updated: 2026-08-19
 related:
   - scope.md
   - sector-1-golden-run.md
@@ -11,7 +11,7 @@ related:
 
 # First 15 minutes
 
-이 문서는 전체 submission을 위한 후속 flow다. 현재 구현·검증의 진입점은 별도의 [Amazon Barrier Guardian Slice 1](./vertical-slice.md)이며, 그 slice에서는 아래 15분 curriculum과 policy 편집을 실행하지 않는다. 연출과 화면 전환은 [First 15 minutes UX](../ux/flows/first-15-minutes.md)가 소유한다.
+이 문서는 초기의 넓은 15분 후보 flow를 보존한다. M0 범위 축소에 따라 현재 제출 계약에서는 **deferred**이며, M3 온보딩에서 [축소된 scope](./scope.md)의 골든 패스로 다시 저작하기 전까지 구현 기준으로 사용하지 않는다.
 
 플레이어는 15분 안에 다음 순서의 경험을 완료해야 한다.
 

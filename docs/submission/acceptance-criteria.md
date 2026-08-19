@@ -1,7 +1,7 @@
 ---
 title: Web Build Acceptance Criteria
 status: accepted
-last_updated: 2026-08-17
+last_updated: 2026-08-19
 related:
   - scope.md
   - first-15-minutes.md
@@ -27,16 +27,16 @@ related:
 - 궁수의 고정 5-slot policy는 자동 실행되며 Slice 1에는 policy 편집 UI가 없다.
 - 승리 뒤 관리자만 결계 오브젝트를 봉인 해제한다.
 
-- [첫 15분의 14개 경험](./first-15-minutes.md)이 순서상 누락 없이 도달 가능하다.
-- 첫 15분 뒤 [첫 섹터 완결](./sector-1-golden-run.md#sector-completion)과 완료 후 자유 플레이가 가능하다.
-- 각성·동료 해방·시설 복구가 [승인된 premise](../narrative/index.md)와 충돌하지 않는다.
+- 관리자 단독 규칙 학습, 원거리 동료 합류, 짧은 원정, 정책 수정, 새 조합, 보스와 결계 해제가 20~30분 골든 패스로 연결된다.
+- 처음 보는 플레이어가 조작과 기본 전투 문법을 외부 설명 없이 발견한다.
+- 각성·동료 합류와 결계 해제가 [승인된 premise](../narrative/index.md)와 충돌하지 않는다.
 
 ## World and operations
 
 - 어둠, 흐림, 밝음의 [시각 상태](../gameplay/world/tile-states.md)와 내부 gameplay state가 구별된다.
 - 비콘과 마력 횃불이 승인된 공개·안정화 역할을 수행한다.
-- 본대와 별동대가 [하나의 월드 시간](../gameplay/operations/world-time.md)에서 진행하며 현재 본대 화면을 별동대 사건이 강제로 중단하지 않는다.
-- 각 부대의 [작전 채널](../gameplay/operations/operation-channel.md)이 사실을 보존하고 Decision 사건은 해당 부대만 대기시킨다.
+- 짧은 원정의 이동·전투·휴식이 [하나의 월드 시간](../gameplay/operations/world-time.md)을 공유한다.
+- 월드 시스템은 전투와 정책 선택에 영향을 주는 범위만 포함한다.
 
 ## Combat and policy
 
@@ -49,10 +49,9 @@ related:
 - 같은 initial state와 같은 행동은 같은 결과·전투 기록을 만들며 제출 전투에 확률 판정이 없다.
 - 다시보기·정책 분석은 Slice 1 이후 장기 범위이며, 현재 scene acceptance를 막지 않는다.
 
-## Progression through the sector
+## Progression through the demo
 
-- 철광산 확보, 슬롯 적재·운송, 대장간 복구와 장비 제작이 [경제 정본](../gameplay/economy/index.md)에 맞게 연결된다.
-- 횃불 경로 안정화, 최종 던전, 결계 수호자, 결계 해제와 demo 완료가 도달 가능하다.
+- 정책 수정 전후의 실제 결과 차이, 결계 수호자, 결계 해제와 demo 완료가 도달 가능하다.
 - 결계 수호자는 주인공과 동료 1명으로 클리어 가능하되 정확한 pattern과 수치는 **under-validation** 결과를 따른다.
 
 ## Presentation and evidence
