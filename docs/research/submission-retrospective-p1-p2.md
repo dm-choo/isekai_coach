@@ -181,3 +181,58 @@ P1의 domain gate는 통과했다. 화면 판독 효과는 P5 사람 검증 전�
 - 동일한 combat engine과 presentation을 직접 탐사와 이후 위임 비교에 재사용할 수 있다.
 - 100m는 2분이며 첫 고정 조우는 200m에서 이동을 중단한다.
 - 아직 의존하면 안 되는 가설은 `신규 사용자가 첫 전투와 정찰 인과를 무설명으로 이해한다`이다.
+
+## P2 closure 실행 결과
+
+### 산출물 증거
+
+2026-08-19 현재 `npm run verify:submission:p2`가 실제 브라우저 입력으로 아래 경로를 완주했다.
+
+```text
+INTRO
+→ D 이동과 world scroll
+→ 200m FIRST_WARRIOR
+→ 6턴, 재시도 0
+→ 같은 200m에서 이동 재개
+→ 400m CENTER_GATE
+→ CENTER_GUARD
+→ 8턴, 재시도 0
+→ SCOUTED 10:22
+```
+
+- 파티의 화면 X는 이동 전후 동일했고 background와 ground position은 변했다.
+- 중앙 방 1개와 연결 방 4개가 렌더됐고 `중앙 방 확보 → 모든 통로 정찰` 문구가 같은 장면에 존재했다.
+- frontier는 `SCOUTED`, `CONTESTED`, `OUTSIDE`, `corridorsScouted=true`였다. 정찰을 안전 또는 영토 편입으로 잘못 승격하지 않았다.
+- 960×720의 horizontal overflow는 0이었다.
+- console, page, failed request error는 0이었다.
+
+P2의 자동 기술 gate는 닫혔다. 처음 보는 사람의 무설명 판독은 P2·P3 누적 V4에서 확인하므로 UX 가설은 계속 `under-validation`이다.
+
+### closure 사고 과정 메타회고
+
+- **최종 assertion 선작성은 효과가 있었다.** 구현 전에 `SCOUTED까지 실제 UI 입력으로 도달`을 적어 두자 이전처럼 첫 조우 캡처에서 멈추지 않았다.
+- **검증기도 가설이라는 사실을 재확인했다.** 첫 실행은 CSS transition이 끝나기 전에 background position을 읽어 정상 동작을 실패로 판정했다. 화면 state가 아니라 player-visible timing을 검사할 때는 안정화 조건이 필요하다.
+- **시간 계약을 코드보다 단순하게 기억했다.** 두 번째 실행은 400m의 이동 8분만 기대하고 전투 6턴을 누락했다. 실제 state가 10:14인 이유를 추적해 검증식을 `이동 시간 + 실제 전투 턴`으로 고쳤다. 테스트 기대값을 통과시키려고 제품 state를 바꾸지 않은 판단은 옳았다.
+- **역방향 증거 감사가 누락을 드러냈다.** 최종 SCOUTED에서 출발해 거꾸로 보니, 재개 지점·중앙 입구·두 번째 전투·정찰 상태를 각각 assertion해야 한다는 것이 명확해졌다.
+- **자동 플레이의 역할을 제한했다.** 재시도 0 완주는 deterministic 경로와 치명적 회귀의 증거이지, 전투가 재미있거나 처음 보는 사람이 이해한다는 증거가 아니다.
+
+### closure 개발 효율 회고
+
+#### 재사용할 부분
+
+- 기존 Slice2 smoke player의 가장 작은 전투 heuristic만 재사용해 새로운 테스트 전용 우회 API를 제품 controller에 넣지 않았다.
+- 스크린샷을 intro, corridor, first encounter, center gate, scouted와 4:3 final로 제한했고 report에는 최종 계약 수치만 남겼다.
+- 실패할 때 전체 suite를 반복하지 않고 P2 verifier만 다시 실행했다. 가장 낮은 실패 gate에서 수정한다는 원칙을 지켰다.
+
+#### 개선할 부분
+
+- 첫 browser assertion부터 transition 안정화 시간을 계약에 포함했어야 했다. 다음 verifier는 animation이 있는 값에 즉시 equality를 사용하지 않는다.
+- 세계 시간 기대값은 문자열을 손으로 적지 않고 authoritative duration 항목으로 조합해야 한다.
+- 장시간 browser process의 완료 출력이 도구 경계보다 늦게 도착해 별도 process 확인을 한 번 수행했다. 다음 실행은 verifier 자체 progress log와 명시적 final report write를 유지해 완료 여부를 빠르게 구별한다.
+
+### P3에 전달하는 실행 규칙
+
+1. 위임 결과의 시간도 `고정 이동/작업 시간 + 실제 BattleEngine 턴`으로 계산한다.
+2. 직접 전투와 위임 parity는 최종 승패만이 아니라 action log, turn, HP와 좌표 이동을 비교한다.
+3. 정책 변경 UI를 만들기 전에 `이전 전투 evidence → 한 변경 → 같은 규칙 결과`의 최종 assertion을 먼저 쓴다.
+4. 사람 검증 전에는 `직관적이다`라고 쓰지 않고 자동화가 확인한 인과 요소만 보고한다.

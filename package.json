@@ -22,6 +22,7 @@
     "verify:combat-ux": "node scripts/verify-combat-ux.mjs",
     "verify:slice2": "node scripts/verify-slice2.mjs",
     "verify:slice2:public": "node scripts/verify-slice2-public.mjs",
+    "verify:submission:p2": "node scripts/verify-submission-p2.mjs",
     "verify:submission-rc": "node scripts/verify-submission-rc.mjs",
     "preview": "vite preview"
   },
