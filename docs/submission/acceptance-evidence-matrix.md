@@ -12,6 +12,7 @@ related:
   - p12-retrospective.md
   - p13-retrospective.md
   - p14-retrospective.md
+  - p15-retrospective.md
 ---
 
 # 제출본 수용 기준 증거 매트릭스
@@ -47,6 +48,7 @@ related:
 | 동료 forecast→정책 번호→계획 재계산→실행이 같은 인과 문법을 사용함 | `verify:submission:ally-policy`의 CURRENT/PLANNED signature와 동일 policy ID 실행 포착 | A+V, 번호의 의미 이해는 H REQUIRED |
 | 복도 조우가 제목 카드 없이 적 reveal→SPACE→같은 전장 입력으로 이어짐 | `verify:submission:encounter-transition`의 title 0, single action, same CombatStage identity, 양 비율 캡처 | A+V, 조우 의미 이해는 H REQUIRED |
 | 첫 합동 승리가 적 소멸→경로 check→시간 비용→200m 복귀로 이어짐 | `verify:submission:encounter-transition`의 victory title/notice 0, HP·minute·progress parity와 복귀 frame | A+V, 경로 확보 의미는 H REQUIRED |
+| 중앙 방 승리가 중앙점 check→네 방향 통로·위험 reveal로 이어짐 | `verify:submission:encounter-transition`의 확인 전후 `corridorsScouted` 경계, center/route/room/threat 수, 양 비율·text-off 캡처 | A+V, 공간 인과 이해는 H REQUIRED |
 | keyboard/pointer와 accepted/rejected/result 구분 | `verify:submission:interaction`, golden keyboard route·pointer restart | A |
 | 불가 행동은 state 불변과 구체 이유 | controller early-activation test + blocker copy | A |
 | 적 Intent/관리자 plan/동료 prediction 비색상 문법 | 기존 `verify:combat-ux`, Slice 1 browser regression | A+V |
@@ -59,7 +61,7 @@ related:
 | Acceptance row | Evidence owner | 상태 |
 |---|---|---|
 | 지식·위협·영토·효용 독립 | `world.test.ts` | A |
-| 중앙 방 해결만으로 네 통로 결정론적 정찰 | controller transition + golden causality assertion | A |
+| 중앙 방 해결만으로 네 통로 결정론적 정찰 | controller transition + encounter lifecycle의 확인 전 false/확인 후 true + golden map-state assertion | A+V, 원인 설명은 H REQUIRED |
 | 직접/위임이 동일 grid·ability·intent·collision·time 규칙 사용 | independent action-trace replay through `BattleEngine` | A |
 | 공유 월드 시간, Decision은 해당 부대만 정지 | golden이 병렬 작업 시간을 합산하지 않고 `max()`로 검증 | A |
 | 패배가 재추첨·비용 초기화 없이 안전 영토로 복귀 | `verify:submission:failure` defeat→retreat→re-entry | A+V |
@@ -85,7 +87,7 @@ related:
 | first solo combat | `npm run verify:submission:solo-combat` | threat→unsafe revise→safe execute→full controls, both ratios, error 0 |
 | normal combat hierarchy | `npm run verify:submission:normal-combat` | scene-first action dock, result focus, both ratios, error 0 |
 | ally policy causality | `npm run verify:submission:ally-policy` | closed forecast, 5-slot source, plan recomputation, forecast/execution policy identity, both ratios, error 0 |
-| encounter lifecycle | `npm run verify:submission:encounter-transition` | title-free threat reveal, same-stage input, path result, HP/time/200m return, both ratios, error 0 |
+| encounter lifecycle | `npm run verify:submission:encounter-transition` | title-free threat reveal, same-stage input, HP/time/200m return, central check→4-route scouting, both ratios, error 0 |
 | failure contract | `npm run verify:submission:failure` | safe retreat, persistent cost, no reroll, browser error 0 |
 | product golden | `npm run verify:submission:golden` | EXPANDED, both ratios, browser error 0 |
 | cumulative technical RC | `npm run verify:submission-rc` | clean exact SHA, submission + Slice 1·2 전부 통과 |

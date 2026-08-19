@@ -117,16 +117,19 @@ try {
 
   run = await submissionSnapshot(page);
   if (run.mode !== 'SCOUTED') throw new Error(`P2 did not reach SCOUTED: ${JSON.stringify(pickRunState(run))}`);
+  await page.waitForTimeout(900);
   const frontier = run.world.tiles.find((tile) => tile.id === 'frontier-east');
   if (!frontier || frontier.knowledge !== 'SCOUTED' || !frontier.corridorsScouted || frontier.threat !== 'CONTESTED') {
     throw new Error(`Central victory did not scout all corridors without falsely securing them: ${JSON.stringify(frontier)}`);
   }
-  if (await page.locator('.scout-room').count() !== 4 || await page.locator('.scout-center').count() !== 1) {
+  if (await page.locator('[data-scout-map-state="FOUR_CORRIDORS_SCOUTED"] .scout-room').count() !== 4 || await page.locator('.scout-center').count() !== 1) {
     throw new Error('Scouting result does not render one central room and four connected rooms');
   }
-  const causality = await page.locator('.scout-causality').innerText();
-  if (!causality.includes('중앙 방 확보') || !causality.includes('모든 통로 정찰')) {
-    throw new Error(`Scouting causality is missing: ${causality}`);
+  if (await page.locator('.scout-line').count() !== 4 || await page.locator('.scout-threat').count() !== 2 || await page.locator('.scout-policy-hook').count() !== 1) {
+    throw new Error('Scouting result does not connect four routes, known threats, and the observed policy problem');
+  }
+  if (await page.locator('.scouted-copy,.scout-causality,.scouted-next').count() !== 0) {
+    throw new Error('Scouting result regressed to explanation-first panels');
   }
   if (verifyP5) await assertPrimaryAction(page, 'review-record', 'SPACE');
   await capture(page, '04-scouted');
@@ -448,6 +451,16 @@ async function verifyFirstCombatInput(page) {
 }
 
 async function playPlayerTurn(page, snapshot) {
+  if (snapshot.state.turn === 1 && await page.locator('.solo-learning-controls').count()) {
+    const authoredMove = page.locator('.solo-learning-controls .wasd-grid button').filter({ hasText: 'W' });
+    if (!await authoredMove.isEnabled()) throw new Error('Solo smoke player cannot use its authored W movement');
+    await authoredMove.click();
+    const execute = page.locator('[data-onboarding-primary="execute-plan"]');
+    if (!await execute.isEnabled()) throw new Error('Solo smoke player did not produce a safe confirmable movement');
+    await execute.click();
+    await page.waitForTimeout(40);
+    return;
+  }
   for (let decision = 0; decision < 3; decision += 1) {
     snapshot = await combatSnapshot(page);
     const actor = snapshot.previewState.units.find((unit) => unit.id === 'administrator-slice2');

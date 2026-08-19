@@ -20,6 +20,8 @@ related:
   - p13-retrospective.md
   - p14-encounter-return-contract.md
   - p14-retrospective.md
+  - p15-central-scouting-contract.md
+  - p15-retrospective.md
   - release-candidate.md
 ---
 
@@ -49,6 +51,8 @@ OpenAI Game Builders Seoul 제출용 Web Build가 전체 게임 설계에서 선
 - [P13 retrospective](./p13-retrospective.md): 연속 조우 전환의 장면 판단·검증 오류·남은 경계 회고
 - [P14 encounter return contract](./p14-encounter-return-contract.md): 적 소멸→경로 안전화→시간 반영→200m 복귀 계약
 - [P14 retrospective](./p14-retrospective.md): 경로 안전화 결과의 시각 판단·상태 수명 오류·검증 비용 회고
+- [P15 central scouting contract](./p15-central-scouting-contract.md): 중앙 방 확보→네 방향 통로 reveal의 공간 인과 계약
+- [P15 retrospective](./p15-retrospective.md): 지도 중심 정찰 장면의 시각 판단·fixture 결함·검증 비용 회고
 - [Release candidate gate](./release-candidate.md): 재현 가능한 기술 검증, 배포·복구와 사람 gate
 
 ## Status summary

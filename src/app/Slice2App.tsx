@@ -301,6 +301,8 @@ export function CombatStage({ snapshot, run, controller, encounter, visualTheme,
   const soloLearningTurn = prologueEncounter && firstLearningTurn;
   const soloLearningPhase = soloLearningTurn && snapshot.plannedActions.length > 0 ? 'outcome' : 'threat';
   const firstJointPathResult = submissionPresentation && !prologueEncounter && encounter === 'GOBLIN_WARRIOR';
+  const centralScoutingResult = submissionPresentation && encounter === 'GOBLIN_ARCHER_WARRIOR';
+  const sceneFirstVictory = firstJointPathResult || centralScoutingResult;
   return (
     <div className={`slice2-combat ${run.isNight ? 'is-night' : ''} ${submissionPresentation && snapshot.mode === 'INTRO' && !prologueEncounter ? 'is-encounter-reveal' : ''} ${soloLearningTurn ? `is-solo-learning is-${soloLearningPhase}` : ''}`} data-world-minute={run.worldMinute}>
       <Suspense fallback={<div className="phaser-host phaser-loading" aria-label="전장 불러오는 중"><i /><span>전장 불러오는 중</span></div>}>
@@ -317,8 +319,8 @@ export function CombatStage({ snapshot, run, controller, encounter, visualTheme,
       <IntentStack snapshot={snapshot} focused={soloLearningTurn} sceneFirst={submissionPresentation} />
       {snapshot.mode === 'PLAYER_TURN' && party.length > 1 && <AllyIntentPanel snapshot={snapshot} compact={submissionPresentation} />}
       {run.canUseLight && <button type="button" className="light-button" onClick={controller.useLight}>휴대용 조명 사용 · Intent 공개</button>}
-      {snapshot.mode !== 'INTRO' && !soloLearningTurn && !(submissionPresentation && (snapshot.mode === 'PLAYER_TURN' || snapshot.mode === 'ALLY_TURN')) && !(firstJointPathResult && snapshot.mode === 'VICTORY') && <CombatTurnBanner snapshot={snapshot} />}
-      {snapshot.mode !== 'INTRO' && snapshot.mode !== 'PLAYER_TURN' && snapshot.mode !== 'SEAL_UNLOCKED' && !(submissionPresentation && snapshot.mode === 'ALLY_TURN') && !(firstJointPathResult && snapshot.mode === 'VICTORY') && <div className="combat-notice"><span />{snapshot.notice}</div>}
+      {snapshot.mode !== 'INTRO' && !soloLearningTurn && !(submissionPresentation && (snapshot.mode === 'PLAYER_TURN' || snapshot.mode === 'ALLY_TURN')) && !(sceneFirstVictory && snapshot.mode === 'VICTORY') && <CombatTurnBanner snapshot={snapshot} />}
+      {snapshot.mode !== 'INTRO' && snapshot.mode !== 'PLAYER_TURN' && snapshot.mode !== 'SEAL_UNLOCKED' && !(submissionPresentation && snapshot.mode === 'ALLY_TURN') && !(sceneFirstVictory && snapshot.mode === 'VICTORY') && <div className="combat-notice"><span />{snapshot.notice}</div>}
       {snapshot.mode === 'ALLY_TURN' && party.length > 1 && <PolicyReadout snapshot={snapshot} compact={submissionPresentation} />}
       {firstLearningTurn && (soloLearningTurn ? <SoloCombatGuide snapshot={snapshot} /> : <FirstCombatCue snapshot={snapshot} />)}
       {snapshot.mode === 'PLAYER_TURN' && <CombatControls snapshot={snapshot} controller={controller} onboarding={soloLearningTurn} compact={submissionPresentation && !soloLearningTurn} />}
@@ -339,6 +341,12 @@ export function CombatStage({ snapshot, run, controller, encounter, visualTheme,
               <span className="result-time-cost" aria-label={`전투 ${snapshot.state.turn}분 경과`}><i aria-hidden="true" /><b>+{snapshot.state.turn}</b></span>
               <button type="button" data-combat-primary="resume-corridor" aria-label="확보한 200미터 지점에서 탐사 재개" onClick={controller.completeEncounter}><b aria-hidden="true">✓</b><i aria-hidden="true">→</i><kbd>SPACE</kbd></button>
             </div>
+          : centralScoutingResult
+            ? <div className="result-overlay is-central-scout-gate" data-combat-result="CENTER_SECURED">
+                <span className="central-secured-origin" aria-hidden="true"><i className="is-north" /><i className="is-east" /><i className="is-south" /><i className="is-west" /><b>✓</b></span>
+                <span className="result-time-cost" aria-label={`전투 ${snapshot.state.turn}분 경과`}><i aria-hidden="true" /><b>+{snapshot.state.turn}</b></span>
+                <button type="button" data-combat-primary="reveal-corridors" aria-label="확보한 중앙 방에서 네 통로 정찰" onClick={controller.completeEncounter}><b aria-hidden="true">✓</b><i className="central-route-glyph" aria-hidden="true"><span /><span /><span /><span /></i><kbd>SPACE</kbd></button>
+              </div>
         : <div className="result-overlay"><p>{prologueEncounter ? 'FIRST THREAT BROKEN' : 'PATH SECURED'}</p><h2>{prologueEncounter ? '봉인이 드러났다' : '인카운터 해결'}</h2><span>{prologueEncounter ? '쓰러진 위협 너머의 빛이 다시 움직입니다.' : '현재 HP와 소요 턴이 원정에 유지됩니다.'}</span><button type="button" onClick={controller.completeEncounter}>{prologueEncounter ? '바깥 유적으로 이동' : '통로로 복귀'} <kbd>SPACE</kbd></button></div>
       )}
       {snapshot.mode === 'SEAL_UNLOCKED' && run.isBossEncounter && (

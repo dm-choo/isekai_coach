@@ -67,7 +67,7 @@ try {
   await page.screenshot({ path: new URL('03-same-stage-input.png', artifactDir).pathname });
 
   const beforeVictoryRun = await submissionSnapshot(page);
-  await completeFirstJointCombatToVictory(page);
+  await completeCombatToVictory(page, 'first joint');
   await page.waitForTimeout(500);
   const victory = await combatSnapshot(page);
   if (victory.mode !== 'VICTORY') throw new Error(`First joint encounter did not reach victory: ${victory.mode}`);
@@ -104,6 +104,76 @@ try {
   await expectCount(page, '[data-submission-primary="advance-corridor"][data-primary-key="D"]', 1, 'next corridor movement');
   await page.screenshot({ path: new URL('06-corridor-resumed.png', artifactDir).pathname });
 
+  for (let step = 0; step < 100; step += 1) {
+    if ((await submissionSnapshot(page)).mode !== 'CORRIDOR') break;
+    await page.keyboard.press('d');
+  }
+  await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'CENTER_GATE');
+  const centerGate = await submissionSnapshot(page);
+  if (centerGate.corridorProgress !== 400) throw new Error(`Central gate did not retain 400m progress: ${centerGate.corridorProgress}`);
+  const frontierBeforeCenter = centerGate.world.tiles.find((tile) => tile.id === 'frontier-east');
+  if (frontierBeforeCenter?.corridorsScouted) throw new Error('Corridors became scouted before the central room was secured');
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => {
+    const snapshot = window.__ISEKAI_COACH_SUBMISSION__?.snapshot;
+    return snapshot?.mode === 'COMBAT' && snapshot.encounterId === 'CENTER_GUARD' && snapshot.combat?.mode === 'INTRO';
+  });
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot?.mode === 'PLAYER_TURN');
+  const beforeCenterCombat = await submissionSnapshot(page);
+  await completeCombatToVictory(page, 'central guard');
+  await page.waitForTimeout(500);
+  const centerVictory = await combatSnapshot(page);
+  if (centerVictory.mode !== 'VICTORY') throw new Error(`Central guard did not reach victory: ${centerVictory.mode}`);
+  await expectCount(page, '.result-overlay.is-central-scout-gate[data-combat-result="CENTER_SECURED"]', 1, 'scene-first central result');
+  await expectCount(page, '.turn-banner-victory,.combat-notice,.result-overlay.is-central-scout-gate h2,.result-overlay.is-central-scout-gate p,.result-overlay.is-central-scout-gate > span:not(.central-secured-origin):not(.result-time-cost)', 0, 'central result title and explanation copy');
+  await expectCount(page, '.central-secured-origin,.result-time-cost,[data-combat-primary="reveal-corridors"]', 3, 'central origin, time, and reveal action');
+  await expectCount(page, '.enemy-bars .slice2-unit-bar', 0, 'central living enemy bars after victory');
+  if (await page.locator('.result-time-cost b').innerText() !== `+${centerVictory.state.turn}`) throw new Error('Central time badge does not match combat turns');
+  if (await page.locator('[data-combat-primary="reveal-corridors"] kbd').innerText() !== 'SPACE') throw new Error('Central scouting action does not expose SPACE');
+  const stillUnscouted = await submissionSnapshot(page);
+  if (stillUnscouted.world.tiles.find((tile) => tile.id === 'frontier-east')?.corridorsScouted) throw new Error('Central result presentation mutated world state before confirmation');
+  await assertCriticalFit(page, ['.slice2-combat', '.central-secured-origin', '.result-time-cost', '[data-combat-primary="reveal-corridors"]', '.slice2-party-bars']);
+  await page.screenshot({ path: new URL('07-center-secured.png', artifactDir).pathname });
+
+  await page.setViewportSize({ width: 960, height: 720 });
+  await assertCriticalFit(page, ['.slice2-combat', '.central-secured-origin', '.result-time-cost', '[data-combat-primary="reveal-corridors"]', '.slice2-party-bars']);
+  const centralCompactOverflow = await page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth));
+  if (centralCompactOverflow !== 0) throw new Error(`Compact central result horizontally overflows by ${centralCompactOverflow}px`);
+  await page.screenshot({ path: new URL('08-center-secured-4x3.png', artifactDir).pathname });
+  await page.setViewportSize({ width: 1280, height: 720 });
+
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'SCOUTED');
+  await page.waitForTimeout(900);
+  const scouted = await submissionSnapshot(page);
+  const scoutedFrontier = scouted.world.tiles.find((tile) => tile.id === 'frontier-east');
+  if (!scoutedFrontier || scoutedFrontier.knowledge !== 'SCOUTED' || !scoutedFrontier.corridorsScouted || scoutedFrontier.threat !== 'CONTESTED') {
+    throw new Error(`Central victory did not reveal all contested corridors: ${JSON.stringify(scoutedFrontier)}`);
+  }
+  if (scouted.worldMinute !== beforeCenterCombat.worldMinute + centerVictory.state.turn) {
+    throw new Error(`Central combat time did not reach the world clock: ${JSON.stringify({ before: beforeCenterCombat.worldMinute, turns: centerVictory.state.turn, after: scouted.worldMinute })}`);
+  }
+  await expectCount(page, '[data-scout-map-state="FOUR_CORRIDORS_SCOUTED"]', 1, 'map-first scouted state');
+  await expectCount(page, '.scout-center,.scout-policy-hook,[data-submission-primary="review-record"]', 3, 'central cause, policy hook, and next action');
+  await expectCount(page, '.scout-line', 4, 'four revealed routes');
+  await expectCount(page, '.scout-room', 4, 'four revealed rooms');
+  await expectCount(page, '.scout-threat', 2, 'known directional threats');
+  await expectCount(page, '.scouted-copy,.scout-causality,.scouted-next', 0, 'retired scouting explanation panels');
+  if (await page.locator('[data-submission-primary="review-record"] kbd').innerText() !== 'SPACE') throw new Error('Record review action does not expose SPACE');
+  await assertCriticalFit(page, ['.submission-scouted', '.scout-map', '.scout-policy-hook', '[data-submission-primary="review-record"]']);
+  await page.screenshot({ path: new URL('09-four-corridors-scouted.png', artifactDir).pathname });
+  const textOffStyle2 = await page.addStyleTag({ content: '.submission-scouted .scout-center small,.submission-topbar strong,.submission-topbar small{visibility:hidden!important}' });
+  await page.screenshot({ path: new URL('10-four-corridors-text-off.png', artifactDir).pathname });
+  await textOffStyle2.evaluate((element) => element.remove());
+
+  await page.setViewportSize({ width: 960, height: 720 });
+  await assertCriticalFit(page, ['.submission-scouted', '.scout-map', '.scout-policy-hook', '[data-submission-primary="review-record"]']);
+  const scoutedCompactOverflow = await page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth));
+  if (scoutedCompactOverflow !== 0) throw new Error(`Compact scouted map horizontally overflows by ${scoutedCompactOverflow}px`);
+  await page.screenshot({ path: new URL('11-four-corridors-scouted-4x3.png', artifactDir).pathname });
+  await page.setViewportSize({ width: 1280, height: 720 });
+
   if (errors.length) throw new Error(`Browser errors:\n${errors.join('\n')}`);
   const report = {
     status: 'ENCOUNTER_TRANSITION_PASS',
@@ -120,6 +190,18 @@ try {
       corridorProgress: resumed.corridorProgress,
       nextInput: 'D',
       compactOverflow: resultCompactOverflow,
+    },
+    centralScouting: {
+      blockingTitle: false,
+      centerSecured: true,
+      corridorsBeforeConfirmation: false,
+      corridorsAfterConfirmation: 4,
+      knownThreats: 2,
+      turns: centerVictory.state.turn,
+      timeApplied: scouted.worldMinute - beforeCenterCombat.worldMinute,
+      worldState: { knowledge: scoutedFrontier.knowledge, corridorsScouted: scoutedFrontier.corridorsScouted, threat: scoutedFrontier.threat },
+      compactResultOverflow: centralCompactOverflow,
+      compactMapOverflow: scoutedCompactOverflow,
     },
     browserErrors: errors,
   };
@@ -163,34 +245,46 @@ async function enterFirstJointEncounter(page) {
   });
 }
 
-async function completeFirstJointCombatToVictory(page) {
+async function completeCombatToVictory(page, label) {
   for (let step = 0; step < 240; step += 1) {
     const snapshot = await combatSnapshot(page);
     if (!snapshot) throw new Error('Combat snapshot disappeared before path result');
     if (snapshot.mode === 'VICTORY') return;
-    if (snapshot.mode === 'DEFEAT') throw new Error('First joint combat fixture was defeated');
+    if (snapshot.mode === 'DEFEAT') throw new Error(`${label} combat fixture was defeated`);
     if (snapshot.mode !== 'PLAYER_TURN' || snapshot.isBusy) {
       await page.waitForTimeout(35);
       continue;
     }
-    await planFirstJointTurn(page, snapshot);
+    await planCombatTurn(page, snapshot);
   }
-  throw new Error('First joint combat did not finish within 240 state steps');
+  throw new Error(`${label} combat did not finish within 240 state steps`);
 }
 
-async function planFirstJointTurn(page, snapshot) {
+async function planCombatTurn(page, snapshot) {
   for (let decision = 0; decision < 3; decision += 1) {
     snapshot = await combatSnapshot(page);
     const actor = snapshot.previewState.units.find((unit) => unit.id === 'administrator-slice2');
     const enemies = snapshot.previewState.units.filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0);
     if (!actor || actor.ap <= 0 || !enemies.length) break;
+    const target = enemies.slice().sort((left, right) => manhattan(actor.position, left.position) - manhattan(actor.position, right.position) || left.spawnOrder - right.spawnOrder)[0];
+    const picker = page.locator('.target-picker button').filter({ hasText: unitName(target) }).first();
+    if (await picker.count()) await picker.click();
+    snapshot = await combatSnapshot(page);
+    const refreshedActor = snapshot.previewState.units.find((unit) => unit.id === 'administrator-slice2');
+    const refreshedTarget = snapshot.previewState.units.find((unit) => unit.id === target.id);
+    if (!refreshedActor || !refreshedTarget) break;
     const slam = snapshot.actions.find((action) => action.id === 'SLAM');
+    const escape = safestMove(snapshot.previewState, refreshedActor, refreshedTarget);
+    const currentGroundDanger = groundDangerAt(snapshot.previewState, refreshedActor.position);
+    if (escape && currentGroundDanger > escape.groundDanger) {
+      await page.locator('.wasd-grid button').filter({ hasText: escape.key }).click();
+      continue;
+    }
     if (slam?.executable) {
       await page.locator('.skill-button[data-action-id="SLAM"]').click();
       break;
     }
-    const target = enemies.slice().sort((left, right) => manhattan(actor.position, left.position) - manhattan(actor.position, right.position) || left.spawnOrder - right.spawnOrder)[0];
-    const move = bestMove(snapshot.previewState, actor, target);
+    const move = refreshedActor.hp <= 2 ? escape?.key : bestMove(snapshot.previewState, refreshedActor, refreshedTarget);
     if (!move) break;
     await page.locator('.wasd-grid button').filter({ hasText: move }).click();
   }
@@ -200,24 +294,39 @@ async function planFirstJointTurn(page, snapshot) {
   await page.waitForTimeout(40);
 }
 
+function safestMove(state, actor, target) {
+  return movementCandidates(state, actor)
+    .map(([key, position], order) => ({ key, order, danger: dangerAt(state, position), groundDanger: groundDangerAt(state, position), distance: manhattan(position, target.position) }))
+    .sort((left, right) => left.groundDanger - right.groundDanger || left.danger - right.danger || left.distance - right.distance || left.order - right.order)[0];
+}
+
 function bestMove(state, actor, target) {
-  const candidates = [
+  const candidates = movementCandidates(state, actor);
+  return candidates
+    .map(([key, position], order) => ({ key, order, distance: manhattan(position, target.position), danger: dangerAt(state, position) }))
+    .sort((left, right) => left.distance + left.danger * 1.5 - (right.distance + right.danger * 1.5) || left.order - right.order)[0]?.key;
+}
+
+function movementCandidates(state, actor) {
+  return [
     ['W', { x: actor.position.x, y: actor.position.y - 1 }],
     ['S', { x: actor.position.x, y: actor.position.y + 1 }],
     ['A', { x: actor.position.x - 1, y: actor.position.y }],
     ['D', { x: actor.position.x + 1, y: actor.position.y }],
   ].filter(([, position]) => position.x >= 0 && position.x < state.map.width && position.y >= 0 && position.y < state.map.height && !state.units.some((unit) => unit.hp > 0 && unit.id !== actor.id && unit.position.x === position.x && unit.position.y === position.y));
-  return candidates
-    .map(([key, position], order) => ({ key, order, distance: manhattan(position, target.position), danger: dangerAt(state, position) }))
-    .sort((left, right) => left.distance + left.danger * 1.5 - (right.distance + right.danger * 1.5) || left.order - right.order)[0]?.key;
 }
 
 function dangerAt(state, position) {
   return state.intents.reduce((sum, intent) => sum + Number(intent.effectCells.some((cell) => samePosition(cell, position)) || intent.plannedMovementPath.some((cell) => samePosition(cell, position))), 0);
 }
 
+function groundDangerAt(state, position) {
+  return state.intents.reduce((sum, intent) => sum + Number(intent.anchor === 'GROUND' && intent.effectCells.some((cell) => samePosition(cell, position))), 0);
+}
+
 function samePosition(left, right) { return left.x === right.x && left.y === right.y; }
 function manhattan(left, right) { return Math.abs(left.x - right.x) + Math.abs(left.y - right.y); }
+function unitName(unit) { if (unit.id.includes('archer')) return '고블린 궁수'; if (unit.id.includes('warrior')) return '고블린 전사'; return '고블린 투척병'; }
 
 async function assertCriticalFit(page, selectors) {
   const viewport = page.viewportSize();

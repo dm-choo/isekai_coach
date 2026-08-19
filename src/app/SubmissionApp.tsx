@@ -278,16 +278,21 @@ function CorridorStage({ snapshot, controller }: { readonly snapshot: Submission
 function ScoutedStage({ snapshot, controller }: { readonly snapshot: SubmissionSnapshot; readonly controller: SubmissionController }) {
   return <div className="submission-scouted">
     <div className="submission-sky" /><div className="submission-canopy" />
-    <div className="scouted-copy"><small>CENTRAL ROOM SECURED</small><h1>길의 모양을<br />알아냈다.</h1><p>중앙 방과 연결된 네 통로가 동시에 정찰되었다.</p></div>
-    <div className="scout-map" aria-label="정찰된 중앙 방과 네 통로">
+    <div className="scout-map" data-scout-map-state="FOUR_CORRIDORS_SCOUTED" aria-label="확보한 중앙 방에서 정찰된 북쪽, 동쪽, 남쪽, 서쪽 통로">
       <span className="scout-line is-north" /><span className="scout-line is-east" /><span className="scout-line is-south" /><span className="scout-line is-west" />
-      <i className="scout-room is-north">↑</i><i className="scout-room is-east">→</i><i className="scout-room is-south">↓</i><i className="scout-room is-west">←</i>
+      <i className="scout-room is-north" aria-label="북쪽 방"><span /></i><i className="scout-room is-east" aria-label="동쪽 방"><span /></i><i className="scout-room is-south" aria-label="남쪽 방"><span /></i><i className="scout-room is-west" aria-label="서쪽 방"><span /></i>
       <strong className="scout-center"><b>✓</b><small>중앙 방</small></strong>
-      <em className="scout-threat is-east">⚔</em><em className="scout-threat is-north">!</em>
+      <em className="scout-threat is-east" aria-label="동쪽에서 발견한 위협"><img src={`${BASE_URL}assets/ui/intent-attack.svg`} alt="" /></em><em className="scout-threat is-north" aria-label="북쪽에서 발견한 위협"><img src={`${BASE_URL}assets/ui/intent-attack.svg`} alt="" /></em>
     </div>
-    <div className="scout-causality"><span><b>1</b>중앙 방 확보</span><i>→</i><span><b>4</b>모든 통로 정찰</span></div>
-    <aside className="scouted-next"><small>관찰된 문제</small><strong>동료는 적이 너무 가까워지면 사격하지 못했다.</strong><p>다음 단계에서 이 전투 기록으로 동료 정책을 한 번 수정합니다.</p></aside>
-    <button type="button" className="submission-flow-primary" data-submission-primary="review-record" data-primary-key="SPACE" onClick={controller.performPrimaryAction}><span><small>다음 행동</small><strong>전투 기록 확인</strong></span><kbd>SPACE</kbd></button>
+    <aside className="scout-policy-hook" aria-label="인접한 적 때문에 동료 사격이 막힌 전투 기록">
+      <span className="scout-hook-ally"><img src={`${BASE_URL}assets/submission/archer-v1.png`} alt="원거리 동료" /></span>
+      <i className="scout-hook-distance" aria-hidden="true">1</i>
+      <span className="scout-hook-enemy"><img src={`${BASE_URL}assets/submission/goblin-warrior-v1.png`} alt="인접한 고블린 전사" /></span>
+      <b className="scout-hook-blocked" aria-hidden="true"><img src={`${BASE_URL}assets/ui/intent-shoot.svg`} alt="" /><i /></b>
+      <em aria-hidden="true" />
+      <span className="scout-record-glyph" aria-hidden="true"><i /><i /><b /></span>
+    </aside>
+    <button type="button" className="submission-flow-primary is-icon-first" data-submission-primary="review-record" data-primary-key="SPACE" aria-label="전투 기록을 열어 동료 정책 검토" onClick={controller.performPrimaryAction}><span className="scout-record-glyph" aria-hidden="true"><i /><i /><b /></span><i className="flow-forward" aria-hidden="true" /><kbd>SPACE</kbd></button>
   </div>;
 }
 

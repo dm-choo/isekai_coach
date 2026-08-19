@@ -91,7 +91,7 @@ try {
   await page.screenshot({ path: new URL('04-public-ally-policy.png', artifactDir).pathname });
   const beforeJointMinute = Number(await page.locator('.slice2-combat').getAttribute('data-world-minute'));
   if (!Number.isFinite(beforeJointMinute)) throw new Error('Public combat does not expose its current world minute');
-  await completePublicJointCombat(page);
+  await completePublicCombat(page, '.result-overlay.is-seamless-path', 'first joint', 16);
   const publicPathResult = page.locator('.result-overlay.is-seamless-path[data-combat-result="PATH_SECURED"]');
   await publicPathResult.waitFor({ timeout: 90_000 });
   if (await page.locator('.turn-banner-victory,.combat-notice,.result-overlay.is-seamless-path h2,.result-overlay.is-seamless-path p').count()) {
@@ -110,6 +110,54 @@ try {
   }
   if (!(await page.locator('.submission-corridor .submission-distance').innerText()).includes('200 / 400m')) throw new Error('Public corridor did not resume at 200 / 400m');
   await page.screenshot({ path: new URL('06-public-corridor-resumed.png', artifactDir).pathname });
+
+  for (let step = 0; step < 100 && await page.locator('[data-submission-primary="enter-center"]').count() === 0; step += 1) {
+    await page.keyboard.press('d');
+  }
+  const publicCenterGate = page.locator('[data-submission-primary="enter-center"][data-primary-key="SPACE"]');
+  await publicCenterGate.waitFor();
+  const beforeCenterSave = await savedSubmission(page);
+  const beforeCenterFrontier = beforeCenterSave?.world?.tiles?.find((tile) => tile.id === 'frontier-east');
+  if (beforeCenterSave?.corridorProgress !== 400 || beforeCenterFrontier?.corridorsScouted) {
+    throw new Error(`Public central gate has premature scouting state: ${JSON.stringify({ progress: beforeCenterSave?.corridorProgress, frontier: beforeCenterFrontier })}`);
+  }
+  await page.keyboard.press('Space');
+  const centralEncounterGate = page.locator('.encounter-overlay.is-seamless[data-encounter-transition="THREAT_REVEALED"]');
+  await centralEncounterGate.waitFor();
+  await page.keyboard.press('Space');
+  await page.locator('.submission-action-dock:not(.is-busy)').waitFor({ timeout: 30_000 });
+  const beforeCenterMinute = Number(await page.locator('.slice2-combat').getAttribute('data-world-minute'));
+  if (!Number.isFinite(beforeCenterMinute)) throw new Error('Public central combat does not expose its current world minute');
+  await completePublicCombat(page, '.result-overlay.is-central-scout-gate', 'central guard', 24);
+  const publicCenterResult = page.locator('.result-overlay.is-central-scout-gate[data-combat-result="CENTER_SECURED"]');
+  await publicCenterResult.waitFor({ timeout: 90_000 });
+  if (await page.locator('.turn-banner-victory,.combat-notice,.result-overlay.is-central-scout-gate h2,.result-overlay.is-central-scout-gate p').count()) {
+    throw new Error('Public central result restored duplicate victory explanation');
+  }
+  const publicCenterMinutes = Number((await publicCenterResult.locator('.result-time-cost b').innerText()).replace('+', ''));
+  if (!Number.isFinite(publicCenterMinutes) || publicCenterMinutes <= 0 || await page.locator('[data-combat-primary="reveal-corridors"] kbd').innerText() !== 'SPACE') {
+    throw new Error('Public central result lacks its time cost or corridor reveal action');
+  }
+  const beforeCenterConfirmation = await savedSubmission(page);
+  if (beforeCenterConfirmation?.world?.tiles?.find((tile) => tile.id === 'frontier-east')?.corridorsScouted) {
+    throw new Error('Public central result mutated scouting state before SPACE');
+  }
+  await page.screenshot({ path: new URL('07-public-center-secured.png', artifactDir).pathname });
+  await page.keyboard.press('Space');
+  await page.locator('[data-scout-map-state="FOUR_CORRIDORS_SCOUTED"]').waitFor();
+  await page.waitForTimeout(900);
+  const afterCenterSave = await savedSubmission(page);
+  const afterCenterFrontier = afterCenterSave?.world?.tiles?.find((tile) => tile.id === 'frontier-east');
+  if (afterCenterSave?.worldMinute !== beforeCenterMinute + publicCenterMinutes || !afterCenterFrontier?.corridorsScouted || afterCenterFrontier.knowledge !== 'SCOUTED' || afterCenterFrontier.threat !== 'CONTESTED') {
+    throw new Error(`Public central scouting lost time or world state: ${JSON.stringify({ beforeCenterMinute, publicCenterMinutes, afterCenterSave, afterCenterFrontier })}`);
+  }
+  if (await page.locator('.scout-line').count() !== 4 || await page.locator('.scout-room').count() !== 4 || await page.locator('.scout-threat').count() !== 2 || await page.locator('.scout-policy-hook').count() !== 1) {
+    throw new Error('Public scouted scene lost its four routes, known threats, or policy hook');
+  }
+  if (await page.locator('.scouted-copy,.scout-causality,.scouted-next').count() || await page.locator('[data-submission-primary="review-record"][data-primary-key="SPACE"]').count() !== 1) {
+    throw new Error('Public scouted scene restored explanation panels or lost its single next action');
+  }
+  await page.screenshot({ path: new URL('08-public-four-corridors-scouted.png', artifactDir).pathname });
 
   const regression = {};
   for (const [path, expectedTitle] of [['slice1', 'Slice1'], ['slice2', 'Slice2']]) {
@@ -138,6 +186,7 @@ try {
     normalCombat: { sceneFirst: true, actionDock: true, detailOnDemand: true },
     allyPolicy: { rankedForecast: true, detailDefaultClosed: true, publicFirstJointEncounter: true },
     encounterReturn: { titleFree: true, pathSecured: true, timeApplied: publicBattleMinutes, corridorProgress: afterJointSave.corridorProgress, nextInput: 'D' },
+    centralScouting: { titleFree: true, centerSecured: true, timeApplied: publicCenterMinutes, corridorsBeforeConfirmation: false, corridorsAfterConfirmation: 4, knownThreats: 2, worldState: { knowledge: afterCenterFrontier.knowledge, corridorsScouted: afterCenterFrontier.corridorsScouted, threat: afterCenterFrontier.threat } },
     regression,
     browserErrors: errors,
   };
@@ -153,10 +202,11 @@ function observeErrors(page, errors) {
   page.on('requestfailed', (request) => errors.push(`request ${request.method()} ${request.url()} ${request.failure()?.errorText}`));
 }
 
-async function completePublicJointCombat(page) {
-  for (let turn = 0; turn < 16; turn += 1) {
-    await page.waitForFunction(() => document.querySelector('.result-overlay.is-seamless-path') || document.querySelector('.submission-action-dock:not(.is-busy)'), undefined, { timeout: 45_000 });
-    if (await page.locator('.result-overlay.is-seamless-path').count()) return;
+async function completePublicCombat(page, resultSelector, label, maxTurns) {
+  for (let turn = 0; turn < maxTurns; turn += 1) {
+    await page.waitForFunction(({ selector }) => document.querySelector(selector) || document.querySelector('.result-overlay:not(.is-seamless-path):not(.is-central-scout-gate)') || document.querySelector('.submission-action-dock:not(.is-busy)'), { selector: resultSelector }, { timeout: 45_000 });
+    if (await page.locator(resultSelector).count()) return;
+    if (await page.locator('.result-overlay').count()) throw new Error(`Public ${label} combat reached a non-victory result`);
     for (let decision = 0; decision < 3; decision += 1) {
       const slam = page.locator('.submission-action-dock .skill-button[data-action-id="SLAM"][data-executable="true"]:not([disabled])');
       if (await slam.count()) {
@@ -178,11 +228,11 @@ async function completePublicJointCombat(page) {
       if (!moved) break;
     }
     const execute = page.locator('[data-combat-primary="execute-plan"]');
-    if (!await execute.isEnabled()) throw new Error('Public first joint combat produced no executable plan');
+    if (!await execute.isEnabled()) throw new Error(`Public ${label} combat produced no executable plan`);
     await execute.click();
     await page.waitForTimeout(250);
   }
-  throw new Error('Public first joint combat did not finish within 16 turns');
+  throw new Error(`Public ${label} combat did not finish within ${maxTurns} turns`);
 }
 
 async function savedSubmission(page) {
