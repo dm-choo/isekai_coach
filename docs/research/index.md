@@ -12,6 +12,7 @@ related:
   - validation-agenda-slice-2.md
   - sprint-retrospective-continuous-corridor.md
   - sprint-retrospective-adaptive-intents.md
+  - submission-retrospective-p1-p2.md
 ---
 
 # Research and design critique
@@ -27,7 +28,8 @@ related:
 5. [Slice 2 validation agenda](./validation-agenda-slice-2.md): 네 월드 타일의 공간 판독, 정찰, 선택 충돌과 정책 전이 검증
 6. [Continuous corridor sprint KPT](./sprint-retrospective-continuous-corridor.md): 100m node UI 실패 원인, 연속 통로 전환과 다음 스프린트 규칙
 7. [Adaptive Intent sprint KPT](./sprint-retrospective-adaptive-intents.md): 방향·행동 순서·Intent ownership·배경 이동 교정과 다음 AI/UI 실험 규칙
-8. [Reference screenshots](../images/reference_screenshot/README.md): 출처와 분석 목적이 기록된 비교 이미지 보관소
+8. [Submission P1–P2 process retrospective](./submission-retrospective-p1-p2.md): 산출물 품질, 판단 오류, 개발 효율과 다음 Task 운영 규칙
+9. [Reference screenshots](../images/reference_screenshot/README.md): 출처와 분석 목적이 기록된 비교 이미지 보관소
 
 ## Evidence labels
 
