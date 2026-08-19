@@ -55,7 +55,7 @@ sudo ./deploy/install-slice1.sh
 - 기존 public root가 OOH application을 계속 제공한다.
 - `/slice1/`이 Amazon Barrier Guardian boss-room build의 HTML을 제공한다.
 - HTML이 참조한 JS/CSS bundle이 모두 2xx다.
-- response에 `Cache-Control: public, no-transform`이 있다.
+- HTML response에 `Cache-Control: no-cache, no-transform`이 있어 배포 후 브라우저가 문서를 재검증한다.
 - Phaser가 runtime SVG를 rasterize할 수 있도록 CSP `img-src`가 self/data/blob만 허용한다.
 - same-origin Pretendard font SHA-256이 pinned value와 같다.
 

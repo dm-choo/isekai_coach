@@ -24,11 +24,13 @@ http://:8010 {
 
 	header {
 		-Server
-		Cache-Control "public, no-transform"
 		X-Content-Type-Options nosniff
 		X-Frame-Options DENY
 		Referrer-Policy strict-origin-when-cross-origin
 		Permissions-Policy "camera=(), geolocation=(), microphone=(), payment=(), usb=()"
 		Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
 	}
+
+	@html path / /index.html /slice1 /slice1/ /slice1/index.html /slice2 /slice2/ /slice2/index.html
+	header @html Cache-Control "no-cache, no-transform"
 }

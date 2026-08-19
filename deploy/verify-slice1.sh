@@ -18,8 +18,8 @@ verify_endpoint() {
   }
 
   headers="$(curl --fail --silent --show-error --max-time 20 --head "${base}${slice_path}")"
-  grep --ignore-case --quiet '^cache-control:.*no-transform' <<<"${headers}" || {
-    echo "${label}: Cache-Control no-transform is missing" >&2
+  grep --ignore-case --quiet '^cache-control:.*no-cache.*no-transform' <<<"${headers}" || {
+    echo "${label}: HTML Cache-Control no-cache, no-transform is missing" >&2
     return 1
   }
   grep --ignore-case --quiet '^content-security-policy:.*img-src[^;]*blob:' <<<"${headers}" || {

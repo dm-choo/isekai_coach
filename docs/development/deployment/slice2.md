@@ -44,7 +44,7 @@ npm run verify:slice2:public
 - `/`, `/slice1/`, `/slice2/` title과 path ownership
 - HTML이 참조하는 JS/CSS와 Pretendard font
 - 세 고블린 RGBA asset
-- Cache-Control과 CSP
+- HTML 재검증을 강제하는 `Cache-Control: no-cache, no-transform`과 CSP
 - 1280×720 전체 4타일 완주
 - 960×720에서 수평 overflow 0
 - 중앙 방 정찰, 4타일 전환, policy 변경, 세 적 조합과 결과 화면

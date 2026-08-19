@@ -11,7 +11,7 @@ verify_endpoint() {
   html="$(curl --fail --silent --show-error --max-time 20 "${base}${slice_path}")"
   [[ "${html}" == *'<title>Slice2</title>'* ]] || { echo "${label}: slice title mismatch" >&2; return 1; }
   headers="$(curl --fail --silent --show-error --max-time 20 --head "${base}${slice_path}")"
-  grep --ignore-case --quiet '^cache-control:.*no-transform' <<<"${headers}" || { echo "${label}: Cache-Control no-transform is missing" >&2; return 1; }
+  grep --ignore-case --quiet '^cache-control:.*no-cache.*no-transform' <<<"${headers}" || { echo "${label}: HTML Cache-Control no-cache, no-transform is missing" >&2; return 1; }
   grep --ignore-case --quiet '^content-security-policy:.*img-src[^;]*blob:' <<<"${headers}" || { echo "${label}: CSP img-src does not allow Phaser blob images" >&2; return 1; }
   for asset_path in $(grep -oE '/slice2/assets/[^" ]+\.(css|js)' <<<"${html}"); do curl --fail --silent --show-error --max-time 30 "${base}${asset_path}" >/dev/null; done
   font_sha="$(curl --fail --silent --show-error --max-time 30 "${base}/slice2/fonts/PretendardVariable-v1.3.9.woff2" | sha256sum | awk '{print $1}')"

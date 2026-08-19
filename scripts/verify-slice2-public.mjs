@@ -16,11 +16,12 @@ try {
   page.on('response', (response) => responses.set(response.url(), response.status()));
 
   await page.goto(url, { waitUntil: 'networkidle' });
-  if (await page.title() !== 'Isekai Coach — 고블린 봉쇄선') throw new Error(`Unexpected public title: ${await page.title()}`);
+  if (await page.title() !== 'Slice2') throw new Error(`Unexpected public title: ${await page.title()}`);
   await page.getByRole('button', { name: '원정 시작' }).click();
-  await page.locator('.node-west-4').click();
-  await page.locator('.node-west-3').click();
+  await page.locator('.room-door[data-direction="EAST"]').click();
+  await page.keyboard.down('d');
   await page.getByRole('button', { name: '전투 시작' }).waitFor();
+  await page.keyboard.up('d');
   await page.screenshot({ path: new URL('00-public-encounter.png', artifactDir).pathname });
   await page.getByRole('button', { name: '전투 시작' }).click();
   await page.locator('.enemy-intent-card').filter({ hasText: '단검 쇄도' }).waitFor({ timeout: 20_000 });
