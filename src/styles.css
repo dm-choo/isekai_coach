@@ -447,15 +447,23 @@ button:disabled { cursor: not-allowed; }
 .slice2-unit-bar > div { height: 7px; background: #251610; }.slice2-unit-bar > div i { display: block; height: 100%; background: #56b980; }.slice2-unit-bar.is-enemy > div i { background: #c84e3c; }
 .slice2-unit-bar small { color: #aba188; font: 700 8px ui-monospace, monospace; }
 .encounter-title { justify-self: center; text-align: center; }.encounter-title small { display: block; color: #a99c7e; font-size: 9px; letter-spacing: .15em; }.encounter-title strong { display: block; margin-top: 2px; font: 500 clamp(20px,2vw,31px) "Pretendard Variable", Georgia, serif; }.encounter-title span { color: #d0ad59; font: 800 9px ui-monospace, monospace; }
-.intent-stack { position: absolute; z-index: 28; top: 180px; right: 26px; display: grid; gap: 7px; width: 230px; }
-.enemy-intent-card { display: grid; grid-template-columns: 22px 32px 1fr auto; align-items: center; gap: 7px; padding: 8px; border-left: 4px solid #ff725e; background: rgba(48,15,10,.85); box-shadow: 0 7px 18px #0008; }
+.intent-stack { position: absolute; z-index: 28; top: 180px; right: 26px; display: grid; gap: 7px; width: 260px; }
+.enemy-intent-card { display: grid; grid-template-columns: 22px 32px 1fr; align-items: center; gap: 6px 7px; padding: 8px; border-left: 4px solid #ff725e; background: rgba(48,15,10,.9); box-shadow: 0 7px 18px #0008; }
 .enemy-intent-card:nth-child(2) { border-left-color: #ffc857; }.enemy-intent-card:nth-child(3) { border-left-color: #c58cff; }.enemy-intent-card:nth-child(4) { border-left-color: #67d7ef; }
 .intent-owner { display: grid; width: 20px; height: 20px; place-items: center; border-radius: 50%; background: #ff725e; color: #160a07; font: 900 10px ui-monospace, monospace; }.enemy-intent-card:nth-child(2) .intent-owner { background: #ffc857; }.enemy-intent-card:nth-child(3) .intent-owner { background: #c58cff; }.enemy-intent-card:nth-child(4) .intent-owner { background: #67d7ef; }
 .enemy-intent-card { position: relative; outline: none; }
 .enemy-intent-card:focus-visible { box-shadow: 0 0 0 2px #ffd58a, 0 7px 18px #0008; }
 .intent-card-tooltip { position: absolute; z-index: 4; top: calc(100% + 7px); right: 0; display: none; width: 270px; padding: 10px 11px; border: 1px solid #8f7048; background: rgba(7,8,6,.98); color: #f1e4c8 !important; font: 500 10px/1.5 "Pretendard Variable", system-ui, sans-serif !important; box-shadow: 0 10px 25px #000b; }
 .enemy-intent-card:hover .intent-card-tooltip, .enemy-intent-card:focus-visible .intent-card-tooltip { display: block; }
-.enemy-intent-card.is-ground { border-color: #d7a74d; background: rgba(49,36,12,.87); }.enemy-intent-card img { width: 30px; height: 30px; }.enemy-intent-card small, .enemy-intent-card strong { display: block; }.enemy-intent-card small { color: #be8a76; font-size: 8px; }.enemy-intent-card strong { font-size: 11px; }.enemy-intent-card > span { color: #e8c977; font: 800 8px ui-monospace, monospace; }
+.enemy-intent-card.is-ground { border-color: #d7a74d; background: rgba(49,36,12,.92); }
+.intent-main-icon { width: 30px; height: 30px; }
+.intent-name small, .intent-name strong { display: block; }.intent-name small { color: #be8a76; font-size: 8px; }.intent-name strong { font-size: 11px; }
+.intent-sequence { grid-column: 2 / -1; display: flex; align-items: center; gap: 5px; }
+.intent-sequence > span { display: flex; align-items: center; gap: 4px; padding: 3px 5px; border: 1px solid rgba(255,143,112,.24); background: rgba(18,8,6,.5); }
+.intent-sequence img { width: 19px; height: 19px; }.intent-sequence b { color: #f4d4c7; font: 800 9px ui-monospace, monospace; white-space: nowrap; }.intent-sequence > i { color: #e58a70; font-style: normal; }
+.enemy-intent-card.is-ground .intent-sequence > span { border-color: rgba(231,192,101,.28); }.enemy-intent-card.is-ground .intent-sequence b { color: #f1d68e; }
+.intent-anchor-rule { grid-column: 2 / -1; color: #d7b06b; font: 700 8px "Pretendard Variable", system-ui, sans-serif; }
+.enemy-intent-card.is-concealed .intent-anchor-rule { color: #b5b9e8; }
 .enemy-intent-card.is-concealed { border-color: #7c83bd; background: rgba(20,22,49,.9); }.concealed-glyph { display: grid; width: 30px; height: 30px; place-items: center; border: 1px solid #9199da; color: #d9ddff !important; font-size: 18px !important; }
 .ally-intent-panel { position: absolute; z-index: 29; top: 180px; left: 26px; width: 252px; border-left: 3px solid #59cfe2; background: rgba(5,24,31,.91); box-shadow: 0 8px 24px #0009; }
 .ally-intent-panel summary { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 5px 9px; cursor: pointer; list-style: none; }.ally-intent-panel summary::-webkit-details-marker { display: none; }.ally-intent-panel summary > span { color: #8de7f1; font: 800 8px monospace; letter-spacing: .12em; }.ally-intent-panel summary > div { display: flex; gap: 3px; flex: 1; }.ally-intent-panel summary img { width: 25px; height: 25px; padding: 2px; background: rgba(84,191,207,.12); }.ally-intent-panel summary > i { color: #8de7f1; font-style: normal; transition: transform .15s; }.ally-intent-panel[open] summary > i { transform: rotate(180deg); }
@@ -474,5 +482,5 @@ button:disabled { cursor: not-allowed; }
   .run-route span { min-width: 0; }.run-route span { font-size: 0; }.run-route i { font-size: 9px; }
   .dungeon-minimap { right: 2%; transform: scale(.85); transform-origin: right bottom; }
   .slice2-combat-hud { grid-template-columns: 200px 1fr 200px; }.slice2-unit-bar { width: 190px; }
-  .intent-stack { right: 10px; width: 190px; }
+  .intent-stack { right: 10px; width: 230px; }
 }

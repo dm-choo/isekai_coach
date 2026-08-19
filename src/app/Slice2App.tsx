@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import type { Unit } from '../game/combat';
+import type { Intent, Unit } from '../game/combat';
 import { POLICY_COPY, type SliceActionId, type SliceSnapshot } from '../game/slice';
 import {
   Slice2RunController,
@@ -320,9 +320,27 @@ function ActionButton({ action, index, busy, feedbackKind, controller }: { reado
 
 function IntentStack({ snapshot }: { readonly snapshot: SliceSnapshot }) {
   const hidden = new Set(snapshot.concealedIntentIds);
-  return <div className="intent-stack">{snapshot.previewState.intents.map((intent, index) => hidden.has(intent.id)
-    ? <article key={intent.id} className="enemy-intent-card is-concealed" tabIndex={0}><b className="intent-owner">{String.fromCharCode(65 + index)}</b><span className="concealed-glyph">?</span><div><small>{unitName(snapshot.previewState.units.find((unit) => unit.id === intent.sourceId))}</small><strong>{intent.direction === 'LEFT' ? '서쪽' : intent.direction === 'RIGHT' ? '동쪽' : intent.direction === 'UP' ? '북쪽' : '남쪽'}을 노림</strong></div><span>행동·범위 불명</span><span className="intent-card-tooltip" role="tooltip">{String.fromCharCode(65 + index)} 표식 적의 행동입니다. 어둠 때문에 행동 하나가 숨겨졌습니다.</span></article>
-    : <article key={intent.id} className={`enemy-intent-card ${intent.anchor === 'GROUND' ? 'is-ground' : ''}`} tabIndex={0}><b className="intent-owner">{String.fromCharCode(65 + index)}</b><img src={`${BASE_URL}${intentIcon(intent.abilityId)}`} alt="" /><div><small>{unitName(snapshot.previewState.units.find((unit) => unit.id === intent.sourceId))}</small><strong>{intentName(intent.abilityId)}</strong></div><span>{intent.anchor} · {intent.effectCells.length}칸</span><span className="intent-card-tooltip" role="tooltip">{String.fromCharCode(65 + index)} 표식 적 · {intentDetail(intent.abilityId)} · {intent.direction === 'LEFT' ? '서쪽' : intent.direction === 'RIGHT' ? '동쪽' : intent.direction === 'UP' ? '북쪽' : '남쪽'} 방향.</span></article>)}</div>;
+  return <div className="intent-stack">{snapshot.previewState.intents.map((intent, index) => <EnemyIntentCard key={intent.id} intent={intent} owner={String.fromCharCode(65 + index)} unit={snapshot.previewState.units.find((unit) => unit.id === intent.sourceId)} concealed={hidden.has(intent.id)} />)}</div>;
+}
+
+function EnemyIntentCard({ intent, owner, unit, concealed }: { readonly intent: Intent; readonly owner: string; readonly unit?: Unit; readonly concealed: boolean }) {
+  const direction = intent.direction === 'LEFT' ? '서쪽' : intent.direction === 'RIGHT' ? '동쪽' : intent.direction === 'UP' ? '북쪽' : '남쪽';
+  if (concealed) {
+    return <article className="enemy-intent-card is-concealed" tabIndex={0}><b className="intent-owner">{owner}</b><span className="concealed-glyph">?</span><div className="intent-name"><small>{unitName(unit)}</small><strong>{direction}을 노림</strong></div><span className="intent-anchor-rule">행동·범위 불명</span><span className="intent-card-tooltip" role="tooltip">{owner} 표식 적의 행동입니다. 어둠 때문에 행동 하나가 숨겨졌습니다.</span></article>;
+  }
+  const movement = intent.plannedMovementPath.length;
+  const affected = intent.effectCells.length;
+  return <article className={`enemy-intent-card ${intent.anchor === 'GROUND' ? 'is-ground' : ''}`} tabIndex={0} aria-label={`${owner} 적, ${intentName(intent.abilityId)}, ${movement ? `${movement}칸 이동 후 ` : ''}${affected}칸 공격`}>
+    <b className="intent-owner">{owner}</b>
+    <img className="intent-main-icon" src={`${BASE_URL}${intentIcon(intent.abilityId)}`} alt="" />
+    <div className="intent-name"><small>{unitName(unit)}</small><strong>{intentName(intent.abilityId)}</strong></div>
+    <div className="intent-sequence">
+      {movement > 0 && <><span><img src={`${BASE_URL}assets/ui/intent-move.svg`} alt="" /><b>이동 {movement}</b></span><i>→</i></>}
+      <span><img src={`${BASE_URL}${intentIcon(intent.abilityId)}`} alt="" /><b>{intent.anchor === 'GROUND' ? '착탄' : '공격'} {affected}</b></span>
+    </div>
+    <span className="intent-anchor-rule">{intent.anchor === 'GROUND' ? '표시된 땅에 고정' : '적의 도착점에서 발동'}</span>
+    <span className="intent-card-tooltip" role="tooltip">{owner} 표식 적 · {intentDetail(intent.abilityId)} · {direction} 방향.</span>
+  </article>;
 }
 
 function PolicyReadout({ snapshot }: { readonly snapshot: SliceSnapshot }) {

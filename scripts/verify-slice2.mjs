@@ -22,6 +22,8 @@ let expeditionPolicyTuned = false;
 let multiIntentCaptured = false;
 let bomberIntentCaptured = false;
 let inputFeedbackVerified = false;
+let intentSequenceVerified = false;
+let groundAnchorCopyVerified = false;
 
 await mkdir(artifactDir, { recursive: true });
 
@@ -145,6 +147,20 @@ try {
       }
       if (await page.locator('.encounter-title').count() !== 0) throw new Error('Encounter title persisted after combat introduction');
       intentOwnershipVerified = true;
+      const intentCards = page.locator('.enemy-intent-card');
+      for (let index = 0; index < activeCombat.previewState.intents.length; index += 1) {
+        const intent = activeCombat.previewState.intents[index];
+        if (activeCombat.concealedIntentIds.includes(intent.id)) continue;
+        const text = await intentCards.nth(index).innerText();
+        if (intent.plannedMovementPath.length > 0 && !text.includes(`이동 ${intent.plannedMovementPath.length}`)) {
+          throw new Error(`Intent ${index} does not expose movement before attack: ${text}`);
+        }
+        if (!text.includes(intent.anchor === 'GROUND' ? '표시된 땅에 고정' : '적의 도착점에서 발동')) {
+          throw new Error(`Intent ${index} does not explain its anchor in player language: ${text}`);
+        }
+        intentSequenceVerified = true;
+        if (intent.anchor === 'GROUND') groundAnchorCopyVerified = true;
+      }
       if (!inputFeedbackVerified) {
         const blockedAction = page.locator('.skill-button.is-disabled').first();
         if (await blockedAction.count() === 0) throw new Error('First combat did not expose a locally explained unavailable action');
@@ -161,10 +177,12 @@ try {
       }
       if (!multiIntentCaptured && activeCombat.previewState.intents.length >= 2) {
         multiIntentCaptured = true;
+        await page.mouse.move(640, 150);
         await capture(page, '02c-multi-enemy-ownership');
       }
       if (!bomberIntentCaptured && activeCombat.previewState.intents.some((intent) => intent.abilityId === 'goblin-bomb')) {
         bomberIntentCaptured = true;
+        await page.mouse.move(640, 150);
         await capture(page, '02d-bomber-ownership');
       }
       continue;
@@ -209,6 +227,7 @@ try {
   if (!bomberIntentCaptured) throw new Error('Bomber intent ownership was not captured');
   if (!targetPickerHiddenVerified || !targetPickerShownVerified) throw new Error('Target picker did not exercise both hidden and actionable states');
   if (!inputFeedbackVerified) throw new Error('Rejected input feedback was not verified');
+  if (!intentSequenceVerified || !groundAnchorCopyVerified) throw new Error('Player-readable BODY/GROUND intent grammar was not fully verified');
   await capture(page, '03-complete');
   const night = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   night.on('console', (message) => { if (message.type() === 'error') errors.push(`night ${message.text()}`); });
@@ -273,6 +292,8 @@ try {
     multiIntentCaptured,
     bomberIntentCaptured,
     inputFeedbackVerified,
+    intentSequenceVerified,
+    groundAnchorCopyVerified,
   };
   await writeFile(new URL('report.json', artifactDir), `${JSON.stringify(report, null, 2)}\n`);
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
