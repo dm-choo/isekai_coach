@@ -46,6 +46,7 @@ SPACE를 누르면 전투 최종 HP가 원정 vitals로, 전투 turn이 world mi
 - 첫 report의 reveal enemy 수가 0으로 기록됐다. 조우 진입 때의 수를 저장하지 않고 복도 복귀 뒤 같은 DOM query를 실행했기 때문이다. P12에서 이미 `순간 사건과 마지막 DOM snapshot을 혼동하지 않는다`고 적었는데 같은 종류의 오류를 반복했다. 규칙을 기억하는 것만으로 부족했고, state 진입 즉시 immutable evidence object를 만드는 구조가 필요하다. reveal 시점에 count를 고정하도록 바꿨다.
 - localStorage의 마지막 save가 combat 진입 직전 195m일 수 있어 이를 현재 전투 world minute로 간주하면 200m 경계의 travel 2분을 누락한다. 공개 검증은 CombatStage가 받은 현재 `worldMinute`를 stable data로 노출해 그 값과 결과 save를 비교하도록 했다.
 - 느린 공개형 검증은 P14까지 성공했지만 로컬 단일 Vite가 production의 `/slice1/`·`/slice2/` 분리 build를 재현하지 않는다. 이를 전체 공개 PASS로 부르지 않고 P14 구간 증거로만 사용한다.
+- 첫 exact-SHA RC는 P12 동료 실행 result를 찾은 직후 300ms phase가 끝나 enemy notice가 나타나는 경합으로 중단됐다. 제품 회귀가 아니라 순간 frame을 지나치게 짧게 만든 fixture 오류였다. P12 policy fixture의 phase delay를 production과 같은 배율로 늘리고 반복 실행해, 우연히 특정 frame을 잡아야만 통과하는 gate를 제거했다.
 
 ## User boundary and delegated judgment
 

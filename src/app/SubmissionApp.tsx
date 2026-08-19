@@ -21,7 +21,7 @@ export function SubmissionApp() {
   const [controller] = useState(() => {
     const saveData = verification ? undefined : parseSubmissionSave(window.localStorage.getItem(SUBMISSION_SAVE_KEY));
     return new SubmissionController(verification
-      ? { playbackSpeed: 12, phaseDelayScale: policyFixture ? 0.5 : 0.03, ...(failureFixture ? { initialVitals: { administratorHp: 1, allyHp: 1 } } : {}) }
+      ? { playbackSpeed: 12, phaseDelayScale: policyFixture ? 1 : 0.03, ...(failureFixture ? { initialVitals: { administratorHp: 1, allyHp: 1 } } : {}) }
       : saveData ? { saveData } : {});
   });
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
