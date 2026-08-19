@@ -16,6 +16,7 @@ related:
   - submission-retrospective-p3.md
   - submission-retrospective-p4.md
   - submission-retrospective-p5.md
+  - submission-retrospective-p6.md
 ---
 
 # Research and design critique
@@ -35,7 +36,8 @@ related:
 9. [Submission P3 same-rule delegation retrospective](./submission-retrospective-p3.md): 정책 trade-off, 동일 규칙 simulation, 판단 수정과 P4 handoff
 10. [Submission P4 barrier expansion retrospective](./submission-retrospective-p4.md): 주인공 현장 활성화, contour·샘·다음 좌표 인과와 P5 handoff
 11. [Submission P5 no-explanation interaction retrospective](./submission-retrospective-p5.md): 주 행동·입력 피드백·한글·화면 fit·재시작 gate와 P6 handoff
-12. [Reference screenshots](../images/reference_screenshot/README.md): 출처와 분석 목적이 기록된 비교 이미지 보관소
+12. [Submission P6 golden path and release evidence retrospective](./submission-retrospective-p6.md): bundle·checkpoint·패배 비용·clean SHA RC와 acceptance 누락 메타회고
+13. [Reference screenshots](../images/reference_screenshot/README.md): 출처와 분석 목적이 기록된 비교 이미지 보관소
 
 ## Evidence labels
 
