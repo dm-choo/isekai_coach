@@ -387,19 +387,47 @@ function DelegationResultStage({ snapshot, controller }: { readonly snapshot: Su
   const result = snapshot.delegationResult;
   if (!result) return null;
   const secured = result.outcome === 'SECURED';
-  const outcomeCopy = result.outcome === 'SECURED' ? ['ROUTE SECURED', '동쪽 통로 확보'] : result.outcome === 'TIME_LIMIT' ? ['OPERATION PAUSED', '시간 한도에서 중단'] : result.outcome === 'RETREATED' ? ['DETACHMENT RETURNED', '후퇴 조건 발동'] : ['DETACHMENT DOWN', '별동대 전투 불능'];
-  const notableSteps = result.policySteps.filter((step) => step.selectedPolicyId === 'PUSH' || step.selectedPolicyId === 'SHOOT' || step.reason.includes('최소 사거리')).slice(0, 4);
-  return <div className={`submission-delegation-result ${secured ? 'is-secured' : 'is-paused'}`}>
+  const policyIcon = snapshot.policyChoice === 'PUSH_FIRST' ? 'intent-push.svg' : 'intent-move.svg';
+  const traceCells = new Map<string, number>();
+  result.route.forEach((position, index) => traceCells.set(`${position.x}:${position.y}`, index + 1));
+  const actionSteps = result.policySteps
+    .filter((step) => step.action)
+    .filter((step, index, steps) => index === 0 || step.turn !== steps[index - 1]?.turn || step.selectedPolicyId !== steps[index - 1]?.selectedPolicyId)
+    .slice(0, 6);
+  const sharedMinutes = Math.max(snapshot.protagonistTaskMinutes, result.elapsedMinutes);
+  return <div className={`submission-delegation-result is-map-result ${secured ? 'is-secured' : 'is-paused'}`} data-operation-outcome={result.outcome} data-route-safe={secured} data-selected-policy={snapshot.policyChoice}>
     <div className="submission-sky" /><div className="submission-canopy" />
-    <section className="operation-outcome"><small>{outcomeCopy[0]}</small><h1>{outcomeCopy[1]}</h1><p>{snapshot.notice}</p><div><span><b>{result.turns}</b><small>전투 턴</small></span><span><b>{result.damageTaken}</b><small>받은 피해</small></span><span><b>{result.elapsedMinutes}</b><small>별동대 분</small></span><span><b>{result.finalHp}</b><small>남은 HP</small></span></div></section>
-    <section className="operation-causality">
-      <article><i>1</i><small>SOURCE</small><strong>정찰된 두 적</strong><p>궁수 + 접근 전사<br />400m 알려진 통로</p></article><b>→</b>
-      <article><i>2</i><small>DECISION</small><strong>{snapshot.policyChoice === 'PUSH_FIRST' ? '밀치기 우선' : '사거리 유지'}</strong><p>HP {snapshot.retreatAtHp} 이하 후퇴<br />12턴 시간 한도</p></article><b>→</b>
-      <article className="is-result"><i>3</i><small>RESULT</small><strong>{secured ? '안전 경로 생성' : '위협 잔존'}</strong><p>{secured ? '확장 거점까지 이동 가능' : '정책 조정 후 재시도 가능'}<br />세계 시각 {snapshot.worldTime}</p></article>
+    <section className="operation-route-result" data-route-meters="400" data-known-threats="2" aria-label={secured ? '선택한 정책으로 동쪽 400미터 통로의 두 위협을 제거해 경계 방까지 안전해짐' : '선택한 정책으로 작전했지만 12턴에 중단되어 동쪽 400미터 통로의 두 위협이 남음'}>
+      <span className="operation-policy-source"><img src={`${BASE_URL}assets/ui/${policyIcon}`} alt="" /><b>{snapshot.policyChoice === 'PUSH_FIRST' ? '4→1' : '3+'}</b></span>
+      <div className="operation-world-track"><i />
+        <span className={`route-result-threat is-warrior ${secured ? 'is-cleared' : ''}`}><img src={`${BASE_URL}assets/submission/goblin-warrior-v1.png`} alt="" />{secured && <i />}</span>
+        <span className={`route-result-threat is-archer ${secured ? 'is-cleared' : ''}`}><img src={`${BASE_URL}assets/submission/goblin-archer-v1.png`} alt="" />{secured && <i />}</span>
+        <span className={`route-result-goal ${secured ? 'is-open' : ''}`}><i />{secured && <b>✓</b>}</span>
+      </div>
+      <span className="operation-route-verdict">{secured ? <i className="operation-check-glyph">✓</i> : <><i className="delegation-clock-glyph" /><b>{result.turns}</b><em className="stop-pause-glyph" /></>}</span>
     </section>
-    <section className="operation-log"><header><span><small>ACTUAL POLICY LOG</small><strong>같은 좌표 규칙의 실제 행동</strong></span><b>{result.eventCount} events</b></header>{notableSteps.map((step, index) => <div key={`${step.turn}-${step.cycle}-${index}`}><i>T{step.turn}</i><img src={`${BASE_URL}assets/ui/intent-${step.selectedPolicyId === 'PUSH' ? 'push' : step.selectedPolicyId === 'SHOOT' ? 'shoot' : 'move'}.svg`} alt="" /><span><strong>{step.action?.label ?? policyName(step.selectedPolicyId ?? 'EMPTY')}</strong><small>{step.reason}</small></span>{step.action?.to && <em>{step.action.from.x},{step.action.from.y} → {step.action.to.x},{step.action.to.y}</em>}</div>)}</section>
-    <aside className="shared-time-result"><small>SHARED WORLD TIME</small><div><span>주인공 준비 <b>{snapshot.protagonistTaskMinutes ? `${snapshot.protagonistTaskMinutes}분` : '기완료'}</b></span><span>별동대 작전 <b>{result.elapsedMinutes}분</b></span></div><p>합산하지 않고 더 오래 걸린 작전만큼 세계 시간이 흘렀다.</p></aside>
-    <button type="button" className="submission-flow-primary" data-submission-primary={secured ? 'approach-anchor' : 'review-policy'} data-primary-key="SPACE" onClick={controller.performPrimaryAction}><span><small>{secured ? '주인공만 활성화할 수 있음' : '이전 결과는 기록에 남음'}</small><strong>{secured ? '경계 거점으로 이동' : '정책 다시 조정'}</strong></span><kbd>SPACE</kbd></button>
+    <section className="operation-grid-record" data-final-turn={result.turns} data-route-trace-length={result.route.length} data-event-count={result.eventCount} aria-label="동료 위임 전투의 실제 12칸 3열 최종 좌표와 행동 기록">
+      <div className="operation-result-board">{Array.from({ length: 36 }, (_, index) => {
+        const x = index % 12;
+        const y = Math.floor(index / 12);
+        const traceOrder = traceCells.get(`${x}:${y}`);
+        return <i key={`${x}:${y}`} className={traceOrder ? 'is-traced' : ''} data-trace-cell={traceOrder || undefined} />;
+      })}{result.finalState.units.map((unit) => <span key={unit.id} className={`operation-result-unit is-${unit.faction.toLowerCase()} ${unit.hp <= 0 ? 'is-defeated' : ''}`} data-unit-id={unit.id} data-unit-hp={unit.hp} style={{ left: `${(unit.position.x + .5) / 12 * 100}%`, top: `${(unit.position.y + .5) / 3 * 100}%` }} aria-label={`${unit.id}, ${unit.position.x},${unit.position.y}, 체력 ${unit.hp}`}><img src={`${BASE_URL}assets/submission/${unit.faction === 'STUDENT' ? 'archer-v1.png' : unit.id.includes('archer') ? 'goblin-archer-v1.png' : 'goblin-warrior-v1.png'}`} alt="" /><i><b style={{ width: `${unit.hp / unit.maxHp * 100}%` }} /></i>{unit.hp <= 0 && <em />}</span>)}</div>
+      <div className="operation-action-trace">{actionSteps.map((step, index) => <span key={`${step.turn}:${step.cycle}:${index}`} data-policy-id={step.selectedPolicyId} title={`${step.action?.label ?? policyName(step.selectedPolicyId ?? 'EMPTY')} · ${step.reason}`}><small>T{step.turn}</small><img src={`${BASE_URL}assets/ui/intent-${step.selectedPolicyId === 'PUSH' ? 'push' : step.selectedPolicyId === 'SHOOT' ? 'shoot' : 'move'}.svg`} alt="" /><b>{step.action?.to ? `${step.action.to.x},${step.action.to.y}` : '•'}</b></span>)}</div>
+    </section>
+    <aside className="operation-result-metrics" data-damage={result.damageTaken} data-elapsed-minutes={result.elapsedMinutes} data-final-hp={result.finalHp}>
+      <span aria-label={`${result.turns} 전투 턴`}><img src={`${BASE_URL}assets/ui/intent-attack.svg`} alt="" /><b>{result.turns}T</b></span>
+      <span aria-label={`피해 ${result.damageTaken}`}><i className="result-damage-glyph" /><b>−{result.damageTaken}</b></span>
+      <span aria-label={`별동대 작전 ${result.elapsedMinutes}분`}><i className="delegation-clock-glyph" /><b>+{result.elapsedMinutes}</b></span>
+      <span aria-label={`동료 체력 ${result.finalHp} / ${result.initialHp}`}><img src={`${BASE_URL}assets/submission/archer-v1.png`} alt="" /><i className="result-hp-track"><b style={{ width: `${result.finalHp / result.initialHp * 100}%` }} /></i><strong>{result.finalHp}</strong></span>
+    </aside>
+    <section className="delegation-parallel-time operation-shared-time" data-time-rule="MAX_NOT_SUM" data-protagonist-minutes={snapshot.protagonistTaskMinutes} data-operation-minutes={result.elapsedMinutes} data-shared-minutes={sharedMinutes} aria-label={`주인공 ${snapshot.protagonistTaskMinutes}분과 동료 ${result.elapsedMinutes}분 중 더 긴 ${sharedMinutes}분만큼 세계 시간이 흐름`}>
+      <i className="parallel-origin"><span className="delegation-clock-glyph" /></i>
+      <span className="parallel-task is-protagonist"><img src={`${BASE_URL}assets/submission/administrator-v1.png`} alt="" /><i /><b>{snapshot.protagonistTaskMinutes || '✓'}</b></span>
+      <span className="parallel-task is-ally"><img src={`${BASE_URL}assets/submission/archer-v1.png`} alt="" /><i /><b>{result.elapsedMinutes}</b></span>
+      <em aria-hidden="true"><i /><i /></em><strong className="operation-shared-total">+{sharedMinutes}</strong>
+    </section>
+    <button type="button" className={`submission-flow-primary is-icon-first operation-result-primary ${secured ? 'is-secured' : 'is-paused'}`} data-submission-primary={secured ? 'approach-anchor' : 'review-policy'} data-primary-key="SPACE" aria-label={secured ? '주인공으로 확보된 경계 거점에 이동' : '중단된 작전의 정책을 다시 조정'} onClick={controller.performPrimaryAction}>{secured ? <img src={`${BASE_URL}assets/submission/administrator-v1.png`} alt="" /> : <i className="stop-pause-glyph" />}<i className="flow-forward" aria-hidden="true" />{secured ? <span className="operation-mini-goal"><i /></span> : <img src={`${BASE_URL}assets/ui/${policyIcon}`} alt="" />}<kbd>SPACE</kbd></button>
   </div>;
 }
 

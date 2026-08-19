@@ -190,6 +190,7 @@ try {
     if (!pausedResult || pausedResult.outcome !== 'TIME_LIMIT' || pausedResult.finalHp <= 0) {
       throw new Error(`Keep-range trade-off did not preserve HP and stop at its time limit: ${JSON.stringify(pausedResult)}`);
     }
+    await assertOperationResultPresentation(page, run, 'TIME_LIMIT');
     const pausedFrontier = run.world.tiles.find((tile) => tile.id === 'frontier-east');
     if (pausedFrontier?.routeSafe || pausedFrontier?.threat !== 'CONTESTED' || !pausedFrontier?.anchorPrepared || pausedFrontier?.territory !== 'OUTSIDE') {
       throw new Error(`Paused operation changed the wrong territory axes: ${JSON.stringify(pausedFrontier)}`);
@@ -229,10 +230,11 @@ try {
     if (run.worldMinute !== expectedSharedMinute) {
       throw new Error(`Shared time was summed or dropped: expected ${expectedSharedMinute}, got ${run.worldMinute}`);
     }
-    if (await page.locator('.operation-causality article').count() !== 3 || await page.locator('.operation-log > div').count() === 0) {
-      throw new Error('Operation result cannot reconstruct source, decision, and actual result');
-    }
+    await assertOperationResultPresentation(page, run, 'SECURED');
     await capture(page, '10-delegation-result');
+    const securedResultTextOff = await page.addStyleTag({ content: '.submission-delegation-result b,.submission-delegation-result strong,.submission-delegation-result small,.submission-delegation-result kbd,.submission-topbar strong,.submission-topbar small{visibility:hidden!important}' });
+    await capture(page, '10-delegation-result-text-off');
+    await securedResultTextOff.evaluate((element) => element.remove());
     delegationReport = {
       firstAttempt: {
         choice: 'KEEP_RANGE', outcome: pausedResult.outcome, turns: pausedResult.turns,
@@ -328,6 +330,7 @@ try {
   await page.waitForTimeout(100);
   const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   if (horizontalOverflow > 1) throw new Error(`4:3 scouted layout overflows horizontally by ${horizontalOverflow}px`);
+  if (verifyP3 && !verifyP4) await assertOperationResultPresentation(page, run, 'SECURED');
   await capture(page, verifyP4 ? '15-expanded-4x3' : verifyP3 ? '11-delegation-result-4x3' : '05-scouted-4x3');
   let interactionGate;
   if (verifyP5) {
@@ -554,6 +557,55 @@ function samePosition(left, right) { return left.x === right.x && left.y === rig
 function manhattan(left, right) { return Math.abs(left.x - right.x) + Math.abs(left.y - right.y); }
 function distance(left, right) { return manhattan(left.position, right.position); }
 function unitName(unit) { if (unit.id.includes('archer')) return '고블린 궁수'; if (unit.id.includes('warrior')) return '고블린 전사'; return '고블린 투척병'; }
+async function assertOperationResultPresentation(page, run, expectedOutcome) {
+  const result = run.delegationResult;
+  if (!result || result.outcome !== expectedOutcome) throw new Error(`Expected ${expectedOutcome} operation result, got ${JSON.stringify(result)}`);
+  const secured = expectedOutcome === 'SECURED';
+  const scene = page.locator('.submission-delegation-result.is-map-result');
+  const grid = page.locator('.operation-grid-record');
+  const metrics = page.locator('.operation-result-metrics');
+  const shared = page.locator('.operation-shared-time');
+  const livingEnemies = result.finalState.units.filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0).length;
+  if (await page.locator('.operation-result-board > i').count() !== 36
+    || await page.locator('.operation-result-unit').count() !== result.finalState.units.length
+    || await page.locator('.operation-result-unit.is-enemy:not(.is-defeated)').count() !== livingEnemies
+    || await page.locator('.route-result-threat').count() !== 2
+    || await page.locator('.route-result-threat.is-cleared').count() !== (secured ? 2 : 0)
+    || await page.locator('.operation-result-metrics > span').count() !== 4
+    || await page.locator('[data-trace-cell]').count() < 1
+    || await page.locator('.operation-action-trace > span').count() < 1) {
+    throw new Error(`Operation result lost its route, actual grid, trace, units, or metrics for ${expectedOutcome}`);
+  }
+  if (await scene.getAttribute('data-operation-outcome') !== result.outcome
+    || await scene.getAttribute('data-route-safe') !== String(secured)
+    || Number(await grid.getAttribute('data-final-turn')) !== result.turns
+    || Number(await grid.getAttribute('data-route-trace-length')) !== result.route.length
+    || Number(await grid.getAttribute('data-event-count')) !== result.eventCount
+    || Number(await metrics.getAttribute('data-damage')) !== result.damageTaken
+    || Number(await metrics.getAttribute('data-elapsed-minutes')) !== result.elapsedMinutes
+    || Number(await metrics.getAttribute('data-final-hp')) !== result.finalHp) {
+    throw new Error(`Operation result presentation diverges from its authoritative result for ${expectedOutcome}`);
+  }
+  const sharedMinutes = Math.max(run.protagonistTaskMinutes, result.elapsedMinutes);
+  if (await shared.getAttribute('data-time-rule') !== 'MAX_NOT_SUM'
+    || Number(await shared.getAttribute('data-shared-minutes')) !== sharedMinutes
+    || await page.locator(`[data-submission-primary="${secured ? 'approach-anchor' : 'review-policy'}"][data-primary-key="SPACE"]`).count() !== 1) {
+    throw new Error(`Operation result lost shared time or its next action for ${expectedOutcome}`);
+  }
+  if (await page.locator('.operation-outcome,.operation-causality,.operation-log,.shared-time-result,.submission-delegation-result h1,.submission-delegation-result p').count()) {
+    throw new Error('Operation result regressed to explanation-first dashboard panels');
+  }
+  const layout = await page.locator('.operation-route-result,.operation-grid-record,.operation-result-metrics,.operation-shared-time,.operation-result-primary').evaluateAll((elements) => ({
+    viewport: { width: innerWidth, height: innerHeight },
+    bounds: elements.map((element) => {
+      const box = element.getBoundingClientRect();
+      return { left: box.left, top: box.top, right: box.right, bottom: box.bottom };
+    }),
+  }));
+  if (layout.bounds.some((box) => box.left < -1 || box.top < -1 || box.right > layout.viewport.width + 1 || box.bottom > layout.viewport.height + 1)) {
+    throw new Error(`Operation result does not fit viewport: ${JSON.stringify(layout)}`);
+  }
+}
 async function submissionSnapshot(page) { return page.evaluate(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot); }
 async function combatSnapshot(page) { return page.evaluate(() => window.__ISEKAI_COACH_COMBAT__?.snapshot); }
 async function corridorPresentation(page) {

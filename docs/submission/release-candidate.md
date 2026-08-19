@@ -37,8 +37,9 @@ P7은 기능 추가가 아니라 하나의 commit을 재현 가능한 제품 후
 13. 중앙 방 승리→중앙점 확보→확인 뒤 네 방향 통로·위험 정찰
 14. 직전 사격 실패→두 공간 대응→한 정책 변화와 pointer/keyboard parity
 15. 선택 정책→400m 경로·두 위협→중단 조건→비합산 병렬 시간의 위임 계획
-16. 16:9·4:3 layout과 console/page/request errors 0건
-17. 기존 Slice 1·2 회귀
+16. 실제 12×3 위임 기록→피해·시간→TIME_LIMIT/SECURED 경로 결과와 다음 행동
+17. 16:9·4:3 layout과 console/page/request errors 0건
+18. 기존 Slice 1·2 회귀
 
 중간 단계가 실패하면 뒤 단계를 실행하지 않는다. technical pass는 재미, 직관성 또는 pacing 통과를 뜻하지 않는다.
 

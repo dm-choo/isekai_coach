@@ -259,6 +259,52 @@ try {
   await page.screenshot({ path: new URL('18-delegation-route-4x3.png', artifactDir).pathname });
   await page.setViewportSize({ width: 1280, height: 720 });
 
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'DELEGATION_RESULT');
+  const delegationResultSnapshot = await submissionSnapshot(page);
+  const pausedOperation = delegationResultSnapshot.delegationResult;
+  if (!pausedOperation || pausedOperation.outcome !== 'TIME_LIMIT') throw new Error(`First delegation result is not its authored time-limit trade-off: ${JSON.stringify(pausedOperation)}`);
+  const operationScene = page.locator('.submission-delegation-result.is-map-result');
+  const resultGrid = page.locator('.operation-grid-record');
+  const resultMetrics = page.locator('.operation-result-metrics');
+  const sharedTime = page.locator('.operation-shared-time');
+  await expectCount(page, '.operation-result-board > i', 36, 'actual 12 by 3 delegation grid');
+  await expectCount(page, '.operation-result-unit', pausedOperation.finalState.units.length, 'all final delegated combatants');
+  await expectCount(page, '.operation-result-unit.is-enemy:not(.is-defeated)', pausedOperation.finalState.units.filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0).length, 'living enemies after paused delegation');
+  await expectCount(page, '.route-result-threat', 2, 'two world-route threats after delegation');
+  await expectCount(page, '.route-result-threat.is-cleared', 0, 'uncleared threats after time limit');
+  await expectCount(page, '.operation-result-metrics > span', 4, 'four operation metrics');
+  await expectCount(page, '[data-submission-primary="review-policy"][data-primary-key="SPACE"]', 1, 'single paused-operation response');
+  await expectCount(page, '.operation-outcome,.operation-causality,.operation-log,.shared-time-result,.submission-delegation-result h1,.submission-delegation-result p', 0, 'retired operation result dashboard copy');
+  if (await page.locator('[data-trace-cell]').count() < 1 || await page.locator('.operation-action-trace > span').count() < 1) throw new Error('Paused operation does not expose its actual route and policy trace');
+  if (await operationScene.getAttribute('data-operation-outcome') !== pausedOperation.outcome
+    || await operationScene.getAttribute('data-route-safe') !== 'false'
+    || Number(await resultGrid.getAttribute('data-final-turn')) !== pausedOperation.turns
+    || Number(await resultGrid.getAttribute('data-route-trace-length')) !== pausedOperation.route.length
+    || Number(await resultGrid.getAttribute('data-event-count')) !== pausedOperation.eventCount
+    || Number(await resultMetrics.getAttribute('data-damage')) !== pausedOperation.damageTaken
+    || Number(await resultMetrics.getAttribute('data-elapsed-minutes')) !== pausedOperation.elapsedMinutes
+    || Number(await resultMetrics.getAttribute('data-final-hp')) !== pausedOperation.finalHp) {
+    throw new Error('Paused operation result presentation diverges from DelegatedOperationResult');
+  }
+  const pausedSharedMinutes = Math.max(delegationResultSnapshot.protagonistTaskMinutes, pausedOperation.elapsedMinutes);
+  if (await sharedTime.getAttribute('data-time-rule') !== 'MAX_NOT_SUM'
+    || Number(await sharedTime.getAttribute('data-shared-minutes')) !== pausedSharedMinutes) {
+    throw new Error('Paused operation result does not preserve shared max time');
+  }
+  await assertCriticalFit(page, ['.submission-delegation-result', '.operation-route-result', '.operation-grid-record', '.operation-result-metrics', '.operation-shared-time', '[data-submission-primary="review-policy"]']);
+  await page.screenshot({ path: new URL('19-delegation-time-limit-result.png', artifactDir).pathname });
+  const operationTextOff = await page.addStyleTag({ content: '.submission-delegation-result b,.submission-delegation-result strong,.submission-delegation-result small,.submission-delegation-result kbd,.submission-topbar strong,.submission-topbar small{visibility:hidden!important}' });
+  await page.screenshot({ path: new URL('20-delegation-time-limit-text-off.png', artifactDir).pathname });
+  await operationTextOff.evaluate((element) => element.remove());
+
+  await page.setViewportSize({ width: 960, height: 720 });
+  await assertCriticalFit(page, ['.submission-delegation-result', '.operation-route-result', '.operation-grid-record', '.operation-result-metrics', '.operation-shared-time', '[data-submission-primary="review-policy"]']);
+  const operationCompactOverflow = await page.evaluate(() => Math.max(0, document.documentElement.scrollWidth - document.documentElement.clientWidth));
+  if (operationCompactOverflow !== 0) throw new Error(`Compact delegation result horizontally overflows by ${operationCompactOverflow}px`);
+  await page.screenshot({ path: new URL('21-delegation-time-limit-4x3.png', artifactDir).pathname });
+  await page.setViewportSize({ width: 1280, height: 720 });
+
   if (errors.length) throw new Error(`Browser errors:\n${errors.join('\n')}`);
   const report = {
     status: 'ENCOUNTER_TRANSITION_PASS',
@@ -309,6 +355,20 @@ try {
       parallelTime: { rule: 'MAX_NOT_SUM', protagonistMinutes: delegationSnapshot.protagonistTaskMinutes, allyTravelMinutes: 8 },
       textPanels: 0,
       compactOverflow: delegationCompactOverflow,
+    },
+    delegationResult: {
+      outcome: pausedOperation.outcome,
+      routeSafe: false,
+      turns: pausedOperation.turns,
+      damageTaken: pausedOperation.damageTaken,
+      elapsedMinutes: pausedOperation.elapsedMinutes,
+      finalHp: pausedOperation.finalHp,
+      finalUnits: pausedOperation.finalState.units.length,
+      livingEnemies: pausedOperation.finalState.units.filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0).length,
+      routeTraceLength: pausedOperation.route.length,
+      sharedMinutes: pausedSharedMinutes,
+      textPanels: 0,
+      compactOverflow: operationCompactOverflow,
     },
     browserErrors: errors,
   };

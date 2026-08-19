@@ -26,6 +26,8 @@ related:
   - p16-retrospective.md
   - p17-delegation-route-contract.md
   - p17-retrospective.md
+  - p18-delegation-result-contract.md
+  - p18-retrospective.md
   - release-candidate.md
 ---
 
@@ -61,6 +63,8 @@ OpenAI Game Builders Seoul 제출용 Web Build가 전체 게임 설계에서 선
 - [P16 retrospective](./p16-retrospective.md): 정책 선택의 공간 비교·focus/selection 분리·검증 비용 회고
 - [P17 delegation route contract](./p17-delegation-route-contract.md): 선택 정책→알려진 경로→중단 조건→병렬 시간의 위임 계획 계약
 - [P17 retrospective](./p17-retrospective.md): 경로 중심 위임 계획·병렬 시간 시각 오류·검증 비용 회고
+- [P18 delegation result contract](./p18-delegation-result-contract.md): 실제 정책 행동·최종 좌표·피해·공유 시간에서 경로 결과를 복원하는 계약
+- [P18 retrospective](./p18-retrospective.md): 위임 actual grid·world/combat route 분리·두 정책 손익 검증 회고
 - [Release candidate gate](./release-candidate.md): 재현 가능한 기술 검증, 배포·복구와 사람 gate
 
 ## Status summary

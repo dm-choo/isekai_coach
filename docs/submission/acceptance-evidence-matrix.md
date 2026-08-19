@@ -15,6 +15,7 @@ related:
   - p15-retrospective.md
   - p16-retrospective.md
   - p17-retrospective.md
+  - p18-retrospective.md
 ---
 
 # 제출본 수용 기준 증거 매트릭스
@@ -35,7 +36,7 @@ related:
 | 초기 결계와 바깥 frontier 구분 | golden `00-awakening`, 물리적 cyan 경계·연속 지면·오른쪽 출구 | A+V, 의미 이해는 H REQUIRED |
 | 단독 각성→첫 위협→동료 해방 | `verify:submission:golden`의 authoritative solo unit 수, sealed world object, 합류 전후 HUD assertion | A+V, 동료 획득 의미는 H REQUIRED |
 | 직접 조우→규칙 관찰→정책 수정→알려진 통로 위임 | `verify:submission:golden`의 단일 complete cycle | A+V, 무설명 흐름은 H REQUIRED |
-| 위임 결과가 경로·행동·피해·시간으로 설명됨 | delegation action trace, `.operation-causality`, `.operation-log` assertion | A+V, 손익 설명은 H REQUIRED |
+| 위임 결과가 경로·행동·피해·시간으로 설명됨 | 실제 400m routeSafe verdict, 12×3 finalState·movement/policy trace, four metric, shared `max()`의 TIME_LIMIT/SECURED parity와 text-off·양 비율 캡처 | A+V, 손익 설명은 H REQUIRED |
 | 동료 확보만으로 편입되지 않음 | golden이 `routeSafe=true`, `territory=OUTSIDE`를 동시에 검증 | A |
 | 주인공 활성화 뒤 contour·샘·다음 좌표 변화 | world unit + golden expanded scene | A+V |
 | 승리/편입/안정화를 별개로 읽음 | 독립 world state + expanded `소속·안정·효용` ledger | A+V, 실제 개념 구분은 H REQUIRED |
@@ -89,7 +90,7 @@ related:
 | first solo combat | `npm run verify:submission:solo-combat` | threat→unsafe revise→safe execute→full controls, both ratios, error 0 |
 | normal combat hierarchy | `npm run verify:submission:normal-combat` | scene-first action dock, result focus, both ratios, error 0 |
 | ally policy causality | `npm run verify:submission:ally-policy` | closed forecast, 5-slot source, plan recomputation, forecast/execution policy identity, both ratios, error 0 |
-| encounter and decision lifecycle | `npm run verify:submission:encounter-transition` | threat reveal→same-stage input→200m return→central 4-route scouting→record-linked policy choice→map-first delegation plan, both ratios, error 0 |
+| encounter and decision lifecycle | `npm run verify:submission:encounter-transition` | threat reveal→same-stage input→200m return→central scouting→record-linked choice→map-first plan→actual TIME_LIMIT result, both ratios, error 0 |
 | failure contract | `npm run verify:submission:failure` | safe retreat, persistent cost, no reroll, browser error 0 |
 | product golden | `npm run verify:submission:golden` | EXPANDED, both ratios, browser error 0 |
 | cumulative technical RC | `npm run verify:submission-rc` | clean exact SHA, submission + Slice 1·2 전부 통과 |
