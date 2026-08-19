@@ -10,6 +10,7 @@ related:
   - first-15-minutes.md
   - sector-1-golden-run.md
   - acceptance-criteria.md
+  - release-candidate.md
 ---
 
 # Submission
@@ -27,6 +28,7 @@ OpenAI Game Builders Seoul 제출용 Web Build가 전체 게임 설계에서 선
 - [First 15 minutes](./first-15-minutes.md): 점진 공개와 행동 학습 순서
 - [Submission golden run](./sector-1-golden-run.md): 4타일 원정부터 결계 해제까지의 제출 경로
 - [Acceptance criteria](./acceptance-criteria.md): 제출본 완료 판정
+- [Release candidate gate](./release-candidate.md): 재현 가능한 기술 검증, 배포·복구와 사람 gate
 
 ## Status summary
 

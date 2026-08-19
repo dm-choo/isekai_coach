@@ -32,7 +32,7 @@ M0 범위 고정
 - M4: implemented, automated validation passed. 새 전투 규칙을 더하지 않고 기존 `회피 우선`과 `사격 우선`이 안전과 피해 사이에서 서로 다른 비지배 결과를 내는 고정 상태를 테스트로 잠갔다. 동료의 전투 전체 policy 실행 이력, 가장 자주 막힌 상위 전술과 정책 변경 전후의 실제 행동 횟수를 캐릭터 창에 보존한다. 서로 다른 조우를 비교하므로 UI는 인과나 우열을 판정하지 않으며 실제 선택 분포와 이해는 under-validation이다.
 - M5: implemented, automated validation passed. 네 번째 월드 타일의 동쪽 출구를 기존 결계 수호자 계약에 연결하고, 원정에서 남은 HP·세계 시간·현재 동료 policy를 보스전에 그대로 전달한다. 보스 격파만으로 종료하지 않고 관리자 봉인 해제와 명확한 데모 완료를 별도 상태로 거친다. 기본 자동 경로는 7전투·재시도 0회로 완료되지만 실제 20~30분 체감과 누적 HP 압박은 under-validation이다.
 - M6: implemented. 현재 `/slice2/` 실행 흐름과 수치를 [첫 15분](./first-15-minutes.md), [제출 골든 런](./sector-1-golden-run.md), acceptance criteria에 정본화하고 자동 증거와 경제적인 사람 gate를 연결했다. 20~30분 목표와 무설명 사용성은 under-validation이다.
-- M7: next.
+- M7: technical gate implemented. 한 명령 RC 검증, exact-SHA report, 배포·복구·P0/P1 checklist를 제공한다. 기술 gate 실행과 public candidate 고정 뒤에도 무설명 사람 검증은 별도 필수 gate다.
 
 ## Economical validation ladder
 

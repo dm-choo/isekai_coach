@@ -20,6 +20,7 @@
     "verify:combat-ux": "node scripts/verify-combat-ux.mjs",
     "verify:slice2": "node scripts/verify-slice2.mjs",
     "verify:slice2:public": "node scripts/verify-slice2-public.mjs",
+    "verify:submission-rc": "node scripts/verify-submission-rc.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
