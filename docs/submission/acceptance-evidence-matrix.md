@@ -50,6 +50,7 @@ related:
 |---|---|---|
 | 모든 시점의 primary action 하나 | 첫 이동 `D`, 봉인 `SPACE`, 이후 contextual `assertPrimaryAction`과 critical-fit | A+V |
 | 첫 단독 전투가 위협→이동→예정 결과→실행 순으로 공개됨 | `verify:submission:solo-combat`의 위험/안전 preview, controller input gate, 둘째 턴 full-control assertion | A+V, 무설명 이해는 H REQUIRED |
+| 전장이 준비된 뒤에만 첫 전투 입력이 열림 | P21 1,500ms 지연 fixture의 100/500ms continuity frame, 준비 전 keyboard·pointer state 불변, Phaser handshake 뒤 첫 accepted feedback 8ms와 공개 `READY` 경로 | A+V, 체감 대기는 H REQUIRED |
 | 정상 전투가 전장→응답→계획 결과→실행 위계를 유지함 | `verify:submission:normal-combat`의 scene-first Intent, dock containment, demand tooltip, INPUT/OUTCOME assertion | A+V, 실제 신경 소모 감소는 H REQUIRED |
 | 동료 forecast→정책 번호→계획 재계산→실행이 같은 인과 문법을 사용함 | `verify:submission:ally-policy`의 CURRENT/PLANNED signature와 동일 policy ID 실행 포착 | A+V, 번호의 의미 이해는 H REQUIRED |
 | 복도 조우가 제목 카드 없이 적 reveal→SPACE→같은 전장 입력으로 이어짐 | `verify:submission:encounter-transition`의 title 0, single action, same CombatStage identity, 양 비율 캡처 | A+V, 조우 의미 이해는 H REQUIRED |
@@ -91,7 +92,7 @@ related:
 |---|---|---|
 | focused rules | `npm test -- --run src/game/submission` | 변경 모듈 0 failure |
 | first experience | `npm run verify:submission:interaction` | text-independent solo opening, D/pointer, v2 checkpoint |
-| first solo combat | `npm run verify:submission:solo-combat` | threat→unsafe revise→safe execute→full controls, both ratios, error 0 |
+| first solo combat | `npm run verify:submission:solo-combat` | delayed readiness→blocked hidden input→8ms accepted feedback→threat→unsafe revise→safe execute→full controls, both ratios, error 0 |
 | normal combat hierarchy | `npm run verify:submission:normal-combat` | scene-first action dock, result focus, both ratios, error 0 |
 | ally policy causality | `npm run verify:submission:ally-policy` | closed forecast, 5-slot source, plan recomputation, forecast/execution policy identity, both ratios, error 0 |
 | encounter and decision lifecycle | `npm run verify:submission:encounter-transition` | threat reveal→same-stage input→200m return→central scouting→record-linked choice→map-first plan→actual TIME_LIMIT result, both ratios, error 0 |
@@ -105,5 +106,5 @@ related:
 
 - 신규 사용자 2명 이상의 무설명 기록이 없으므로 직관성, 핵심 경험 전달, 재미는 **REQUIRED**다.
 - 실제 사람 기준 15~25분 pacing은 자동 playback 시간으로 추론하지 않는다.
-- 느린 네트워크에서 deferred combat chunk의 체감 대기는 아직 사람·네트워크 조건 검증이 없다.
+- 느린 네트워크에서 검은 전장과 준비 전 입력은 자동 지연 fixture로 닫혔다. continuity transition의 실제 체감 대기는 아직 사람 검증이 없다.
 - 위 세 항목은 콘텐츠 추가로 우회하지 않고 같은 build의 관찰 증거로 닫는다.
