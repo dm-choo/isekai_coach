@@ -1,6 +1,6 @@
 ---
 title: P20 Expansion Spatial Result Retrospective
-status: under-validation
+status: technical-candidate
 last_updated: 2026-08-20
 related:
   - p20-expansion-spatial-result-contract.md
@@ -20,9 +20,12 @@ related:
 
 - `npm run verify:submission:p4`: EXPANDED; activation 전후 revision +1, incorporated 2, revealed OUTSIDE 3, contour 6과 internal edge 0, open anchor·protagonist·spring +1·next link 3, 1280×720·960×720 overflow 0, browser error 0
 - 13 files, 94 unit tests: pass
-- production build: pass; P19 공개본 대비 CSS `122,118→123,653` bytes(+1,535), SubmissionApp JS `118,605→117,954` bytes(-651)
+- production build: pass; P19 공개본 대비 CSS `122,118→123,668` bytes(+1,550), SubmissionApp JS `118,605→117,954` bytes(-651)
 - 직접 비교: golden `14-expanded`, `14-expanded-text-off`, `15-expanded-4x3`
 - retired expanded copy·ledger·causality·coordinate panel과 closed lock 0
+- exact-SHA `79c41c3ad94d8c6e9bc5c7b8ab0b3b5dbbe86807` 누적 RC: `TECHNICAL_PASS`, clean worktree, 13 files/94 tests, 제출본 EXPANDED와 Slice1·Slice2 4타일·7전투 회귀 통과
+- 공개 release `/srv/ooh/releases/20260819T164338Z-79c41c3-submission`, 직전 rollback target `/srv/ooh/releases/20260819T162447Z-bd588fe-submission`, root·Slice1/2 health pass
+- `npm run verify:submission:public`: `PUBLIC_BROWSER_PASS`; 두 incorporated tile, outer contour 6, active spring water +1, 세 OUTSIDE 좌표, 최초 4:3 bounds와 reload state 보존, Slice1/2 title, browser error 0
 
 자동·시각 증거는 결과 state와 공간 표현 parity를 닫는다. 신규 사용자가 설명 없이 `주인공이 거점을 켜 결계가 한 타일 넓어졌고 샘과 세 다음 길이 열렸다`고 설명하는지는 human gate 전까지 REQUIRED다.
 
@@ -73,4 +76,4 @@ P19의 next rule대로 P15 link, 기존 tile/contour, P19 anchor primitive를 �
 
 ## Next task
 
-P20 뒤에는 제출 cycle의 새 기능 장면을 더 만들지 않는다. exact-SHA 누적 RC와 공개 save/reload에서 expansion state를 검증하고, 같은 build를 신규 사용자에게 무설명으로 맡겨 `영역 확장 원인`, `샘의 다음 원정 효용`, `다음에 갈 방향`을 자기 말로 설명하는지 확인한다. 실패하면 콘텐츠를 늘리지 않고 관찰된 첫 오해를 소유한 기존 장면만 보완한다.
+P20 뒤에는 제출 cycle의 새 기능 장면을 더 만들지 않는다. exact-SHA 누적 RC와 공개 save/reload expansion 검증은 닫혔다. 같은 build를 신규 사용자에게 무설명으로 맡겨 `영역 확장 원인`, `샘의 다음 원정 효용`, `다음에 갈 방향`을 자기 말로 설명하는지 확인한다. 실패하면 콘텐츠를 늘리지 않고 관찰된 첫 오해를 소유한 기존 장면만 보완한다.

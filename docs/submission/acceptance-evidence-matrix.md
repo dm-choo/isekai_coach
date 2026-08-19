@@ -17,6 +17,7 @@ related:
   - p17-retrospective.md
   - p18-retrospective.md
   - p19-retrospective.md
+  - p20-retrospective.md
 ---
 
 # 제출본 수용 기준 증거 매트릭스
@@ -82,7 +83,7 @@ related:
 | frontier 한 타일과 다음 좌표 공개로 proof 종료 | expanded final mode assertion | A |
 | 샘 물 보충이 다음 원정 가능성을 바꿈 | water `+1` state + `다음 원정 한 번` presentation assertion | A+V, 이해는 H REQUIRED |
 | deferred 경제·보스·다중 부대 없이 cycle 성립 | complete cycle build와 scope audit | A+V |
-| 16:9·4:3 핵심 요소가 가려지지 않음 | golden 1280×720 opening captures + interaction 960×720 + critical bounds + overflow 0 | A+V |
+| 16:9·4:3 핵심 요소가 가려지지 않음 | golden 1280×720 opening captures + interaction 960×720 + P20 cold-load 4:3 spatial bounds + critical bounds + overflow 0 | A+V |
 
 ## Release evidence
 
