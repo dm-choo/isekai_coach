@@ -1,5 +1,5 @@
 ---
-title: Submission Release Candidate Gate
+title: Submission Product Release Candidate Gate
 status: accepted
 last_updated: 2026-08-19
 related:
@@ -7,75 +7,59 @@ related:
   - scope.md
   - acceptance-criteria.md
   - sector-1-golden-run.md
-  - ../development/deployment/slice2.md
+  - ../development/architecture/existing-scaffold-contract.md
 ---
 
-# Submission release candidate gate
+# Submission product release candidate gate
 
-M7은 기능 추가가 아니라 하나의 commit을 재현 가능한 제출 후보로 고정하는 단계다. 자동 검증 통과와 실제 사람의 경험 검증을 분리하며, 둘 중 하나를 다른 하나의 증거로 사용하지 않는다.
+P7은 기능 추가가 아니라 하나의 commit을 재현 가능한 제품 후보로 고정하는 단계다. 자동 검증, 공개 배포와 사람 경험 검증을 분리하며 어느 하나도 다른 증거를 대신하지 않는다.
 
-## One-command technical gate
+## Current boundary
 
-```bash
-npm run verify:submission-rc
-```
+현재 `npm run verify:submission-rc`는 기존 Slice 1·2의 기술 회귀를 검증한다. 새 영토·위임·결계 확장 골든 패스가 구현되기 전까지 그 결과를 `Product RC`로 부르지 않는다. P6에서 같은 명령을 확장하거나 새 명령으로 교체하고 exact SHA report를 남긴다.
 
-이 명령은 다음을 순서대로 실행하고 `artifacts/submission-rc/report.json`에 SHA와 결과를 남긴다.
+## Required technical gate
+
+제품 RC 명령은 다음을 순서대로 실행해야 한다.
 
 1. TypeScript typecheck
-2. 전체 Vitest domain/controller 회귀
-3. Slice1 production build
-4. Slice1 보스 interaction browser flow
-5. Slice2 production build
-6. Slice2 4타일·정책 수정·보스·봉인 해제 전체 golden path
+2. 전체 domain/controller 회귀
+3. fixed-seed 직접/위임 parity
+4. 영토 상태·인접 편입·잘못된 순서 거부
+5. save/load·retry determinism
+6. production build
+7. 첫 입력부터 샘·다음 좌표까지 browser golden path
+8. 16:9·4:3 layout과 console/page/request errors 0건
+9. 기존 Slice 1·2 회귀
 
-중간 단계가 실패하면 뒤 단계를 실행하지 않는다. 결과 report의 `TECHNICAL_PASS`는 재미, 직관성 또는 20~30분 pacing의 통과를 뜻하지 않는다.
+중간 단계가 실패하면 뒤 단계를 실행하지 않는다. technical pass는 재미, 직관성 또는 pacing 통과를 뜻하지 않는다.
 
 ## Candidate checklist
 
-| Gate | 완료 조건 | 증거 |
-|---|---|---|
-| RC-0 Scope | deferred 기능이 제출 blocker로 돌아오지 않음 | scope와 golden run diff review |
-| RC-1 Rules | typecheck와 모든 unit test 통과 | RC report `typecheck`, `unit` |
-| RC-2 Slice1 | 보스 턴 1~4, interrupt와 소환수 선택 회귀 없음 | combat-ux report/screenshots |
-| RC-3 Slice2 | 첫 입력부터 demo complete까지 7전투 완주 | slice2 report `goldenPath` |
-| RC-4 Layout | 1280×720, 960×720 overflow와 browser error 없음 | slice reports |
-| RC-5 Release | clean SHA build, passwordless scoped deploy, public title/assets/smoke 통과 | release path, public report |
-| RC-6 Recovery | 직전 release와 Caddy backup이 존재하고 rollback target이 명확함 | `/srv/ooh/current`, deploy output |
-| RC-7 Human | 무설명 first-use, 선택 이유, pacing, 재미 gate 통과 | 날짜·SHA가 있는 playtest note |
+| Gate | Completion |
+|---|---|
+| RC-0 Scope | deferred 기능이 blocker로 돌아오지 않고 complete cycle만 포함됨 |
+| RC-1 Rules | 모든 자동 gate와 deterministic report 통과 |
+| RC-2 Causality | 직접 학습→정책 수정→위임 결과의 사건 기록이 이어짐 |
+| RC-3 Territory | 조건부 편입, contour, 샘과 다음 좌표 전이가 일치함 |
+| RC-4 Layout | 1280×720, 960×720에서 핵심 정보와 입력이 가려지지 않음 |
+| RC-5 Release | clean exact-SHA build와 public asset/browser smoke 통과 |
+| RC-6 Recovery | 직전 release와 rollback target이 확인됨 |
+| RC-7 Human | [Acceptance human gates](./acceptance-criteria.md#human-gates) 통과 |
 
 ## P0/P1 stop rules
 
-다음 중 하나라도 있으면 RC를 제출본으로 승격하지 않는다.
+다음 중 하나라도 있으면 제품 RC로 승격하지 않는다.
 
-- 진행 불가, 입력 무반응, 죽음/턴/Intent 상태 불일치
-- 예상 위치·대상·피해와 authoritative 결과 불일치
+- 진행 불가, 입력 무반응, 죽음·턴·Intent 상태 불일치
+- 직접/위임이 같은 상태·정책에서 다른 authoritative 결과를 만듦
+- 결계 편입 조건과 실제 contour·효용 상태가 어긋남
 - 새 브라우저에서 첫 조작을 찾지 못해 2분 이상 진행하지 못함
 - 핵심 UI가 16:9 또는 4:3에서 가려짐
 - 배포 SHA, 공개 자산 또는 rollback target을 확인할 수 없음
 
-단순 polish, 최종 타이틀, 추가 콘텐츠, bundle code splitting 경고는 현재 범위에서 P0/P1이 아니다. 다만 실제 초기 로딩 실패로 관찰되면 우선순위를 다시 올린다.
+추가 콘텐츠, 최종 타이틀, 복합 경제와 polish는 현재 범위의 P0/P1이 아니다.
 
-## Release procedure
+## Evidence handoff
 
-```bash
-git status --short
-npm run verify:submission-rc
-git push
-npm run deploy:slice2
-```
-
-배포 후 다음을 별도로 기록한다.
-
-- commit SHA
-- `/srv/ooh/releases/<timestamp>-<sha>-slice2`
-- `/srv/ooh/current`이 가리키는 release
-- `/`, `/slice1/`, `/slice2/` title과 asset HTTP 200
-- public Chromium error 0건
-- 직전 release와 Caddy backup path
-
-## Remaining human gate
-
-자동 gate가 모두 통과한 후보를 기준으로 디렉터 3~5분 확인 후 새로운 사람 1명에게 설명 없이 맡긴다. 누적 3~5개 Goal 뒤에는 2~3명만 사용한다. 기록 질문은 [submission golden run](./sector-1-golden-run.md#lightweight-human-gates)을 그대로 사용한다.
-
-사람 gate 전 상태 표기는 `technical RC`이며, 이를 `validated submission`이라고 부르지 않는다.
+배포 후 commit SHA, release path, public title/assets, Chromium errors, 직전 release와 rollback path를 별도로 기록한다. 자동 gate 통과 후보를 새로운 사람에게 설명 없이 맡기며, 사람 gate 전 표기는 `technical candidate`다.

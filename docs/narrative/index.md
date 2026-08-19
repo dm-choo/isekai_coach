@@ -1,7 +1,7 @@
 ---
 title: Narrative Canonical Index
 status: accepted
-last_updated: 2026-08-17
+last_updated: 2026-08-19
 related:
   - ../gameplay/world/index.md
   - ../submission/first-15-minutes.md
@@ -13,6 +13,7 @@ related:
 이 계층은 세계와 인물의 의미, 관리자 시스템의 서사적 역할과 용어를 소유한다. gameplay 수치나 UI 흐름은 정의하지 않는다.
 
 - [Premise](./premise.md): **accepted**, 세부 과거사와 기억 상실 원인 **deferred**
+- [Barrier and restoration](./barrier-and-restoration.md): 결계 밖 세계와 회복의 의미 **accepted**
 - [Protagonist and companions](./protagonist-and-companions.md): **accepted**
 - [Administrator system](./administrator-system.md): **accepted**
 - [Terminology](./terminology.md): 현재 정본 용어

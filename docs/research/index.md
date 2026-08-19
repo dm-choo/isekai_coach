@@ -7,6 +7,7 @@ related:
   - ../_meta/documentation-governance.md
   - current-game-assessment.md
   - reference-insights.md
+  - territory-expansion-reference-analysis.md
   - validation-agenda.md
   - validation-agenda-slice-2.md
   - sprint-retrospective-continuous-corridor.md
@@ -21,11 +22,12 @@ related:
 
 1. [Current game assessment](./current-game-assessment.md): 현재 아이디어 브리핑, 목표 사용자·Aesthetic 가설, 강점과 위험
 2. [Reference insights](./reference-insights.md): Darkest Dungeon, DNF, One Step From Eden 등에서 가져온 인사이트와 적용 한계
-3. [Validation agenda](./validation-agenda.md): Slice 1 보스방에서 장면·턴·이동·공격·Intent 마찰을 반증할 테스트 순서와 임시 기준
-4. [Slice 2 validation agenda](./validation-agenda-slice-2.md): 네 월드 타일의 공간 판독, 정찰, 선택 충돌과 정책 전이 검증
-5. [Continuous corridor sprint KPT](./sprint-retrospective-continuous-corridor.md): 100m node UI 실패 원인, 연속 통로 전환과 다음 스프린트 규칙
-6. [Adaptive Intent sprint KPT](./sprint-retrospective-adaptive-intents.md): 방향·행동 순서·Intent ownership·배경 이동 교정과 다음 AI/UI 실험 규칙
-7. [Reference screenshots](../images/reference_screenshot/README.md): 출처와 분석 목적이 기록된 비교 이미지 보관소
+3. [Territory expansion reference analysis](./territory-expansion-reference-analysis.md): 영토·원정·정책 자동행동 레퍼런스의 채택·변형·기각 근거
+4. [Validation agenda](./validation-agenda.md): Slice 1 보스방에서 장면·턴·이동·공격·Intent 마찰을 반증할 테스트 순서와 임시 기준
+5. [Slice 2 validation agenda](./validation-agenda-slice-2.md): 네 월드 타일의 공간 판독, 정찰, 선택 충돌과 정책 전이 검증
+6. [Continuous corridor sprint KPT](./sprint-retrospective-continuous-corridor.md): 100m node UI 실패 원인, 연속 통로 전환과 다음 스프린트 규칙
+7. [Adaptive Intent sprint KPT](./sprint-retrospective-adaptive-intents.md): 방향·행동 순서·Intent ownership·배경 이동 교정과 다음 AI/UI 실험 규칙
+8. [Reference screenshots](../images/reference_screenshot/README.md): 출처와 분석 목적이 기록된 비교 이미지 보관소
 
 ## Evidence labels
 
@@ -46,5 +48,5 @@ related:
 
 - 목표 사용자는 아직 실제 사용자 조사로 검증하지 않은 **가설**이다.
 - 목표 Aesthetic은 현재 mechanics와 art direction을 한 경험 언어로 묶은 **제안**이다.
-- 현재 가장 먼저 검증할 것은 `보스방 장면 인식 → 턴 주체 판독 → WASD 이동/공격 분리 → Intent 읽기 → 밀치기·중단 → 동료 자동행동 → 봉인 해제`의 실제 플레이 흐름이다.
-- Slice 1에서는 policy 편집과 정책 수정 전이를 검증하지 않는다. 고정 5-slot 궁수 동료가 전투 장면에서 신뢰 가능한 자율성으로 읽히는지만 확인한다.
+- Slice 1과 Slice 2는 전투·통로·정책 기반 기술 foundation의 증거이며 현재 제품 핵심 루프의 증거는 아니다.
+- 다음 최우선 검증은 `직접 첫 탐사 → 공간 규칙 학습 → 정책 한 곳 수정 → 알려진 통로 위임 → 실제 결과 관찰 → 인접 타일 편입 → 결계선과 지역 효용 변화`다.

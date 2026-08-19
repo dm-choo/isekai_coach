@@ -1,7 +1,7 @@
 ---
 title: UX Canonical Index
 status: accepted
-last_updated: 2026-08-17
+last_updated: 2026-08-19
 related:
   - ../gameplay/index.md
   - ../art/ui/index.md
@@ -17,7 +17,7 @@ related:
 
 ## Status summary
 
-- **accepted**: scene-first 전투 view, 맵/로컬 방향, 관전·분석 분리, 16:9·4:3 1급 지원
-- **Slice 1 boundary**: 보스전에서는 정책을 편집하지 않고 고정 5-slot 궁수 행동을 관찰한다. 정책 editor는 별도 장기 UX다.
+- **accepted**: scene-first 전투 view, 결계 contour를 가진 맵/로컬 방향, 직접 학습→제한된 정책 수정→위임 결과 흐름, 16:9·4:3 1급 지원
+- **Legacy Slice 1 boundary**: 기존 보스전에서는 정책을 편집하지 않고 고정 5-slot 궁수 행동을 관찰한다.
 - **under-validation**: 작업 preset의 세부 편집 UI와 정확한 onboarding 속도
 - **deferred**: 모바일 세로 최적화, 자동 하이라이트 편집, 행동 모델 추론 UI

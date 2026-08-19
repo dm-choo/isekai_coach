@@ -1,7 +1,7 @@
 ---
 title: Submission Action Policy
 status: accepted
-last_updated: 2026-08-17
+last_updated: 2026-08-19
 related:
   - ../actions/index.md
   - future-policy-language.md
@@ -36,15 +36,13 @@ related:
 
 다른 무기도 같은 구조에 해당 무기 행동을 삽입한다. 기본 순서가 항상 최적이 되도록 설계하지 않는다.
 
-## First tutorial policy (post-Slice 1, under validation)
+## Submission policy change
 
-단검 동료는 `회피 → 포지셔닝 → 비껴 찌르기 → 밀치기`로 시작한다. 첫 자동전투는 승리하지만 비효율적이다. 분석 뒤 플레이어는 순서를 `비껴 찌르기 → 회피 → 포지셔닝 → 밀치기`로 바꾼다. 이 정책 편집 curriculum은 Slice 1 보스방에 포함하지 않는다.
-
-다음 실제 자동전투에서는 동료가 먼저 찌르고 무료 행 이동으로 locked enemy footprint를 벗어난다. 이전 전투보다 턴, 시간과 피해가 감소해야 하며 과거 기록은 바뀌지 않는다. 자연어 예측 문장으로 실제 결과 비교를 대신하지 않는다. 튜토리얼의 시점과 화면 흐름은 [첫 15분](../../../submission/first-15-minutes.md)이 소유한다.
+새 제출 골든 패스는 원거리 동료의 실제 첫 조우를 관찰한 뒤 action priority 또는 제한된 `사거리 유지` 지침 한 곳을 바꾼다. 변경은 정찰된 유사 통로의 위임 작전에 적용되며 이전 전투 기록은 바뀌지 않는다. 이전보다 무조건 좋아져야 하는 것이 아니라 HP·시간·행동 분포 중 trade-off가 달라져야 한다. 튜토리얼의 시점과 화면 흐름은 [첫 15분](../../../submission/first-15-minutes.md)이 소유한다.
 
 ## Explicit exclusions
 
-제출본에는 자유 조건식, AND/OR, 자연어 정책, node graph와 복잡한 priority editor가 없다.
+제출본에는 자유 조건식, AND/OR, 자연어 정책, node graph와 복잡한 priority editor가 없다. 공간 지침은 한 개의 직접 관찰 가능한 개념으로 제한한다.
 
 ## Player planning boundary
 

@@ -4,62 +4,68 @@ status: accepted
 last_updated: 2026-08-19
 related:
   - milestones.md
-  - vertical-slice.md
-  - vertical-slice-2-four-world-tiles.md
   - first-15-minutes.md
   - sector-1-golden-run.md
   - acceptance-criteria.md
   - ../narrative/premise.md
+  - ../gameplay/world/barrier-territory.md
 ---
 
 # Web Build submission scope
 
-## Project and proof goals
+## Product proof
 
 - repository: `dm-choo/isekai_coach`
 - format: OpenAI Game Builders Seoul 제출용 Web Build
 - title: 최종 타이틀은 **deferred**이며 현재 프로젝트명만 사용한다.
 
-제출본은 다음 한 가지 인과를 우선 증명한다.
+제출본은 다음 한 사이클을 실제 플레이로 증명한다.
 
-> 플레이어가 공개된 적 Intent를 보고 직접 위치를 바꾸어 동료의 자동 행동 결과를 변화시키고, 실패 원인을 바탕으로 정책 우선순위를 한 번 수정해 다음 전투에서 개선을 확인한다.
+> 작은 결계에서 출발한 플레이어가 인접한 미지의 좌표를 직접 탐사해 공간 규칙을 배우고, 동료 정책을 한 번 바꿔 알려진 통로를 위임하고, 주인공이 확보된 땅을 편입해 결계선과 다음 원정 능력이 실제로 확장되는 것을 본다.
 
-월드 탐색, 시간과 휴식은 이 전투·정책 인과에 비용과 지속 상태를 제공하는 만큼만 포함한다. 별동대, 상세 경제와 시설 복구는 핵심 증명이 읽힌 뒤의 범위로 미룬다.
+전투의 개별 선택은 이 사이클의 학습 언어이고, 정책 자동전투는 세계 규모의 반복 탐사를 위임하는 수단이다. 보스 격파나 봉인 해제만으로 제품 증명을 대체하지 않는다.
 
-첫 구현 milestone은 전체 범위를 동시에 만드는 대신 [Core vertical slice](./vertical-slice.md)에서 보스방 장면, 턴 주체, 이동·공격 분리, Intent·애니메이션 인과와 관리자 봉인 해제를 먼저 검증한다. Slice 1에서는 policy 편집·정책 수정 전이를 구현하거나 검증하지 않는다. 이 제작 순서는 승인됐지만 목표 경험의 성립 여부는 플레이테스트 전까지 under-validation이다.
+## Included systems
 
-두 번째 milestone은 [Four world tile expedition](./vertical-slice-2-four-world-tiles.md)에서 중앙 방과 네 통로, 통로 구간 인카운터, 누적 HP·시간, 세 고블린 Intent와 한 번의 policy 재정렬을 검증한다. Slice 2의 월드 타일 연결은 선형이며 전체 섹터 simulation, 경제와 별동대는 포함하지 않는다.
-
-## Included canonical systems
-
-- [세계와 관리자 전제](../narrative/index.md)
-- [3행 공간, locked Intent와 무작위 없는 전투](../gameplay/combat/index.md)
+- 작은 초기 결계 타일과 상하좌우 좌표를 가진 고정 월드 일부
+- 중앙 방·경계 방·400m 통로와 100m 인카운터 구간을 가진 첫 frontier 타일
 - 관리자 1명과 원거리 동료 1명
-- 고블린 전사·궁수·투척병과 결계 수호자
-- [최대 5-slot action policy](../gameplay/combat/policy/action-policy.md)의 순서 변경 1회
-- 중앙 방과 통로를 가진 짧은 선형 원정
-- 지속 HP, 월드 시간, 물·식량을 사용한 휴식
-- 정책 수정 전후를 비교하는 새 적 조합
-- 보스, 결계 해제와 명확한 데모 종료
-- 실패·체크포인트·같은 인카운터 재시도
+- 직접 첫 조우에서 관찰하는 위치·사거리·Intent 규칙
+- 결정론적 12×3 전투와 관리자 직접 행동, 동료 자동행동
+- 최대 5-slot action priority와 제한된 공간 지침 하나의 수정
+- 중앙 방 해결로 네 통로를 정찰하는 인과
+- 주인공의 거점 조사와 동료의 알려진 통로 확보를 분리한 최소 위임 작전
+- 같은 좌표·전투 규칙을 사용하는 화면 밖 simulation과 작전 결과 요약
+- 공유 월드 시간, 지속 HP와 물·식량
+- 인접 타일의 확장 거점 직접 활성화, contour 기반 결계 확장
+- 편입 타일의 샘 활성화와 물 1회 보충
+- 새로 접근 가능한 다음 좌표 하나와 명확한 데모 종료
+- 패배 시 시간·보급·부상을 남기고 안전 영토로 후퇴하는 최소 실패 처리
 
-## Deferred from the submission
+## Content boundary
 
-- 자유 조건식, AND/OR, 자연어·LLM 해석과 장기 [정책 언어](../gameplay/combat/policy/future-policy-language.md)
-- 두 번째 동료, 본대·별동대 동시 운용과 자동 개척
-- 작전 채널의 완제품 다시보기·분석 화면
-- 철광산 채집·적재·운송, 대장간, 장비 제작과 상세 시설 복구
-- 완전한 섹터 simulation과 완료 뒤 자유 플레이
-- 다음 섹터와 장기 campaign 콘텐츠
-- 완제품 수준의 고급 replay 편집, 행동 모델 추론과 coaching
-- 성장, 직업, armor·food·mastery, trait/quirk와 permadeath의 완제품 시스템
+제출 경로는 `초기 결계 타일 → 첫 frontier 타일 → 다음 frontier 좌표 공개`만 사용한다. 첫 frontier 타일에는 직접 학습 조우, 중앙 목표, 위임 가능한 알려진 통로, 확장 거점과 샘이 있다. 이 좁은 공간이 전체 제품 구조를 축소해 보여 준다.
+
+기존 `/slice1/`과 `/slice2/`는 전투·통로·정책 foundation과 회귀 장면이다. 현재 구현된 `봉인 해제` 결말은 새 제출본의 제품 결말이 아니며 의미와 흐름을 교체해야 한다.
+
+## Deferred
+
+- 두 번째 동료와 두 개 이상의 동시 별동대
+- 섹터 전체 규모, 지역 핵, 섹터 보스와 장기 campaign
+- 철광산·대장간·장비·노동자·복합 생산망
+- 시설 건설 UI와 완제품 물류 자동화
+- 자유 조건식, nested AND/OR, 자연어 정책과 node graph
+- 완제품 replay 편집과 행동 모델 추론
+- 직업·성장·quirk·스트레스·질병·permadeath
+- 외부 세력 외교와 완성된 복구 사회
 - backend, 계정, multiplayer와 network 기능
-- 최종 타이틀과 승인되지 않은 세부 과거사
+- 최종 타이틀과 세부 과거사
 
-제외 항목을 수용하기 위한 빈 범용 framework는 제출 완료 조건이 아니다.
+제외 항목을 위한 빈 범용 framework는 제출 완료 조건이 아니다.
 
 ## Under validation
 
-- 제출 골든 패스는 약 20~30분을 목표로 하되 플레이테스트로 확정한다.
-- public 행동 이름은 `회피`, `포지셔닝`, `사격`, `밀치기`, `내려찍기`, `가로막기`로 고정한다. Slice 1 관리자·동료 HP 10과 Slice 2 최대 HP 14/12를 구분하며, 보스 HP 15, 이동(AP1), 사격(피해1/AP2), 밀치기(피해1/AP2), 내려찍기(피해2/AP2), 보스 3-step pattern은 최신 accepted contract다.
-- 실제 resource·cargo·combat 수치는 각 canonical owner의 provisional 데이터로 조정한다.
+- 골든 패스 목표 시간은 15~25분이다.
+- 제한된 공간 지침의 첫 후보는 `사거리 유지`다.
+- 첫 frontier의 적 조합, 피해/AP, 샘 보충량과 실패 비용의 정확한 수치는 provisional이다.
+- 플레이어가 설명 없이 `내 행동이 동료 정책과 영토 확장에 이어졌다`고 이해하는지는 사람 gate 전까지 under-validation이다.

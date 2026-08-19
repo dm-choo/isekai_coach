@@ -29,7 +29,7 @@ Darkest Dungeon처럼 scene-first combat composition과 contextual bottom contro
 - 관리자 입력 중에는 이동(WASD)과 공격(action bar)이 서로 다른 affordance로 보인다. 선택은 plan이며 `Z`는 마지막 하나 undo, `Space`는 전체 확정이다.
 - 턴 종료 후 `<아군 턴>`과 함께 궁수가 활을 당기고 투사체를 발사한다. 선택한 policy slot과 짧은 실행 이유만 world label로 잠깐 표시한다.
 - `<적 턴>`에는 수호자의 wind-up, 위험 범위 표시와 공격/중단 결과가 순서대로 보인다.
-- 승리 후 전투 HUD를 걷어내고 관리자에게만 `봉인 해제` 상호작용을 남긴다.
+- 기존 Slice 1은 승리 후 관리자에게만 `봉인 해제` 상호작용을 남기는 회귀 장면이다. 새 제출 흐름에서는 전투 승리 뒤 로컬 탐색으로 돌아가며, 별도 조건을 만족한 뒤 확장 거점에서 `결계 연결`을 수행한다.
 
 ## Information rules
 
@@ -50,7 +50,7 @@ Darkest Dungeon처럼 scene-first combat composition과 contextual bottom contro
 - 처음 본 사람이 `<내 턴>`에서 WASD와 공격이 별개라는 것을 설명할 수 있는가?
 - 수호자의 `제압`을 `밀치기`로 피한 이유가 적의 몸·공격 원점 이동으로 읽히는가?
 - `<아군 턴>`에 궁수가 왜 `사격`했는지, `<적 턴>`에 `외침`이 왜 중단됐는지 애니메이션만으로 연결하는가?
-- 승리 뒤 관리자가 왜 봉인을 해제하는지 UI 설명 없이 이해하는가?
+- 전투 승리와 이후 주인공의 결계 연결이 서로 다른 단계라는 것을 이해하는가?
 - 정보가 부족할 때 텍스트를 늘리기 전에 camera focus, timing, shape와 icon으로 해결할 수 있는가?
 
 색·cell·경로·icon의 구체 문법은 [Combat view art](../../art/ui/combat-view/index.md)가 소유한다.

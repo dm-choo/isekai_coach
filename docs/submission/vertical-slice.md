@@ -1,7 +1,7 @@
 ---
 title: Slice 1 — Amazon Barrier Guardian Boss Room
 status: under-validation
-last_updated: 2026-08-18
+last_updated: 2026-08-19
 implementation:
   - src/game/slice/
   - src/app/App.tsx
@@ -20,6 +20,8 @@ related:
 ---
 
 # Slice 1 — Amazon Barrier Guardian boss room
+
+> **Current role:** 이 문서는 구현된 전투 foundation과 `/slice1/` 회귀 장면을 소유한다. 현재 제출 제품의 핵심 경험·결말은 [Submission scope](./scope.md)와 [Golden run](./sector-1-golden-run.md)이 소유하며, 아래 `봉인 해제`는 새 결계 확장 의미 계약이 아니다.
 
 ## Decision
 

@@ -1,7 +1,7 @@
 ---
 title: Gameplay Canonical Index
 status: accepted
-last_updated: 2026-08-17
+last_updated: 2026-08-19
 related:
   - ../submission/scope.md
   - ../development/architecture/existing-scaffold-contract.md
@@ -21,7 +21,7 @@ related:
 
 ## Status summary
 
-- **accepted**: 공간 전투, 공개 Intent, 결정론, action-policy, 섹터/타일, 비콘·횃불, 본대/별동대, 공유 시간, 물류와 도감의 핵심 규칙
-- **under-validation**: 창 관통, 재침식 시간, 작업 preset UI, 결계 수호자
+- **accepted**: 공간 전투, 공개 Intent, 결정론, 공간 action-policy, 영구 좌표, 인접 영토 편입과 결계 contour, 본대/별동대, 동일 규칙 위임, 공유 시간과 위치 기반 영토 효용
+- **under-validation**: 재침식 시간, 안정화 비용, 작업 preset UI와 상세 경제
 - **provisional**: 피해/AP, 맵 거리, 원석·적재 수치
-- **deferred**: 장기 정책 언어 실행, 길 건설, 행동 모델 추론, 다음 섹터 확장
+- **deferred**: 완제품 정책 언어, 길 건설, 행동 모델 추론, 다중 생산망과 다음 섹터 콘텐츠

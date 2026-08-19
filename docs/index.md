@@ -1,7 +1,7 @@
 ---
 title: Isekai Coach Canonical Documentation
 status: accepted
-last_updated: 2026-08-18
+last_updated: 2026-08-19
 related:
   - _meta/documentation-governance.md
   - submission/scope.md
@@ -27,11 +27,21 @@ related:
 
 - [Research](./research/index.md): 외부 근거, 현재 아이디어 비평과 플레이테스트 가설. 정본 계약을 직접 소유하지 않으며, 채택된 결론은 해당 canonical owner나 ADR로 옮긴다.
 
+## Product definition reading order
+
+1. [World premise](./narrative/premise.md)와 [Barrier and restoration](./narrative/barrier-and-restoration.md): 무엇을 왜 확장하는가
+2. [Campaign and sector structure](./gameplay/world/campaign-structure.md): 완제품 메인 콘텐츠가 어떻게 반복·확장되는가
+3. [Barrier territory](./gameplay/world/barrier-territory.md): 탐사·확보·편입·안정화가 어떻게 다른가
+4. [Delegated expeditions](./gameplay/operations/delegated-expeditions.md)와 [Spatial policy](./gameplay/combat/policy/future-policy-language.md): 직접 학습이 어떻게 자동화로 전이되는가
+5. [Territory utility and infrastructure](./gameplay/economy/territory-utility-and-infrastructure.md): 회복한 땅이 다음 확장을 어떻게 돕는가
+6. [Reference analysis](./research/territory-expansion-reference-analysis.md): 레퍼런스의 채택·변형·기각 근거
+7. [Submission scope](./submission/scope.md), [Golden run](./submission/sector-1-golden-run.md), [Milestones](./submission/milestones.md): 무엇을 먼저 구현하고 무엇으로 통과를 판정하는가
+
 ## Status summary
 
-- **accepted**: 전투 공간·Intent·결정론, action-policy 우선순위 계약, 중앙 방·네 경계 방·분절 통로 월드 타일, 재침식 인카운터 재추첨, 본대/별동대, 공유 월드 시간, Slice 1과 Slice 2 제작 범위
-- **under-validation**: Slice 1 실제 전투 UX·타격감, Slice 2 탐색 판독·선택 충돌·정책 전이, 총 플레이 시간, 재침식 시간과 개별 전투 수치
-- **provisional**: 맵 크기·거리, 피해/AP, 자원·적재 슬롯 수와 scaffold 샘플 값
-- **deferred**: 장기 정책 언어 구현, 고급 리플레이 편집, 행동 모델 추론, 다음 섹터와 완제품 시스템
+- **accepted**: `내 세계가 커진다`는 핵심 경험, 영구 좌표의 전투·방·통로·월드 계층, 인접 영토 편입과 결계 contour, 직접 첫 탐사와 동일 규칙 정책 위임, 공유 시간, 위치 기반 영토 효용, 축소된 제출 증명 cycle
+- **under-validation**: 무설명 인과 이해, 정책 trade-off, 재침식 압력, 안정화·시설·경제의 상세 규칙과 제출 플레이 시간
+- **provisional**: 맵 크기·거리, 피해/AP, 자원·적재 슬롯과 기존 Slice 1·2 fixture 수치
+- **deferred**: 다중 별동대, 장기 정책 언어, 복합 경제·시설·외교·성장, 다음 섹터 콘텐츠와 완제품 replay
 
 최종 게임 타이틀은 아직 확정하지 않는다. 현재 이름은 저장소와 문서 라우팅을 위한 프로젝트명이다.

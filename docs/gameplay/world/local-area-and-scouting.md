@@ -1,7 +1,7 @@
 ---
 title: Local Area and Scouting
 status: accepted
-last_updated: 2026-08-18
+last_updated: 2026-08-19
 related:
   - sector-map.md
   - tile-states.md
@@ -74,6 +74,8 @@ related:
 2. 진입 경계 방에서 다음 열린 출구까지 이어지는 안전 경로를 하나 확보했다.
 
 클리어에 사용하지 않은 다른 통로의 선택 인카운터는 남아 있을 수 있다. 모든 통로와 방을 비우는 것은 완전 탐색이지 기본 클리어 조건이 아니다.
+
+타일 클리어는 영토 편입과 다르다. 클리어는 위협 축을 `secured`로 만들 수 있지만, 결계 편입에는 기존 영토와의 인접성, 확장 거점까지의 안전 경로와 주인공의 직접 활성화가 추가로 필요하다. 자세한 전이는 [Barrier territory](./barrier-territory.md)가 소유한다.
 
 ## Local exploration
 

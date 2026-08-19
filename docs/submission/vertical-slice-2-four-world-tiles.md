@@ -15,6 +15,8 @@ related:
 
 # Slice 2 — Four world tile expedition
 
+> **Current role:** 이 문서는 구현된 통로·정찰·누적 원정 foundation과 `/slice2/` 회귀 장면을 소유한다. 선형 4타일·보스 결말은 현재 제출 골든 패스가 아니며, 새 제품 cycle은 [Submission scope](./scope.md)가 소유한다.
+
 ## Decision
 
 **Accepted on 2026-08-18:** Slice 2는 전투판 네 장이 아니라 선형으로 연결된 월드 타일 네 개를 클리어하는 짧은 원정이다. 각 월드 타일은 중앙 방, 상·하·좌·우 경계 방, 중앙 방과 각 경계 방을 잇는 4구간 통로를 가진다.

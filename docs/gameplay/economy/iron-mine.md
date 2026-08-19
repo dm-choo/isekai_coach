@@ -1,14 +1,14 @@
 ---
 title: Iron Mine
-status: accepted
-last_updated: 2026-08-17
+status: provisional
+last_updated: 2026-08-19
 related:
   - cargo-slots-and-logistics.md
   - forge-and-equipment.md
-  - ../world/beacon-and-magic-torch.md
+  - ../world/regional-core-and-stabilizer.md
 ---
 
-# Iron mine
+# Iron mine — provisional content
 
 - 철광산은 유한한 노출 광맥이다.
 - 철 원석을 채집하며 별동대를 배치해 자동 채집할 수 있다.
@@ -16,3 +16,5 @@ related:
 - 무한 방치 우위를 만들지 않는다.
 
 첫 섹터의 정확한 총 원석 수는 **provisional**이며 현재 약 6개 후보이다.
+
+철광산은 영토 효용 구조를 검증한 뒤 채택할 콘텐츠 후보이며 제출본 계약이 아니다.

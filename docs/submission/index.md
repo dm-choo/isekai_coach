@@ -23,16 +23,16 @@ OpenAI Game Builders Seoul 제출용 Web Build가 전체 게임 설계에서 선
 
 - [Scope](./scope.md): 제출 콘텐츠와 제외 범위
 - [Product milestones](./milestones.md): 수직 슬라이스 이후 제작 순서와 경제적인 검증 gate
-- [Core vertical slice](./vertical-slice.md): 전체 구현 전에 검증할 승인된 좁은 제작 범위, 목표 경험과 가설
-- [Slice 2 — Four world tiles](./vertical-slice-2-four-world-tiles.md): 방·통로·정찰과 누적 상태를 검증하는 네 타일 원정
+- [Core vertical slice](./vertical-slice.md): 기존 전투 foundation 회귀 장면
+- [Slice 2 — Four world tiles](./vertical-slice-2-four-world-tiles.md): 기존 방·통로·정찰 foundation 회귀 장면
 - [First 15 minutes](./first-15-minutes.md): 점진 공개와 행동 학습 순서
-- [Submission golden run](./sector-1-golden-run.md): 4타일 원정부터 결계 해제까지의 제출 경로
+- [Submission golden run](./sector-1-golden-run.md): 직접 탐사→위임→결계 확장→샘 활성화 제출 경로
 - [Acceptance criteria](./acceptance-criteria.md): 제출본 완료 판정
 - [Release candidate gate](./release-candidate.md): 재현 가능한 기술 검증, 배포·복구와 사람 gate
 
 ## Status summary
 
-- **accepted**: 축소된 제출 증명 범위, M0~M7 순서, 점진 공개 첫 15분, Slice 2의 선형 4타일·정책 수정·누적 원정과 Slice 1 계약을 재사용한 보스·봉인 해제 결말
-- **under-validation**: 실제 사용성·선택 충돌·정책 수정 전이, 세 적의 정확한 밸런스와 첫 섹터 총 플레이 시간
+- **accepted**: 주인공 1명·동료 1명, 초기 결계와 첫 frontier, 직접 규칙 학습, 정책 한 곳 수정, 동일 규칙 위임, 인접 편입, contour 확장, 샘과 다음 좌표의 완전한 최소 cycle
+- **under-validation**: 실제 사용성·선택 충돌·정책 수정 전이와 15~25분 총 플레이 시간
 - **provisional**: 개별 거리·피해·AP·적재 수치
-- **deferred**: 각성·동료 합류 장면, 별동대·경제·시설 복구, 다음 섹터, 장기 정책 언어, 고급 분석과 최종 타이틀
+- **deferred**: 추가 동료·다중 별동대, 복합 경제·시설 건설, 섹터 보스와 다음 섹터, 장기 정책 언어, 고급 분석과 최종 타이틀

@@ -1,7 +1,7 @@
 ---
 title: Architecture Decision Records
 status: accepted
-last_updated: 2026-08-17
+last_updated: 2026-08-19
 related:
   - ../_meta/documentation-governance.md
   - ../index.md
@@ -20,3 +20,5 @@ ADR은 현재 규칙 전체가 아니라 후속 구조를 제약하는 선택의
 - [ADR-0005: Action-policy priority first](./0005-action-policy-first.md)
 - [ADR-0006: Slot-based cargo](./0006-slot-based-cargo.md)
 - [ADR-0007: No combat RNG in the submission](./0007-no-combat-rng-in-submission.md)
+- [ADR-0008: Persistent coordinate barrier expansion](./0008-persistent-coordinate-barrier-expansion.md)
+- [ADR-0009: Same rules for direct and delegated play](./0009-same-rules-for-direct-and-delegated-play.md)

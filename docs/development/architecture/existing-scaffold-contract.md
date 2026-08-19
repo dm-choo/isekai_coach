@@ -28,6 +28,19 @@ related:
 
 이 문서는 현재 전투 runtime과 Slice 1·2 public scene이 의존하는 기술 계약을 소유한다. 게임 전체의 최종 수치나 콘텐츠를 잠그는 문서가 아니다. 구현과 문서가 어긋나면 숨은 관례를 만들지 말고 같은 변경에서 함께 갱신한다.
 
+## Product alignment — 2026-08-19
+
+현재 scaffold는 전투 grid, Intent·prediction, 연속 통로, 중앙 방 정찰, 세계 시간, 정책 순서와 deterministic replay의 foundation을 구현한다. 다음 승인된 제품 계약은 아직 구현하지 않았다.
+
+- 초기 결계와 영구 월드 좌표의 지식·위협·영토·효용 직교 상태
+- 편입 타일 집합을 따르는 결계 contour와 인접 편입 검증
+- 직접 첫 조우 뒤 알려진 통로에 동료를 분리 배정하는 위임 작전
+- 직접/위임이 같은 authoritative simulation을 쓰는 parity
+- 주인공의 확장 거점 활성화와 샘·다음 좌표 효용
+- 시간·보급·부상을 현재 세계에 남기는 새 실패 처리
+
+현재 `Slice2RunController`의 선형 4타일→결계 수호자→`봉인 해제`는 회귀 fixture이며 새 제출 골든 패스가 아니다. 기존 RC 자동화는 기술 snapshot을 검증할 뿐 제품 RC 완료 증거가 아니다.
+
 ## Architecture
 
 - 전투 simulation은 Phaser와 React에 의존하지 않는 pure TypeScript domain이다.
