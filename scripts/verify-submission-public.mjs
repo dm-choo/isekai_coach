@@ -55,12 +55,16 @@ try {
   await page.locator('[data-onboarding-primary="execute-plan"]').waitFor();
   await page.screenshot({ path: new URL('02-public-solo-plan.png', artifactDir).pathname });
   await page.locator('[data-onboarding-primary="execute-plan"]').click();
+  await page.waitForFunction(() => {
+    const snapshot = window.__ISEKAI_COACH_COMBAT__?.snapshot;
+    return snapshot?.mode === 'PLAYER_TURN' && snapshot.state.turn === 2 && !snapshot.isBusy;
+  });
   await page.locator('.submission-action-dock[data-decision-focus="INPUT"]').waitFor();
   if (await page.locator('.turn-banner-player_turn,.submission-action-dock .target-picker,.submission-action-dock .skill-tooltip:visible').count()) {
     throw new Error('Public normal combat hierarchy regressed');
   }
   await page.screenshot({ path: new URL('03-public-normal-combat.png', artifactDir).pathname });
-  const publicSlam = page.locator('.submission-action-dock .skill-button[data-executable="true"]').filter({ hasText: '내려찍기' });
+  const publicSlam = page.locator('.submission-action-dock .skill-button[data-action-id="SLAM"][data-executable="true"]');
   if (!await publicSlam.count()) throw new Error('Public solo combat cannot finish its authored second turn');
   await publicSlam.click();
   await page.locator('[data-combat-primary="execute-plan"]').click();

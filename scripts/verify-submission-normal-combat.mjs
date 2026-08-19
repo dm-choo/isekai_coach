@@ -33,6 +33,7 @@ try {
   await expectCount(page, '.submission-action-dock .combat-actor-panel', 1, 'active actor/AP anchor');
   await expectCount(page, '.submission-action-dock .movement-control', 1, 'movement response');
   await expectCount(page, '.submission-action-dock .skill-button', 3, 'skill responses');
+  await expectCount(page, '.submission-action-dock .skill-button[data-action-id]', 3, 'language-independent skill identities');
   await expectCount(page, '.submission-action-dock .target-picker', 0, 'redundant single-target picker');
   await expectCount(page, '.submission-action-dock .skill-tooltip:visible', 0, 'stationary-pointer skill detail');
   await expectCount(page, '.submission-action-dock .skill-state:visible', 0, 'persistent skill state sentences');
