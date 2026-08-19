@@ -12,7 +12,7 @@ verify_endpoint() {
   local html headers font_sha asset_path
 
   html="$(curl --fail --silent --show-error --max-time 20 "${base}${slice_path}")"
-  [[ "${html}" == *'<title>Isekai Coach — 아마존 결계문</title>'* ]] || {
+  [[ "${html}" == *'<title>Slice1</title>'* ]] || {
     echo "${label}: slice title mismatch" >&2
     return 1
   }

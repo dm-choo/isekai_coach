@@ -30,7 +30,7 @@ related:
 ```bash
 npm test
 npm run typecheck
-npm run build
+npm run build:slice2
 npm run verify:slice2
 sudo ./deploy/install-slice2.sh
 ./deploy/verify-slice2.sh

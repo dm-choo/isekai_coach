@@ -100,7 +100,7 @@ systemctl restart caddy.service
 root_html="$(curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8010/)"
 slice_html="$(curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8010/slice1/)"
 [[ "${root_html}" == *'<title>OOH 기록전술 아카데미</title>'* ]]
-[[ "${slice_html}" == *'<title>Isekai Coach — 아마존 결계문</title>'* ]]
+[[ "${slice_html}" == *'<title>Slice1</title>'* ]]
 
 trap - ERR INT TERM
 echo "Published ${release_dir}"

@@ -9,7 +9,7 @@ readonly expected_font_sha='9599f12fd42fc0bce1cd50b47a0c022e108d7aa64dd0d1bb0ed4
 verify_endpoint() {
   local label="$1" base="$2" html headers font_sha asset_path
   html="$(curl --fail --silent --show-error --max-time 20 "${base}${slice_path}")"
-  [[ "${html}" == *'<title>Isekai Coach — 고블린 봉쇄선</title>'* ]] || { echo "${label}: slice title mismatch" >&2; return 1; }
+  [[ "${html}" == *'<title>Slice2</title>'* ]] || { echo "${label}: slice title mismatch" >&2; return 1; }
   headers="$(curl --fail --silent --show-error --max-time 20 --head "${base}${slice_path}")"
   grep --ignore-case --quiet '^cache-control:.*no-transform' <<<"${headers}" || { echo "${label}: Cache-Control no-transform is missing" >&2; return 1; }
   grep --ignore-case --quiet '^content-security-policy:.*img-src[^;]*blob:' <<<"${headers}" || { echo "${label}: CSP img-src does not allow Phaser blob images" >&2; return 1; }
@@ -22,7 +22,7 @@ verify_endpoint() {
 root_html="$(curl --fail --silent --show-error --max-time 20 "${public_base}/")"
 slice1_html="$(curl --fail --silent --show-error --max-time 20 "${public_base}/slice1/")"
 [[ "${root_html}" == *'<title>OOH 기록전술 아카데미</title>'* ]] || { echo 'Public root OOH application regressed' >&2; exit 1; }
-[[ "${slice1_html}" == *'<title>Isekai Coach — 아마존 결계문</title>'* ]] || { echo 'Public Slice 1 regressed' >&2; exit 1; }
+[[ "${slice1_html}" == *'<title>Slice1</title>'* ]] || { echo 'Public Slice 1 regressed' >&2; exit 1; }
 verify_endpoint 'local' "${local_base}"
 verify_endpoint 'public' "${public_base}"
 echo 'OOH root, Slice 1 and Isekai Coach /slice2/ are healthy.'

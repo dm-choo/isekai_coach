@@ -83,8 +83,8 @@ root_html="$(curl --fail --silent --show-error --max-time 10 http://127.0.0.1:80
 slice1_html="$(curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8010/slice1/)"
 slice2_html="$(curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8010/slice2/)"
 [[ "${root_html}" == *'<title>OOH 기록전술 아카데미</title>'* ]]
-[[ "${slice1_html}" == *'<title>Isekai Coach — 아마존 결계문</title>'* ]]
-[[ "${slice2_html}" == *'<title>Isekai Coach — 고블린 봉쇄선</title>'* ]]
+[[ "${slice1_html}" == *'<title>Slice1</title>'* ]]
+[[ "${slice2_html}" == *'<title>Slice2</title>'* ]]
 
 trap - ERR INT TERM
 echo "Published ${release_dir}"
