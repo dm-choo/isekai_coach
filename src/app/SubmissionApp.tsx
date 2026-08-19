@@ -3,6 +3,7 @@ import { type SliceActionId } from '../game/slice';
 import {
   SubmissionController,
   computeBarrierContour,
+  parseSubmissionSave,
   type SubmissionSnapshot,
   type SubmissionPolicyChoice,
   type SubmissionTileState,
@@ -10,15 +11,24 @@ import {
 import { CombatStage } from './Slice2App';
 
 const BASE_URL = import.meta.env.BASE_URL;
+const SUBMISSION_SAVE_KEY = 'isekai-coach:submission:v1';
 
 export function SubmissionApp() {
+  const verification = import.meta.env.DEV && new URLSearchParams(window.location.search).has('verify');
   const [controller] = useState(() => {
-    const verification = import.meta.env.DEV && new URLSearchParams(window.location.search).has('verify');
-    return new SubmissionController(verification ? { playbackSpeed: 12, phaseDelayScale: 0.03 } : {});
+    const saveData = verification ? undefined : parseSubmissionSave(window.localStorage.getItem(SUBMISSION_SAVE_KEY));
+    return new SubmissionController(verification
+      ? { playbackSpeed: 12, phaseDelayScale: 0.03 }
+      : saveData ? { saveData } : {});
   });
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
 
   useEffect(() => () => controller.destroy(), [controller]);
+  useEffect(() => {
+    if (verification) return;
+    const save = controller.exportSave();
+    if (save) window.localStorage.setItem(SUBMISSION_SAVE_KEY, JSON.stringify(save));
+  }, [controller, snapshot, verification]);
   useEffect(() => {
     if (!import.meta.env.DEV) return;
     window.__ISEKAI_COACH_SUBMISSION__ = { snapshot };
@@ -315,7 +325,7 @@ function SubmissionHud({ snapshot }: { readonly snapshot: SubmissionSnapshot }) 
   const frontierKnown = !['INTRO', 'CORRIDOR', 'CENTER_GATE', 'COMBAT'].includes(snapshot.mode);
   return <header className="submission-topbar">
     <div className="submission-mark"><i /><span><small>{snapshot.worldTime} · DAY 1</small><strong>{frontierKnown ? '물안개 전초지' : '깨어난 정원'}</strong></span></div>
-    <div className="submission-resources" aria-label="원정 보급"><span><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="물" /><b>{snapshot.supplies.water}</b></span><span><img src={`${BASE_URL}assets/ui/supply-ration.svg`} alt="식량" /><b>{snapshot.supplies.food}</b></span></div>
+    <div className="submission-resources" aria-label="원정 보급"><em className="submission-autosave"><i />자동 저장</em><span><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="물" /><b>{snapshot.supplies.water}</b></span><span><img src={`${BASE_URL}assets/ui/supply-ration.svg`} alt="식량" /><b>{snapshot.supplies.food}</b></span></div>
   </header>;
 }
 

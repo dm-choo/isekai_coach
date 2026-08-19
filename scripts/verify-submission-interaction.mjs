@@ -22,9 +22,7 @@ try {
   browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 960, height: 720 } });
   const errors = [];
-  page.on('console', (message) => { if (message.type() === 'error') errors.push(`console ${message.text()}`); });
-  page.on('pageerror', (error) => errors.push(`page ${error.message}`));
-  page.on('requestfailed', (request) => errors.push(`request ${request.method()} ${request.url()} ${request.failure()?.errorText}`));
+  observeErrors(page, errors);
 
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   if (await page.title() !== '결계의 바깥') throw new Error(`Unexpected title: ${await page.title()}`);
@@ -50,6 +48,20 @@ try {
   if (keyboardState.corridorProgress <= 0 || !keyboardState.notice.includes('전진 중')) {
     throw new Error(`Keyboard input produced no visible travel feedback: ${JSON.stringify(keyboardState)}`);
   }
+
+  const persistencePage = await browser.newPage({ viewport: { width: 960, height: 720 } });
+  observeErrors(persistencePage, errors);
+  await persistencePage.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'networkidle' });
+  await persistencePage.locator('[data-submission-primary="start-expedition"]').click();
+  await persistencePage.keyboard.press('d');
+  await persistencePage.waitForFunction(() => JSON.parse(localStorage.getItem('isekai-coach:submission:v1') ?? 'null')?.corridorProgress === 5);
+  await persistencePage.reload({ waitUntil: 'networkidle' });
+  await persistencePage.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.corridorProgress === 5);
+  const restoredState = await submissionSnapshot(persistencePage);
+  if (restoredState.mode !== 'CORRIDOR' || restoredState.worldTime !== '10:00' || await persistencePage.locator('.submission-autosave').count() !== 1) {
+    throw new Error(`Stable checkpoint did not restore with visible autosave state: ${JSON.stringify(restoredState)}`);
+  }
+  await persistencePage.screenshot({ path: new URL('02-restored-checkpoint.png', artifactDir).pathname });
   if (errors.length) throw new Error(`Browser errors:\n${errors.join('\n')}`);
 
   const report = {
@@ -58,6 +70,7 @@ try {
     viewport: { width: 960, height: 720 },
     pointer: { mode: pointerState.mode, progress: pointerState.corridorProgress, notice: pointerState.notice },
     keyboard: { mode: keyboardState.mode, progress: keyboardState.corridorProgress, notice: keyboardState.notice },
+    persistence: { mode: restoredState.mode, progress: restoredState.corridorProgress, worldTime: restoredState.worldTime, autosaveVisible: true },
     browserErrors: errors,
   };
   await writeFile(new URL('report.json', artifactDir), `${JSON.stringify(report, null, 2)}\n`);
@@ -86,4 +99,10 @@ async function waitForServer(url, child) {
     await new Promise((resolve) => setTimeout(resolve, 120));
   }
   throw new Error(`Timed out waiting for ${url}`);
+}
+
+function observeErrors(page, errors) {
+  page.on('console', (message) => { if (message.type() === 'error') errors.push(`console ${message.text()}`); });
+  page.on('pageerror', (error) => errors.push(`page ${error.message}`));
+  page.on('requestfailed', (request) => errors.push(`request ${request.method()} ${request.url()} ${request.failure()?.errorText}`));
 }

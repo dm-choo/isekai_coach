@@ -74,6 +74,30 @@ export interface SubmissionSnapshot {
 export interface SubmissionControllerOptions {
   readonly playbackSpeed?: number;
   readonly phaseDelayScale?: number;
+  readonly saveData?: SubmissionSaveData;
+}
+
+export interface SubmissionSaveData {
+  readonly version: 1;
+  readonly mode: Exclude<SubmissionMode, 'COMBAT' | 'DEFEAT'>;
+  readonly world: SubmissionWorldState;
+  readonly worldMinute: number;
+  readonly corridorProgress: number;
+  readonly vitals: ExpeditionVitals;
+  readonly supplies: { readonly water: number; readonly food: number };
+  readonly policy: readonly SlicePolicyId[];
+  readonly policyDirectives: PolicyDirectives;
+  readonly notice: string;
+  readonly firstEncounterResolved: boolean;
+  readonly elapsedBattleTurns: number;
+  readonly lastCombatSummary?: SubmissionCombatSummary;
+  readonly policyChoice?: SubmissionPolicyChoice;
+  readonly lastProtagonistTaskMinutes: number;
+  readonly delegationAttempt: number;
+  readonly delegationBaseline?: DelegatedOperationResult;
+  readonly delegationResult?: DelegatedOperationResult;
+  readonly anchorProgress: number;
+  readonly incorporationBlocker?: IncorporationBlocker;
 }
 
 type Listener = () => void;
@@ -111,6 +135,7 @@ export class SubmissionController {
   private snapshot: SubmissionSnapshot;
 
   public constructor(private readonly options: SubmissionControllerOptions = {}) {
+    if (options.saveData) this.hydrate(options.saveData);
     this.snapshot = this.buildSnapshot();
   }
 
@@ -119,6 +144,32 @@ export class SubmissionController {
   public subscribe = (listener: Listener): (() => void) => {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  };
+
+  public exportSave = (): SubmissionSaveData | undefined => {
+    if (this.mode === 'COMBAT' || this.mode === 'DEFEAT') return undefined;
+    return {
+      version: 1,
+      mode: this.mode,
+      world: this.world,
+      worldMinute: this.worldMinute,
+      corridorProgress: this.corridorProgress,
+      vitals: this.vitals,
+      supplies: this.supplies,
+      policy: this.policy,
+      policyDirectives: this.policyDirectives,
+      notice: this.notice,
+      firstEncounterResolved: this.firstEncounterResolved,
+      elapsedBattleTurns: this.elapsedBattleTurns,
+      lastCombatSummary: this.lastCombatSummary,
+      policyChoice: this.policyChoice,
+      lastProtagonistTaskMinutes: this.lastProtagonistTaskMinutes,
+      delegationAttempt: this.delegationAttempt,
+      delegationBaseline: this.delegationBaseline,
+      delegationResult: this.delegationResult,
+      anchorProgress: this.anchorProgress,
+      incorporationBlocker: this.lastIncorporationBlocker,
+    };
   };
 
   public performPrimaryAction = (): boolean => {
@@ -356,8 +407,25 @@ export class SubmissionController {
 
   public retryEncounter = (): void => {
     if (!this.encounterId || !this.encounterContent || !this.combat) return;
-    if (this.combat.getSnapshot().mode !== 'DEFEAT') return;
-    this.beginCombat(this.encounterId, this.encounterContent);
+    const defeated = this.combat.getSnapshot();
+    if (defeated.mode !== 'DEFEAT') return;
+    const administrator = defeated.state.units.find((unit) => unit.id === SLICE2_ADMINISTRATOR_ID);
+    const ally = defeated.state.units.find((unit) => unit.id === SLICE2_ALLY_ID);
+    const cost = applySubmissionDefeatCost({
+      vitals: {
+        administratorHp: administrator?.hp ?? 0,
+        allyHp: ally?.hp ?? this.vitals.allyHp,
+      },
+      supplies: this.supplies,
+      battleTurns: defeated.state.turn,
+    });
+    this.vitals = cost.vitals;
+    this.supplies = cost.supplies;
+    this.elapsedBattleTurns += defeated.state.turn;
+    this.worldMinute += cost.elapsedMinutes;
+    const encounterId = this.encounterId;
+    const encounterContent = this.encounterContent;
+    this.beginCombat(encounterId, encounterContent, `같은 조우 유지 · ${cost.elapsedMinutes}분 경과 · 물/식량 ${cost.usedCampSupplies ? '1씩 사용' : '없음'}`);
   };
 
   public destroy(): void {
@@ -365,7 +433,7 @@ export class SubmissionController {
     this.listeners.clear();
   }
 
-  private beginCombat(encounterId: SubmissionEncounterId, content: EncounterContent): void {
+  private beginCombat(encounterId: SubmissionEncounterId, content: EncounterContent, retryNotice?: string): void {
     this.releaseCombat();
     this.encounterId = encounterId;
     this.encounterContent = content;
@@ -376,9 +444,9 @@ export class SubmissionController {
       allyId: SLICE2_ALLY_ID,
       policy: this.policy,
       policyDirectives: this.policyDirectives,
-      introNotice: encounterId === 'FIRST_WARRIOR'
+      introNotice: retryNotice ?? (encounterId === 'FIRST_WARRIOR'
         ? '빠르게 접근하는 적 하나가 통로를 막았다.'
-        : '궁수의 사격선과 전사의 접근 경로가 겹친다.',
+        : '궁수의 사격선과 전사의 접근 경로가 겹친다.'),
       playbackSpeed: this.options.playbackSpeed,
       phaseDelayScale: this.options.phaseDelayScale,
     });
@@ -393,6 +461,28 @@ export class SubmissionController {
     this.combatUnsubscribe = null;
     this.combat?.destroy();
     this.combat = null;
+  }
+
+  private hydrate(save: SubmissionSaveData): void {
+    this.mode = save.mode;
+    this.world = save.world;
+    this.worldMinute = save.worldMinute;
+    this.corridorProgress = save.corridorProgress;
+    this.vitals = save.vitals;
+    this.supplies = save.supplies;
+    this.policy = save.policy;
+    this.policyDirectives = save.policyDirectives;
+    this.notice = save.notice;
+    this.firstEncounterResolved = save.firstEncounterResolved;
+    this.elapsedBattleTurns = save.elapsedBattleTurns;
+    this.lastCombatSummary = save.lastCombatSummary;
+    this.policyChoice = save.policyChoice;
+    this.lastProtagonistTaskMinutes = save.lastProtagonistTaskMinutes;
+    this.delegationAttempt = save.delegationAttempt;
+    this.delegationBaseline = save.delegationBaseline;
+    this.delegationResult = save.delegationResult;
+    this.anchorProgress = save.anchorProgress;
+    this.lastIncorporationBlocker = save.incorporationBlocker;
   }
 
   private buildSnapshot(): SubmissionSnapshot {
@@ -482,4 +572,50 @@ function incorporationBlockerCopy(blocker?: IncorporationBlocker): string {
     PROTAGONIST_ABSENT: '주인공이 경계 방의 확장 거점에 직접 도착해야 한다.',
   };
   return blocker ? copy[blocker] : '아직 이 땅을 결계에 편입할 수 없다.';
+}
+
+export function parseSubmissionSave(value: string | null): SubmissionSaveData | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!parsed || typeof parsed !== 'object') return undefined;
+    const save = parsed as Partial<SubmissionSaveData>;
+    const stableModes: readonly SubmissionSaveData['mode'][] = [
+      'INTRO', 'CORRIDOR', 'CENTER_GATE', 'SCOUTED', 'POLICY_REVIEW', 'DELEGATION_PLAN',
+      'DELEGATION_RESULT', 'ANCHOR_APPROACH', 'ANCHOR_READY', 'EXPANDED',
+    ];
+    if (save.version !== 1 || !stableModes.includes(save.mode as SubmissionSaveData['mode'])) return undefined;
+    if (!save.world || !Array.isArray(save.world.tiles) || !Number.isFinite(save.worldMinute) || !Number.isFinite(save.corridorProgress)) return undefined;
+    if (!save.vitals || !save.supplies || !Array.isArray(save.policy) || !save.policyDirectives || typeof save.notice !== 'string') return undefined;
+    if (typeof save.firstEncounterResolved !== 'boolean' || !Number.isFinite(save.elapsedBattleTurns) || !Number.isFinite(save.lastProtagonistTaskMinutes)) return undefined;
+    if (!Number.isFinite(save.delegationAttempt) || !Number.isFinite(save.anchorProgress)) return undefined;
+    return save as SubmissionSaveData;
+  } catch {
+    return undefined;
+  }
+}
+
+export function applySubmissionDefeatCost(input: {
+  readonly vitals: ExpeditionVitals;
+  readonly supplies: { readonly water: number; readonly food: number };
+  readonly battleTurns: number;
+}): {
+  readonly vitals: ExpeditionVitals;
+  readonly supplies: { readonly water: number; readonly food: number };
+  readonly elapsedMinutes: number;
+  readonly usedCampSupplies: boolean;
+} {
+  const usedCampSupplies = input.supplies.water > 0 && input.supplies.food > 0;
+  const recoveryFloor = usedCampSupplies ? 3 : 1;
+  return {
+    vitals: {
+      administratorHp: Math.max(recoveryFloor, input.vitals.administratorHp),
+      allyHp: Math.max(recoveryFloor, input.vitals.allyHp),
+    },
+    supplies: usedCampSupplies
+      ? { water: input.supplies.water - 1, food: input.supplies.food - 1 }
+      : input.supplies,
+    elapsedMinutes: Math.max(1, input.battleTurns) + 5,
+    usedCampSupplies,
+  };
 }

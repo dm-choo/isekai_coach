@@ -313,7 +313,7 @@ export function CombatStage({ snapshot, run, controller, encounter }: {
       {snapshot.mode === 'PLAYER_TURN' && run.elapsedBattleTurns === 0 && snapshot.state.turn === 1 && <FirstCombatCue snapshot={snapshot} />}
       {snapshot.mode === 'PLAYER_TURN' && <CombatControls snapshot={snapshot} controller={controller} />}
       {snapshot.mode === 'INTRO' && (
-        <div className="encounter-overlay"><div className="encounter-rule" /><p>SCOUTED ENCOUNTER</p><h1>{encounterTitle(encounter)}</h1><span>Intent를 확인하고 진형을 결정하십시오.</span><button type="button" onClick={controller.startEncounter}>전투 시작 <kbd>SPACE</kbd></button></div>
+        <div className="encounter-overlay"><div className="encounter-rule" /><p>SCOUTED ENCOUNTER</p><h1>{encounterTitle(encounter)}</h1><span>{snapshot.notice}</span><button type="button" onClick={controller.startEncounter}>전투 시작 <kbd>SPACE</kbd></button></div>
       )}
       {snapshot.mode === 'VICTORY' && (run.isBossEncounter
         ? <div className="result-overlay"><p>BARRIER GUARDIAN DEFEATED</p><h2>봉인이 드러났다</h2><span>관리자만 이 오브젝트의 봉인을 해제할 수 있습니다.</span><button type="button" onClick={controller.unlockSeal}>봉인 해제 <kbd>E</kbd></button></div>
@@ -323,7 +323,7 @@ export function CombatStage({ snapshot, run, controller, encounter }: {
         <div className="result-overlay"><p>SEAL RELEASED</p><h2>결계문이 열렸다</h2><span>네 개 월드 타일의 선택과 전투 결과가 여기까지 이어졌습니다.</span><button type="button" onClick={controller.completeEncounter}>데모 완료 <kbd>SPACE</kbd></button></div>
       )}
       {snapshot.mode === 'DEFEAT' && (
-        <div className="result-overlay"><p>EXPEDITION BROKEN</p><h2>전투 불능</h2><span>인카운터 진입 직전 상태로 복원합니다.</span><button type="button" onClick={controller.retryEncounter}>같은 인카운터 재시도 <kbd>SPACE</kbd></button></div>
+        <div className="result-overlay"><p>EXPEDITION BROKEN</p><h2>전투 불능</h2><span>같은 조우를 다시 추첨하지 않고 재정비합니다.</span><button type="button" onClick={controller.retryEncounter}>같은 인카운터 재시도 <kbd>SPACE</kbd></button></div>
       )}
     </div>
   );
