@@ -13,7 +13,6 @@ import {
 import {
   SLICE2_ADMINISTRATOR_ID,
   SLICE2_ALLY_ID,
-  createSlice2EncounterScenario,
   formatWorldTime,
   type EncounterContent,
   type ExpeditionVitals,
@@ -26,12 +25,14 @@ import {
   type SubmissionWorldState,
 } from './world';
 import { simulateDelegatedOperation, type DelegatedOperationResult } from './delegation';
+import { createSubmissionJointScenario, createSubmissionSoloScenario } from './scenarios';
 
 export type SubmissionMode =
+  | 'AWAKENING' | 'SOLO_APPROACH' | 'COMPANION_SEALED' | 'COMPANION_JOINED'
   | 'INTRO' | 'CORRIDOR' | 'CENTER_GATE' | 'COMBAT' | 'SCOUTED'
   | 'POLICY_REVIEW' | 'DELEGATION_PLAN' | 'DELEGATION_RESULT'
   | 'ANCHOR_APPROACH' | 'ANCHOR_READY' | 'EXPANDED' | 'DEFEAT';
-export type SubmissionEncounterId = 'FIRST_WARRIOR' | 'CENTER_GUARD';
+export type SubmissionEncounterId = 'SOLO_WARRIOR' | 'FIRST_WARRIOR' | 'CENTER_GUARD';
 export type SubmissionPolicyChoice = 'PUSH_FIRST' | 'KEEP_RANGE';
 export interface SubmissionDefeatCost {
   readonly elapsedMinutes: number;
@@ -52,6 +53,9 @@ export interface SubmissionSnapshot {
   readonly world: SubmissionWorldState;
   readonly worldMinute: number;
   readonly worldTime: string;
+  readonly prologueProgress: number;
+  readonly soloEncounterResolved: boolean;
+  readonly companionJoined: boolean;
   readonly corridorProgress: number;
   readonly vitals: ExpeditionVitals;
   readonly supplies: { readonly water: number; readonly food: number };
@@ -87,10 +91,13 @@ export interface SubmissionControllerOptions {
 }
 
 export interface SubmissionSaveData {
-  readonly version: 1;
+  readonly version: 2;
   readonly mode: Exclude<SubmissionMode, 'COMBAT' | 'DEFEAT'>;
   readonly world: SubmissionWorldState;
   readonly worldMinute: number;
+  readonly prologueProgress: number;
+  readonly soloEncounterResolved: boolean;
+  readonly companionJoined: boolean;
   readonly corridorProgress: number;
   readonly vitals: ExpeditionVitals;
   readonly supplies: { readonly water: number; readonly food: number };
@@ -118,15 +125,18 @@ const TRAVEL_MINUTES_PER_100M = 2;
 
 export class SubmissionController {
   private readonly listeners = new Set<Listener>();
-  private mode: SubmissionMode = 'INTRO';
+  private mode: SubmissionMode = 'AWAKENING';
   private world = createSubmissionWorld();
   private worldMinute = START_MINUTE;
+  private prologueProgress = 0;
+  private soloEncounterResolved = false;
+  private companionJoined = false;
   private corridorProgress = 0;
   private vitals: ExpeditionVitals = { administratorHp: 14, allyHp: 12 };
   private supplies = { water: 1, food: 1 };
   private policy: readonly SlicePolicyId[] = [...DEFAULT_SLICE_POLICY];
   private policyDirectives: PolicyDirectives = {};
-  private notice = '동쪽 경계 너머에서 오래 멈춘 물소리가 들린다.';
+  private notice = '결계 안에서 눈을 떴다.';
   private combat: SliceController | null = null;
   private combatUnsubscribe: (() => void) | null = null;
   private encounterId: SubmissionEncounterId | undefined;
@@ -163,10 +173,13 @@ export class SubmissionController {
   public exportSave = (): SubmissionSaveData | undefined => {
     if (this.mode === 'COMBAT' || this.mode === 'DEFEAT') return undefined;
     return {
-      version: 1,
+      version: 2,
       mode: this.mode,
       world: this.world,
       worldMinute: this.worldMinute,
+      prologueProgress: this.prologueProgress,
+      soloEncounterResolved: this.soloEncounterResolved,
+      companionJoined: this.companionJoined,
       corridorProgress: this.corridorProgress,
       vitals: this.vitals,
       supplies: this.supplies,
@@ -189,7 +202,8 @@ export class SubmissionController {
   };
 
   public performPrimaryAction = (): boolean => {
-    if (this.mode === 'INTRO') this.startExpedition();
+    if (this.mode === 'COMPANION_SEALED') this.releaseCompanion();
+    else if (this.mode === 'INTRO') this.startExpedition();
     else if (this.mode === 'CENTER_GATE') this.enterCenter();
     else if (this.mode === 'SCOUTED') this.beginPolicyReview();
     else if (this.mode === 'POLICY_REVIEW' && this.policyChoice) this.openDelegationPlan();
@@ -206,8 +220,32 @@ export class SubmissionController {
     return true;
   };
 
+  public advancePrologue = (): void => {
+    if (this.mode !== 'AWAKENING' && this.mode !== 'SOLO_APPROACH') return;
+    this.mode = 'SOLO_APPROACH';
+    const previous = this.prologueProgress;
+    this.prologueProgress = Math.min(100, previous + 5);
+    if (this.prologueProgress >= 100) {
+      this.worldMinute += TRAVEL_MINUTES_PER_100M;
+      this.beginCombat('SOLO_WARRIOR', 'GOBLIN_WARRIOR');
+      return;
+    }
+    this.notice = this.prologueProgress < 45
+      ? '빛이 닿지 않는 틈에서 움직임이 보인다.'
+      : '바깥의 발소리가 가까워진다.';
+    this.publish();
+  };
+
+  public releaseCompanion = (): void => {
+    if (this.mode !== 'COMPANION_SEALED') return;
+    this.companionJoined = true;
+    this.mode = 'COMPANION_JOINED';
+    this.notice = '봉인이 풀렸다. 두 사람의 실루엣이 같은 방향을 향한다.';
+    this.publish();
+  };
+
   public startExpedition = (): void => {
-    if (this.mode !== 'INTRO') return;
+    if (this.mode !== 'COMPANION_JOINED' && this.mode !== 'INTRO') return;
     this.mode = 'CORRIDOR';
     this.notice = 'D를 누르는 동안 동쪽 통로를 걷는다. 조우하면 자동으로 멈춘다.';
     this.publish();
@@ -350,15 +388,18 @@ export class SubmissionController {
   public restartSubmission = (): void => {
     if (this.mode !== 'EXPANDED') return;
     this.releaseCombat();
-    this.mode = 'INTRO';
+    this.mode = 'AWAKENING';
     this.world = createSubmissionWorld();
     this.worldMinute = START_MINUTE;
+    this.prologueProgress = 0;
+    this.soloEncounterResolved = false;
+    this.companionJoined = false;
     this.corridorProgress = 0;
     this.vitals = { administratorHp: 14, allyHp: 12 };
     this.supplies = { water: 1, food: 1 };
     this.policy = [...DEFAULT_SLICE_POLICY];
     this.policyDirectives = {};
-    this.notice = '동쪽 경계 너머에서 오래 멈춘 물소리가 들린다.';
+    this.notice = '결계 안에서 눈을 떴다.';
     this.encounterId = undefined;
     this.encounterContent = undefined;
     this.firstEncounterResolved = false;
@@ -407,7 +448,11 @@ export class SubmissionController {
     this.releaseCombat();
     this.encounterId = undefined;
     this.encounterContent = undefined;
-    if (resolvedEncounter === 'FIRST_WARRIOR') {
+    if (resolvedEncounter === 'SOLO_WARRIOR') {
+      this.soloEncounterResolved = true;
+      this.mode = 'COMPANION_SEALED';
+      this.notice = '위협이 쓰러지자, 바깥 유적의 봉인이 모습을 드러냈다.';
+    } else if (resolvedEncounter === 'FIRST_WARRIOR') {
       this.firstEncounterResolved = true;
       this.mode = 'CORRIDOR';
       this.notice = '첫 위협을 제거했다. 같은 통로에서 D로 계속 전진한다.';
@@ -425,6 +470,7 @@ export class SubmissionController {
 
   public retryEncounter = (): void => {
     if (!this.encounterId || !this.encounterContent || !this.combat) return;
+    const defeatedEncounter = this.encounterId;
     const defeated = this.combat.getSnapshot();
     if (defeated.mode !== 'DEFEAT') return;
     const administrator = defeated.state.units.find((unit) => unit.id === SLICE2_ADMINISTRATOR_ID);
@@ -451,7 +497,13 @@ export class SubmissionController {
     this.encounterId = undefined;
     this.encounterContent = undefined;
     this.corridorProgress = 0;
-    this.mode = 'INTRO';
+    if (defeatedEncounter === 'SOLO_WARRIOR' || !this.companionJoined) {
+      this.prologueProgress = 0;
+      this.soloEncounterResolved = false;
+      this.mode = 'AWAKENING';
+    } else {
+      this.mode = 'COMPANION_JOINED';
+    }
     this.notice = `안전 영토로 후퇴 · ${cost.elapsedMinutes}분 경과 · 물/식량 ${cost.usedCampSupplies ? '1씩 사용' : '없음'} · 부상 유지`;
     this.publish();
   };
@@ -465,22 +517,28 @@ export class SubmissionController {
     this.releaseCombat();
     this.encounterId = encounterId;
     this.encounterContent = content;
-    const scenario = createSlice2EncounterScenario(`submission:${encounterId.toLowerCase()}`, content, this.vitals, { worldMinute: this.worldMinute });
+    const scenario = encounterId === 'SOLO_WARRIOR'
+      ? createSubmissionSoloScenario(this.vitals, this.worldMinute)
+      : createSubmissionJointScenario(encounterId.toLowerCase(), content, this.vitals, this.worldMinute);
     this.combat = new SliceController({
       scenarioFactory: () => scenario,
       administratorId: SLICE2_ADMINISTRATOR_ID,
       allyId: SLICE2_ALLY_ID,
       policy: this.policy,
       policyDirectives: this.policyDirectives,
-      introNotice: retryNotice ?? (encounterId === 'FIRST_WARRIOR'
-        ? '빠르게 접근하는 적 하나가 통로를 막았다.'
-        : '궁수의 사격선과 전사의 접근 경로가 겹친다.'),
+      introNotice: retryNotice ?? (encounterId === 'SOLO_WARRIOR'
+        ? '결계 밖의 첫 위협이다.'
+        : encounterId === 'FIRST_WARRIOR'
+          ? '빠르게 접근하는 적 하나가 통로를 막았다.'
+          : '궁수의 사격선과 전사의 접근 경로가 겹친다.'),
       playbackSpeed: this.options.playbackSpeed,
       phaseDelayScale: this.options.phaseDelayScale,
     });
     this.combatUnsubscribe = this.combat.subscribe(() => this.publish());
     this.mode = 'COMBAT';
-    this.notice = encounterId === 'FIRST_WARRIOR' ? '단검의 쇄도' : '사격선과 추격자';
+    this.notice = encounterId === 'SOLO_WARRIOR'
+      ? '바깥의 첫 위협'
+      : encounterId === 'FIRST_WARRIOR' ? '단검의 쇄도' : '사격선과 추격자';
     this.publish();
   }
 
@@ -495,6 +553,9 @@ export class SubmissionController {
     this.mode = save.mode;
     this.world = save.world;
     this.worldMinute = save.worldMinute;
+    this.prologueProgress = save.prologueProgress;
+    this.soloEncounterResolved = save.soloEncounterResolved;
+    this.companionJoined = save.companionJoined;
     this.corridorProgress = save.corridorProgress;
     this.vitals = save.vitals;
     this.supplies = save.supplies;
@@ -521,6 +582,9 @@ export class SubmissionController {
       world: this.world,
       worldMinute: this.worldMinute,
       worldTime: formatWorldTime(this.worldMinute),
+      prologueProgress: this.prologueProgress,
+      soloEncounterResolved: this.soloEncounterResolved,
+      companionJoined: this.companionJoined,
       corridorProgress: this.corridorProgress,
       vitals: this.vitals,
       supplies: this.supplies,
@@ -614,11 +678,13 @@ export function parseSubmissionSave(value: string | null): SubmissionSaveData | 
     if (!parsed || typeof parsed !== 'object') return undefined;
     const save = parsed as Partial<SubmissionSaveData>;
     const stableModes: readonly SubmissionSaveData['mode'][] = [
+      'AWAKENING', 'SOLO_APPROACH', 'COMPANION_SEALED', 'COMPANION_JOINED',
       'INTRO', 'CORRIDOR', 'CENTER_GATE', 'SCOUTED', 'POLICY_REVIEW', 'DELEGATION_PLAN',
       'DELEGATION_RESULT', 'ANCHOR_APPROACH', 'ANCHOR_READY', 'EXPANDED',
     ];
-    if (save.version !== 1 || !stableModes.includes(save.mode as SubmissionSaveData['mode'])) return undefined;
+    if (save.version !== 2 || !stableModes.includes(save.mode as SubmissionSaveData['mode'])) return undefined;
     if (!save.world || !Array.isArray(save.world.tiles) || !Number.isFinite(save.worldMinute) || !Number.isFinite(save.corridorProgress)) return undefined;
+    if (!Number.isFinite(save.prologueProgress) || typeof save.soloEncounterResolved !== 'boolean' || typeof save.companionJoined !== 'boolean') return undefined;
     if (!save.vitals || !save.supplies || !Array.isArray(save.policy) || !save.policyDirectives || typeof save.notice !== 'string') return undefined;
     if (typeof save.firstEncounterResolved !== 'boolean' || !Number.isFinite(save.elapsedBattleTurns) || !Number.isFinite(save.lastProtagonistTaskMinutes)) return undefined;
     if (!Number.isFinite(save.delegationAttempt) || !Number.isFinite(save.anchorProgress)) return undefined;

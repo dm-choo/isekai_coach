@@ -7,6 +7,7 @@ import type {
   PresentationPort,
 } from '../bridge/PresentationPort';
 import { BattleRenderer } from '../rendering/BattleRenderer';
+import type { BattleVisualTheme } from '../../assets/AssetManifest';
 
 export class BattleScene extends Phaser.Scene {
   private battleRenderer: BattleRenderer | null = null;
@@ -16,17 +17,18 @@ export class BattleScene extends Phaser.Scene {
   public constructor(
     private readonly onReady: (port: PresentationPort) => void,
     private readonly onUnitSelected?: (unitId: string) => void,
+    private readonly visualTheme: BattleVisualTheme = 'SLICE',
   ) {
     super({ key: 'BattleScene' });
   }
 
   public preload(): void {
-    preloadVisualAssets(this);
+    preloadVisualAssets(this, this.visualTheme);
   }
 
   public create(): void {
     registerVisualAnimations(this);
-    this.battleRenderer = new BattleRenderer(this, this.onUnitSelected);
+    this.battleRenderer = new BattleRenderer(this, this.onUnitSelected, this.visualTheme);
     this.director = new AnimationDirector(this.battleRenderer);
     this.port = new PhaserPresentationPort(this, this.director);
     this.onReady(this.port);

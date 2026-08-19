@@ -23,10 +23,9 @@ try {
   page.on('requestfailed', (request) => errors.push(`request ${request.method()} ${request.url()} ${request.failure()?.errorText}`));
 
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
-  await page.keyboard.press('Space');
-  await advanceCorridorUntilCombat(page);
+  await advancePrologueUntilCombat(page);
   const firstFixture = await runSnapshot(page);
-  if (firstFixture.encounterId !== 'FIRST_WARRIOR' || firstFixture.encounterContent !== 'GOBLIN_WARRIOR') {
+  if (firstFixture.encounterId !== 'SOLO_WARRIOR' || firstFixture.encounterContent !== 'GOBLIN_WARRIOR') {
     throw new Error(`Failure fixture reached the wrong encounter: ${JSON.stringify(firstFixture)}`);
   }
 
@@ -57,7 +56,7 @@ try {
   await page.screenshot({ path: new URL('00-defeat.png', artifactDir).pathname });
   const beforeRetreat = await runSnapshot(page);
   await page.keyboard.press('Space');
-  await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'INTRO');
+  await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'AWAKENING');
   const retreated = await runSnapshot(page);
   if (retreated.corridorProgress !== 0 || retreated.defeatCount !== 1 || retreated.supplies.water !== 0 || retreated.supplies.food !== 0) {
     throw new Error(`Defeat did not return to safe territory with persistent costs: ${JSON.stringify(retreated)}`);
@@ -68,14 +67,12 @@ try {
   if (!retreated.notice.includes('부상 유지') || retreated.vitals.administratorHp >= 14 || retreated.vitals.allyHp >= 12) {
     throw new Error(`Retreat erased injury or failed to explain it: ${JSON.stringify({ notice: retreated.notice, vitals: retreated.vitals })}`);
   }
-  const retreatScreen = await page.locator('.territory-stage').innerText();
-  if (!retreatScreen.includes('상처를 안고') || !retreatScreen.includes('위협 재추첨 없음')) {
-    throw new Error(`Safe-territory recovery screen is not actionable: ${retreatScreen}`);
+  if (await page.locator('[data-submission-primary="advance-prologue"][data-primary-key="D"]').count() !== 1 || await page.locator('img[alt="원거리 동료"]').count()) {
+    throw new Error('Solo defeat did not return to the actionable solo awakening state');
   }
   await page.screenshot({ path: new URL('01-safe-retreat.png', artifactDir).pathname });
 
-  await page.keyboard.press('Space');
-  await advanceCorridorUntilCombat(page);
+  await advancePrologueUntilCombat(page);
   const retried = await runSnapshot(page);
   if (retried.encounterId !== firstFixture.encounterId || retried.encounterContent !== firstFixture.encounterContent) {
     throw new Error(`Retry rerolled the encounter: ${JSON.stringify({ first: firstFixture.encounterContent, retried: retried.encounterContent })}`);
@@ -103,14 +100,14 @@ try {
   server?.kill('SIGTERM');
 }
 
-async function advanceCorridorUntilCombat(page) {
-  for (let step = 0; step < 90; step += 1) {
+async function advancePrologueUntilCombat(page) {
+  for (let step = 0; step < 25; step += 1) {
     const run = await runSnapshot(page);
     if (run.mode === 'COMBAT') return;
-    if (run.mode !== 'CORRIDOR') throw new Error(`Expected corridor while finding encounter, got ${run.mode}`);
+    if (run.mode !== 'AWAKENING' && run.mode !== 'SOLO_APPROACH') throw new Error(`Expected prologue while finding encounter, got ${run.mode}`);
     await page.keyboard.press('d');
   }
-  throw new Error('Corridor did not reach the fixed encounter');
+  throw new Error('Prologue did not reach the fixed encounter');
 }
 
 async function runSnapshot(page) { return page.evaluate(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot); }

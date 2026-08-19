@@ -53,6 +53,8 @@ export interface CharacterVisualConfig {
   readonly animations: Record<UnitAnimationState, CharacterAnimationDefinition>;
 }
 
+export type BattleVisualTheme = 'SLICE' | 'SUBMISSION';
+
 export interface VfxVisualConfig {
   readonly textureKey: string;
   /** Optional real asset. Omit it to keep the generated-ellipse fallback. */
@@ -78,6 +80,61 @@ const animationSet = (prefix: string): Record<UnitAnimationState, CharacterAnima
  * adapter to replace the generated placeholder.
  */
 export const CHARACTER_VISUALS: Record<string, CharacterVisualConfig> = {
+  administrator_submission_01: {
+    spriteKey: 'administrator_submission_01',
+    source: { type: 'IMAGE', url: 'assets/submission/administrator-v1.png' },
+    displayName: '관리자',
+    displaySize: { width: 128, height: 192 },
+    footAnchor: { x: 0.5, y: 0.925 },
+    nativeFacing: 'RIGHT',
+    silhouette: 'ADMINISTRATOR',
+    palette: { body: 0x172c2c, accent: 0x56e3d6, shadow: 0x07100f },
+    animations: animationSet('administrator_submission_01'),
+  },
+  archer_submission_01: {
+    spriteKey: 'archer_submission_01',
+    source: { type: 'IMAGE', url: 'assets/submission/archer-v1.png' },
+    displayName: '원거리 동료',
+    displaySize: { width: 128, height: 192 },
+    footAnchor: { x: 0.5, y: 0.925 },
+    nativeFacing: 'RIGHT',
+    silhouette: 'ARCHER',
+    palette: { body: 0x435238, accent: 0xe4a43f, shadow: 0x10120b },
+    animations: animationSet('archer_submission_01'),
+  },
+  goblin_warrior_submission_01: {
+    spriteKey: 'goblin_warrior_submission_01',
+    source: { type: 'IMAGE', url: 'assets/submission/goblin-warrior-v1.png' },
+    displayName: '고블린 전사',
+    displaySize: { width: 164, height: 182 },
+    footAnchor: { x: 0.5, y: 0.875 },
+    nativeFacing: 'LEFT',
+    silhouette: 'RAIDER',
+    palette: { body: 0x59672f, accent: 0xb13e31, shadow: 0x111408 },
+    animations: animationSet('goblin_warrior_submission_01'),
+  },
+  goblin_archer_submission_01: {
+    spriteKey: 'goblin_archer_submission_01',
+    source: { type: 'IMAGE', url: 'assets/submission/goblin-archer-v1.png' },
+    displayName: '고블린 궁수',
+    displaySize: { width: 128, height: 192 },
+    footAnchor: { x: 0.5, y: 0.92 },
+    nativeFacing: 'LEFT',
+    silhouette: 'ARCHER',
+    palette: { body: 0x53622f, accent: 0xc49a3e, shadow: 0x101408 },
+    animations: animationSet('goblin_archer_submission_01'),
+  },
+  goblin_bomber_submission_01: {
+    spriteKey: 'goblin_bomber_submission_01',
+    source: { type: 'IMAGE', url: 'assets/submission/goblin-bomber-v1.png' },
+    displayName: '고블린 투척병',
+    displaySize: { width: 151, height: 180 },
+    footAnchor: { x: 0.5, y: 0.9 },
+    nativeFacing: 'LEFT',
+    silhouette: 'RAIDER',
+    palette: { body: 0x52602e, accent: 0xe06b32, shadow: 0x111408 },
+    animations: animationSet('goblin_bomber_submission_01'),
+  },
   administrator_slice_01: {
     spriteKey: 'administrator_slice_01',
     source: { type: 'IMAGE', url: 'assets/slice1/administrator-v2.png' },
@@ -214,6 +271,21 @@ export const SLICE_GROUND_ATLAS = {
     url: 'assets/slice1/jungle-ground-atlas-v2.png',
     frameWidth: 256,
     frameHeight: 128,
+  } as VisualAssetSource,
+} as const;
+
+export const SUBMISSION_ENVIRONMENT = {
+  textureKey: 'submission_frontier_combat_v1',
+  source: { type: 'IMAGE', url: 'assets/submission/frontier-combat-v1.png' } as VisualAssetSource,
+} as const;
+
+export const SUBMISSION_GROUND_ATLAS = {
+  textureKey: 'submission_ground_atlas_v1',
+  source: {
+    type: 'SPRITESHEET',
+    url: 'assets/submission/ground-atlas-v1.png',
+    frameWidth: 627,
+    frameHeight: 627,
   } as VisualAssetSource,
 } as const;
 

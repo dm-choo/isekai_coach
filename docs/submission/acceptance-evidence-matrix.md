@@ -24,7 +24,8 @@ related:
 
 | Acceptance row | Evidence owner | 상태 |
 |---|---|---|
-| 초기 결계와 바깥 frontier 구분 | golden `00-intro`, 시작 장면의 contour·현재 위치·동쪽 위협 | A+V, 의미 이해는 H REQUIRED |
+| 초기 결계와 바깥 frontier 구분 | golden `00-awakening`, 물리적 cyan 경계·연속 지면·오른쪽 출구 | A+V, 의미 이해는 H REQUIRED |
+| 단독 각성→첫 위협→동료 해방 | `verify:submission:golden`의 authoritative solo unit 수, sealed world object, 합류 전후 HUD assertion | A+V, 동료 획득 의미는 H REQUIRED |
 | 직접 조우→규칙 관찰→정책 수정→알려진 통로 위임 | `verify:submission:golden`의 단일 complete cycle | A+V, 무설명 흐름은 H REQUIRED |
 | 위임 결과가 경로·행동·피해·시간으로 설명됨 | delegation action trace, `.operation-causality`, `.operation-log` assertion | A+V, 손익 설명은 H REQUIRED |
 | 동료 확보만으로 편입되지 않음 | golden이 `routeSafe=true`, `territory=OUTSIDE`를 동시에 검증 | A |
@@ -35,7 +36,7 @@ related:
 
 | Acceptance row | Evidence owner | 상태 |
 |---|---|---|
-| 모든 시점의 primary action 하나 | golden `assertPrimaryAction`과 critical-fit | A+V |
+| 모든 시점의 primary action 하나 | 첫 이동 `D`, 봉인 `SPACE`, 이후 contextual `assertPrimaryAction`과 critical-fit | A+V |
 | keyboard/pointer와 accepted/rejected/result 구분 | `verify:submission:interaction`, golden keyboard route·pointer restart | A |
 | 불가 행동은 state 불변과 구체 이유 | controller early-activation test + blocker copy | A |
 | 적 Intent/관리자 plan/동료 prediction 비색상 문법 | 기존 `verify:combat-ux`, Slice 1 browser regression | A+V |
@@ -63,13 +64,14 @@ related:
 | frontier 한 타일과 다음 좌표 공개로 proof 종료 | expanded final mode assertion | A |
 | 샘 물 보충이 다음 원정 가능성을 바꿈 | water `+1` state + `다음 원정 한 번` presentation assertion | A+V, 이해는 H REQUIRED |
 | deferred 경제·보스·다중 부대 없이 cycle 성립 | complete cycle build와 scope audit | A+V |
-| 16:9·4:3 핵심 요소가 가려지지 않음 | golden critical bounds + overflow 0 | A+V |
+| 16:9·4:3 핵심 요소가 가려지지 않음 | golden 1280×720 opening captures + interaction 960×720 + critical bounds + overflow 0 | A+V |
 
 ## Release evidence
 
 | Layer | Command / record | 승격 조건 |
 |---|---|---|
 | focused rules | `npm test -- --run src/game/submission` | 변경 모듈 0 failure |
+| first experience | `npm run verify:submission:interaction` | text-independent solo opening, D/pointer, v2 checkpoint |
 | failure contract | `npm run verify:submission:failure` | safe retreat, persistent cost, no reroll, browser error 0 |
 | product golden | `npm run verify:submission:golden` | EXPANDED, both ratios, browser error 0 |
 | cumulative technical RC | `npm run verify:submission-rc` | clean exact SHA, submission + Slice 1·2 전부 통과 |

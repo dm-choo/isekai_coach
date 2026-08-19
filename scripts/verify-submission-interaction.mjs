@@ -26,39 +26,36 @@ try {
 
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   if (await page.title() !== '결계의 바깥') throw new Error(`Unexpected title: ${await page.title()}`);
-  await assertPrimary(page, 'start-expedition', 'SPACE');
-  await page.locator('[data-submission-primary="start-expedition"]').click();
-  await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'CORRIDOR');
-  await assertPrimary(page, 'advance-corridor', 'D');
-  const hold = page.locator('[data-submission-primary="advance-corridor"]');
+  await assertPrimary(page, 'advance-prologue', 'D');
+  if (await page.locator('.submission-prologue h1,.submission-prologue p,.submission-topbar,img[alt="원거리 동료"]').count()) {
+    throw new Error('Opening leaks explanatory copy, party HUD, or the future companion');
+  }
+  const hold = page.locator('[data-submission-primary="advance-prologue"]');
   await hold.dispatchEvent('pointerdown');
   await page.waitForTimeout(120);
   await hold.dispatchEvent('pointerup');
   const pointerState = await submissionSnapshot(page);
-  if (pointerState.corridorProgress <= 0 || !pointerState.notice.includes('전진 중')) {
+  if (pointerState.prologueProgress <= 0 || pointerState.mode !== 'SOLO_APPROACH') {
     throw new Error(`Pointer hold produced no visible travel feedback: ${JSON.stringify(pointerState)}`);
   }
   await page.screenshot({ path: new URL('01-pointer-feedback.png', artifactDir).pathname });
 
   await page.reload({ waitUntil: 'networkidle' });
-  await page.keyboard.press('Space');
-  await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'CORRIDOR');
   await page.keyboard.press('d');
   const keyboardState = await submissionSnapshot(page);
-  if (keyboardState.corridorProgress <= 0 || !keyboardState.notice.includes('전진 중')) {
+  if (keyboardState.prologueProgress <= 0 || keyboardState.mode !== 'SOLO_APPROACH') {
     throw new Error(`Keyboard input produced no visible travel feedback: ${JSON.stringify(keyboardState)}`);
   }
 
   const persistencePage = await browser.newPage({ viewport: { width: 960, height: 720 } });
   observeErrors(persistencePage, errors);
   await persistencePage.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'networkidle' });
-  await persistencePage.locator('[data-submission-primary="start-expedition"]').click();
   await persistencePage.keyboard.press('d');
-  await persistencePage.waitForFunction(() => JSON.parse(localStorage.getItem('isekai-coach:submission:v1') ?? 'null')?.corridorProgress === 5);
+  await persistencePage.waitForFunction(() => JSON.parse(localStorage.getItem('isekai-coach:submission:v2') ?? 'null')?.prologueProgress === 5);
   await persistencePage.reload({ waitUntil: 'networkidle' });
-  await persistencePage.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.corridorProgress === 5);
+  await persistencePage.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.prologueProgress === 5);
   const restoredState = await submissionSnapshot(persistencePage);
-  if (restoredState.mode !== 'CORRIDOR' || restoredState.worldTime !== '10:00' || await persistencePage.locator('.submission-autosave').count() !== 1) {
+  if (restoredState.mode !== 'SOLO_APPROACH' || restoredState.worldTime !== '10:00' || restoredState.companionJoined) {
     throw new Error(`Stable checkpoint did not restore with visible autosave state: ${JSON.stringify(restoredState)}`);
   }
   await persistencePage.screenshot({ path: new URL('02-restored-checkpoint.png', artifactDir).pathname });
@@ -68,9 +65,10 @@ try {
     status: 'PASS',
     title: await page.title(),
     viewport: { width: 960, height: 720 },
-    pointer: { mode: pointerState.mode, progress: pointerState.corridorProgress, notice: pointerState.notice },
-    keyboard: { mode: keyboardState.mode, progress: keyboardState.corridorProgress, notice: keyboardState.notice },
-    persistence: { mode: restoredState.mode, progress: restoredState.corridorProgress, worldTime: restoredState.worldTime, autosaveVisible: true },
+    opening: { textIndependent: true, solo: true, primaryAction: 'advance-prologue' },
+    pointer: { mode: pointerState.mode, progress: pointerState.prologueProgress, notice: pointerState.notice },
+    keyboard: { mode: keyboardState.mode, progress: keyboardState.prologueProgress, notice: keyboardState.notice },
+    persistence: { mode: restoredState.mode, progress: restoredState.prologueProgress, worldTime: restoredState.worldTime, checkpointStored: true },
     browserErrors: errors,
   };
   await writeFile(new URL('report.json', artifactDir), `${JSON.stringify(report, null, 2)}\n`);

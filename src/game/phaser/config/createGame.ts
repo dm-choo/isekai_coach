@@ -1,11 +1,13 @@
 import * as Phaser from 'phaser';
 import type { PresentationPort } from '../bridge/PresentationPort';
 import { BattleScene } from '../scenes/BattleScene';
+import type { BattleVisualTheme } from '../../assets/AssetManifest';
 
 export function createPhaserGame(
   parent: HTMLElement,
   onReady: (presentation: PresentationPort) => void,
   onUnitSelected?: (unitId: string) => void,
+  visualTheme: BattleVisualTheme = 'SLICE',
 ): Phaser.Game {
   return new Phaser.Game({
     type: Phaser.AUTO,
@@ -22,6 +24,6 @@ export function createPhaserGame(
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
-    scene: [new BattleScene(onReady, onUnitSelected)],
+    scene: [new BattleScene(onReady, onUnitSelected, visualTheme)],
   });
 }

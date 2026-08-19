@@ -11,7 +11,7 @@ import {
 import { CombatStage } from './Slice2App';
 
 const BASE_URL = import.meta.env.BASE_URL;
-const SUBMISSION_SAVE_KEY = 'isekai-coach:submission:v1';
+const SUBMISSION_SAVE_KEY = 'isekai-coach:submission:v2';
 
 export function SubmissionApp() {
   const query = new URLSearchParams(window.location.search);
@@ -79,7 +79,18 @@ export function SubmissionApp() {
     <main className="submission-shell">
       <section className="submission-world" aria-label="결계를 확장하는 첫 원정">
         {snapshot.mode === 'COMBAT' && snapshot.combat
-          ? <CombatStage snapshot={snapshot.combat} run={snapshot} controller={controller} encounter={snapshot.encounterContent} />
+          ? <CombatStage
+              snapshot={snapshot.combat}
+              run={snapshot}
+              controller={controller}
+              encounter={snapshot.encounterContent}
+              visualTheme="SUBMISSION"
+              prologueEncounter={snapshot.encounterId === 'SOLO_WARRIOR'}
+            />
+          : snapshot.mode === 'AWAKENING' || snapshot.mode === 'SOLO_APPROACH'
+            ? <PrologueStage snapshot={snapshot} controller={controller} />
+            : snapshot.mode === 'COMPANION_SEALED' || snapshot.mode === 'COMPANION_JOINED'
+              ? <CompanionStage snapshot={snapshot} controller={controller} />
           : snapshot.mode === 'CORRIDOR' || snapshot.mode === 'CENTER_GATE'
             ? <CorridorStage snapshot={snapshot} controller={controller} />
             : snapshot.mode === 'SCOUTED'
@@ -95,10 +106,96 @@ export function SubmissionApp() {
                       : snapshot.mode === 'EXPANDED'
                         ? <ExpandedStage snapshot={snapshot} controller={controller} />
                         : <TerritoryStage snapshot={snapshot} onStart={controller.performPrimaryAction} />}
-        {snapshot.mode !== 'COMBAT' && <SubmissionHud snapshot={snapshot} />}
+        {snapshot.mode !== 'COMBAT' && snapshot.companionJoined && <SubmissionHud snapshot={snapshot} />}
       </section>
     </main>
   );
+}
+
+function PrologueStage({ snapshot, controller }: {
+  readonly snapshot: SubmissionSnapshot;
+  readonly controller: SubmissionController;
+}) {
+  const activeTimer = useRef<number | undefined>(undefined);
+  const stop = () => {
+    if (activeTimer.current !== undefined) window.clearInterval(activeTimer.current);
+    activeTimer.current = undefined;
+  };
+  const start = () => {
+    stop();
+    controller.advancePrologue();
+    activeTimer.current = window.setInterval(controller.advancePrologue, 92);
+  };
+  useEffect(() => {
+    const keyDown = (event: KeyboardEvent) => {
+      if (event.repeat || (event.key.toLowerCase() !== 'd' && event.key !== 'ArrowRight')) return;
+      event.preventDefault();
+      start();
+    };
+    const keyUp = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() === 'd' || event.key === 'ArrowRight') stop();
+    };
+    window.addEventListener('keydown', keyDown);
+    window.addEventListener('keyup', keyUp);
+    window.addEventListener('blur', stop);
+    return () => {
+      stop();
+      window.removeEventListener('keydown', keyDown);
+      window.removeEventListener('keyup', keyUp);
+      window.removeEventListener('blur', stop);
+    };
+  }, [controller]);
+
+  const progress = snapshot.prologueProgress / 100;
+  return <div className="submission-prologue" data-submission-stage="awakening">
+    <div className="prologue-background" style={{ backgroundPositionX: `${progress * -6}%` }} />
+    <div className="prologue-depth" />
+    <div className="prologue-safe-pulse" aria-hidden="true" />
+    <div className="prologue-protagonist" style={{ left: `${22 + progress * 31}%` }}>
+      <img src={`${BASE_URL}assets/submission/administrator-v1.png`} alt="주인공" />
+      <i aria-hidden="true" />
+    </div>
+    <button
+      type="button"
+      className="prologue-move-control"
+      data-submission-primary="advance-prologue"
+      data-primary-key="D"
+      aria-label="오른쪽 길로 이동"
+      onPointerDown={start}
+      onPointerUp={stop}
+      onPointerLeave={stop}
+    ><kbd>D</kbd><span aria-hidden="true">→</span></button>
+    <div className="prologue-distance" aria-label={`바깥 경로 ${snapshot.prologueProgress}% 이동`}><i style={{ width: `${snapshot.prologueProgress}%` }} /></div>
+  </div>;
+}
+
+function CompanionStage({ snapshot, controller }: {
+  readonly snapshot: SubmissionSnapshot;
+  readonly controller: SubmissionController;
+}) {
+  const sealed = snapshot.mode === 'COMPANION_SEALED';
+  useEffect(() => {
+    if (sealed) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat || (event.key.toLowerCase() !== 'd' && event.key !== 'ArrowRight')) return;
+      event.preventDefault();
+      controller.startExpedition();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [controller, sealed]);
+
+  return <div className={`submission-companion ${sealed ? 'is-sealed' : 'is-joined'}`} data-submission-stage={sealed ? 'companion-sealed' : 'companion-joined'}>
+    <div className="companion-background" />
+    <div className="companion-depth" />
+    <div className="companion-protagonist"><img src={`${BASE_URL}assets/submission/administrator-v1.png`} alt="주인공" /><i /></div>
+    <div className="companion-archer"><img src={`${BASE_URL}assets/submission/archer-v1.png`} alt="원거리 동료" /><i /></div>
+    {sealed
+      ? <button type="button" className="companion-seal-control" data-submission-primary="release-companion" data-primary-key="SPACE" aria-label="봉인된 동료 해방" onClick={controller.releaseCompanion}>
+          <span aria-hidden="true"><i /><i /><i /></span><kbd>SPACE</kbd>
+        </button>
+      : <button type="button" className="companion-depart-control" data-submission-primary="depart-with-companion" data-primary-key="D" aria-label="동료와 함께 오른쪽 길로 이동" onClick={controller.startExpedition}><kbd>D</kbd><span aria-hidden="true">→</span></button>}
+  </div>;
 }
 
 function TerritoryStage({ snapshot, onStart }: { readonly snapshot: SubmissionSnapshot; readonly onStart: () => void }) {
@@ -116,8 +213,8 @@ function TerritoryStage({ snapshot, onStart }: { readonly snapshot: SubmissionSn
       {snapshot.world.tiles.map((tile) => <WorldTile key={tile.id} tile={tile} />)}
       {contour.map((segment) => <i key={segment.id} className={`barrier-edge is-${segment.edge.toLowerCase()}`} style={tilePosition(segment.x, segment.y)} />)}
       <div className="world-party" style={tilePosition(0, 0)}>
-        <img src={`${BASE_URL}assets/slice1/administrator-v2.png`} alt="관리자" />
-        <img src={`${BASE_URL}assets/slice1/archer-v2.png`} alt="원거리 동료" />
+        <img src={`${BASE_URL}assets/submission/administrator-v1.png`} alt="관리자" />
+        <img src={`${BASE_URL}assets/submission/archer-v1.png`} alt="원거리 동료" />
         <span>현재 위치</span>
       </div>
     </div>
@@ -167,7 +264,7 @@ function CorridorStage({ snapshot, controller }: { readonly snapshot: Submission
     <div className="corridor-moving-ground" style={{ backgroundPositionX: `${progress * -720}px` }} />
     <div className="corridor-shade" />
     <div className="submission-travel-copy"><small>물안개 전초지 · 서쪽 통로</small><strong>{atGate ? '중앙 방 도착' : '미정찰 통로'}</strong></div>
-    <div className="submission-travel-party"><img src={`${BASE_URL}assets/slice1/administrator-v2.png`} alt="관리자" /><img src={`${BASE_URL}assets/slice1/archer-v2.png`} alt="원거리 동료" /></div>
+    <div className="submission-travel-party"><img src={`${BASE_URL}assets/submission/administrator-v1.png`} alt="관리자" /><img src={`${BASE_URL}assets/submission/archer-v1.png`} alt="원거리 동료" /></div>
     <div className="submission-destination"><i>◇</i><span>{atGate ? '중앙 방' : `${400 - snapshot.corridorProgress}m`}</span></div>
     <div className="submission-distance" aria-label={`${snapshot.corridorProgress}미터 이동`}><i style={{ width: `${progress * 100}%` }} />{[100, 200, 300].map((meter) => <b key={meter} style={{ left: `${meter / 4}%` }} />)}<span>{snapshot.corridorProgress} / 400m</span></div>
     {atGate
@@ -203,7 +300,7 @@ function PolicyReviewStage({ snapshot, controller }: { readonly snapshot: Submis
     <div className="submission-sky" /><div className="submission-canopy" />
     <section className="policy-evidence-focus">
       <small>LAST COMBAT · ACTUAL RECORD</small><h1>왜 사격하지<br />못했을까?</h1>
-      <div className="evidence-lane"><span className="evidence-ally"><img src={`${BASE_URL}assets/slice1/archer-v2.png`} alt="원거리 동료" /><i /></span><b>1</b><span className="evidence-enemy"><img src={`${BASE_URL}assets/slice2/goblin-warrior-v1.png`} alt="고블린 전사" /></span></div>
+      <div className="evidence-lane"><span className="evidence-ally"><img src={`${BASE_URL}assets/submission/archer-v1.png`} alt="원거리 동료" /><i /></span><b>1</b><span className="evidence-enemy"><img src={`${BASE_URL}assets/submission/goblin-warrior-v1.png`} alt="고블린 전사" /></span></div>
       <article className="evidence-reason"><img src={`${BASE_URL}assets/ui/intent-shoot.svg`} alt="" /><div><small>사격 판정 · {shootBlocked?.count ?? 0}회 막힘</small><strong>{shootBlocked?.reason ?? '유효 사거리에 적이 없음'}</strong></div></article>
       <p>활은 바로 앞 2칸을 쏠 수 없다. 바꾼 정책은 이전 기록을 고치지 않고 다음 작전부터 적용된다.</p>
     </section>
@@ -224,13 +321,13 @@ function DelegationPlanStage({ snapshot, controller }: { readonly snapshot: Subm
     <section className="delegation-heading"><small>KNOWN ROUTE · DELEGATION</small><h1>아는 길은<br />동료에게 맡긴다.</h1><p>새 규칙이나 미확인 사건을 만나면 진행하지 않고 멈춘다.</p></section>
     <section className="delegation-route" aria-label="정찰된 동쪽 400미터 통로">
       <div className="route-line"><i /><b style={{ left: '0%' }}>0m</b><b style={{ left: '50%' }}>200m</b><b style={{ left: '100%' }}>400m</b></div>
-      <span className="route-party"><img src={`${BASE_URL}assets/slice1/archer-v2.png`} alt="원거리 동료" /><small>별동대</small></span>
-      <span className="route-threat is-warrior"><img src={`${BASE_URL}assets/slice2/goblin-warrior-v1.png`} alt="고블린 전사" /><small>관찰됨</small></span>
-      <span className="route-threat is-archer"><img src={`${BASE_URL}assets/slice2/goblin-archer-v1.png`} alt="고블린 궁수" /><small>관찰됨</small></span>
+      <span className="route-party"><img src={`${BASE_URL}assets/submission/archer-v1.png`} alt="원거리 동료" /><small>별동대</small></span>
+      <span className="route-threat is-warrior"><img src={`${BASE_URL}assets/submission/goblin-warrior-v1.png`} alt="고블린 전사" /><small>관찰됨</small></span>
+      <span className="route-threat is-archer"><img src={`${BASE_URL}assets/submission/goblin-archer-v1.png`} alt="고블린 궁수" /><small>관찰됨</small></span>
       <span className="route-goal">◇<small>경계 방</small></span>
     </section>
     <aside className="delegation-orders">
-      <header><span><img src={`${BASE_URL}assets/slice1/archer-v2.png`} alt="" /><b>원거리 동료</b></span><strong>HP {snapshot.vitals.allyHp}/12</strong></header>
+      <header><span><img src={`${BASE_URL}assets/submission/archer-v1.png`} alt="" /><b>원거리 동료</b></span><strong>HP {snapshot.vitals.allyHp}/12</strong></header>
       <dl><div><dt>경로</dt><dd>정찰된 동쪽 통로 · 400m</dd></div><div><dt>전술 변경</dt><dd>{snapshot.policyChoice === 'PUSH_FIRST' ? '접근 시 밀치기 우선' : '최소 사거리 유지'}</dd></div><div className="delegation-supply"><dt>보급</dt><dd><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="물" />{snapshot.supplies.water}<img src={`${BASE_URL}assets/ui/supply-ration.svg`} alt="식량" />{snapshot.supplies.food}<em>이번 위임 사용 안 함</em></dd></div><div><dt>후퇴</dt><dd>HP {snapshot.retreatAtHp} 이하</dd></div><div><dt>시간 한도</dt><dd>전투 12턴</dd></div><div><dt>미확인 규칙</dt><dd>즉시 Decision · 대기</dd></div></dl>
     </aside>
     <div className="concurrent-task"><span><b>주인공</b><small>중앙 방 · 확장 회로 준비</small><em>{snapshot.protagonistTaskMinutes ? `${snapshot.protagonistTaskMinutes}분` : '준비 완료'}</em></span><i>{snapshot.protagonistTaskMinutes ? '동시에' : '기완료'}</i><span><b>별동대</b><small>400m 이동 + 실제 전투 턴</small><em>8분 + ?</em></span></div>
@@ -297,7 +394,7 @@ function AnchorApproachStage({ snapshot, controller }: { readonly snapshot: Subm
     <div className="corridor-moving-ground" style={{ backgroundPositionX: `${progress * -720}px` }} />
     <div className="safe-route-glow" /><div className="corridor-shade" />
     <div className="submission-travel-copy"><small>SECURED ROUTE · EAST</small><strong>{ready ? '확장 거점 도착' : '되찾은 길을 걷는다'}</strong><p>{ready ? '이 땅은 아직 결계 밖이다. 주인공이 마지막 연결을 수행한다.' : '위협은 제거됐지만, 직접 도착하기 전에는 내 영토가 아니다.'}</p></div>
-    <div className="anchor-travel-party"><img src={`${BASE_URL}assets/slice1/administrator-v2.png`} alt="관리자" /><span>주인공</span></div>
+    <div className="anchor-travel-party"><img src={`${BASE_URL}assets/submission/administrator-v1.png`} alt="관리자" /><span>주인공</span></div>
     <div className="submission-destination anchor-destination"><i>✦</i><span data-korean-critical>{ready ? '확장 거점' : `${400 - snapshot.anchorProgress}m`}</span></div>
     <div className="submission-distance" aria-label={`${snapshot.anchorProgress}미터 이동`}><i style={{ width: `${progress * 100}%` }} />{[100, 200, 300].map((meter) => <b key={meter} style={{ left: `${meter / 4}%` }} />)}<span>{snapshot.anchorProgress} / 400m</span></div>
     {ready
@@ -315,7 +412,7 @@ function ExpandedStage({ snapshot, controller }: { readonly snapshot: Submission
     <div className="expanded-tile-field" data-critical-fit>
       {snapshot.world.tiles.map((tile) => <WorldTile key={tile.id} tile={tile} />)}
       {contour.map((segment) => <i key={segment.id} className={`barrier-edge is-${segment.edge.toLowerCase()}`} style={tilePosition(segment.x, segment.y)} />)}
-      <div className="world-party is-expanded" style={tilePosition(1, 0)}><img src={`${BASE_URL}assets/slice1/administrator-v2.png`} alt="관리자" /><span>확장 거점</span></div>
+      <div className="world-party is-expanded" style={tilePosition(1, 0)}><img src={`${BASE_URL}assets/submission/administrator-v1.png`} alt="관리자" /><span>확장 거점</span></div>
       <div className="active-spring" style={tilePosition(1, 0)}><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="활성화된 샘" /><b>+1</b><small>샘 활성화</small></div>
     </div>
     <div className="expansion-causality" data-critical-fit><span><b>✓</b><small>안전 경로</small></span><i>→</i><span><b>✦</b><small>주인공 거점</small></span><i>→</i><span><b>◇</b><small>결계 확장</small></span><i>→</i><span><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="" /><small>다음 원정 +1</small></span></div>

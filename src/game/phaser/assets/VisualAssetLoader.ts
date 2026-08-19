@@ -4,16 +4,22 @@ import {
   INTENT_ICON_TEXTURES,
   SLICE_ENVIRONMENT,
   SLICE_GROUND_ATLAS,
+  SUBMISSION_ENVIRONMENT,
+  SUBMISSION_GROUND_ATLAS,
   VFX_VISUALS,
+  type BattleVisualTheme,
   type CharacterAnimationDefinition,
   type VisualAssetSource,
 } from '../../assets/AssetManifest';
 
 /** Reads optional asset sources from the manifest. Missing sources use renderer fallbacks. */
-export function preloadVisualAssets(scene: Phaser.Scene): void {
-  loadSource(scene, SLICE_ENVIRONMENT.textureKey, SLICE_ENVIRONMENT.source);
-  loadSource(scene, SLICE_GROUND_ATLAS.textureKey, SLICE_GROUND_ATLAS.source);
-  for (const visual of Object.values(CHARACTER_VISUALS)) {
+export function preloadVisualAssets(scene: Phaser.Scene, visualTheme: BattleVisualTheme = 'SLICE'): void {
+  const environment = visualTheme === 'SUBMISSION' ? SUBMISSION_ENVIRONMENT : SLICE_ENVIRONMENT;
+  const groundAtlas = visualTheme === 'SUBMISSION' ? SUBMISSION_GROUND_ATLAS : SLICE_GROUND_ATLAS;
+  loadSource(scene, environment.textureKey, environment.source);
+  loadSource(scene, groundAtlas.textureKey, groundAtlas.source);
+  for (const [visualKey, visual] of Object.entries(CHARACTER_VISUALS)) {
+    if (visualTheme === 'SUBMISSION' ? !visualKey.includes('_submission_') : visualKey.includes('_submission_')) continue;
     loadSource(scene, visual.spriteKey, visual.source);
   }
   for (const visual of Object.values(VFX_VISUALS)) {

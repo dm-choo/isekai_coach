@@ -4,6 +4,8 @@ import {
   INTENT_ICON_TEXTURES,
   SLICE_ENVIRONMENT,
   SLICE_GROUND_ATLAS,
+  SUBMISSION_ENVIRONMENT,
+  SUBMISSION_GROUND_ATLAS,
 } from '../../assets/AssetManifest';
 
 describe('combat visual contracts', () => {
@@ -43,5 +45,19 @@ describe('combat visual contracts', () => {
       frameHeight: 128,
     });
     expect(SLICE_ENVIRONMENT.source.url).toBe('assets/slice1/jungle-background-v3.png');
+  });
+
+  it('keeps submission characters and terrain independent from Slice bitmap assets', () => {
+    for (const key of [
+      'administrator_submission_01', 'archer_submission_01',
+      'goblin_warrior_submission_01', 'goblin_archer_submission_01', 'goblin_bomber_submission_01',
+    ]) {
+      const visual = CHARACTER_VISUALS[key];
+      expect(visual.source?.url).toMatch(/^assets\/submission\//);
+      expect(visual.footAnchor?.y).toBeGreaterThanOrEqual(0.875);
+      expect(visual.displaySize?.width).toBeLessThanOrEqual(164);
+    }
+    expect(SUBMISSION_ENVIRONMENT.source.url).toBe('assets/submission/frontier-combat-v1.png');
+    expect(SUBMISSION_GROUND_ATLAS.source).toMatchObject({ type: 'SPRITESHEET', frameWidth: 627, frameHeight: 627 });
   });
 });

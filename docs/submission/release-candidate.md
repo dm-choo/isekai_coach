@@ -16,7 +16,7 @@ P7은 기능 추가가 아니라 하나의 commit을 재현 가능한 제품 후
 
 ## Current boundary
 
-현재 `npm run verify:submission-rc`는 기존 Slice 1·2의 기술 회귀를 검증한다. 새 영토·위임·결계 확장 골든 패스가 구현되기 전까지 그 결과를 `Product RC`로 부르지 않는다. P6에서 같은 명령을 확장하거나 새 명령으로 교체하고 exact SHA report를 남긴다.
+현재 `npm run verify:submission-rc`는 단독 각성·동료 해방부터 직접 탐사·정책 위임·결계 확장까지의 제품 골든 패스와 기존 Slice 1·2 회귀를 함께 검증한다. 통과 결과는 여전히 `technical candidate`이며, 신규 사용자 무설명 이해·재미·15~25분 pacing은 사람 gate 전까지 통과로 부르지 않는다.
 
 ## Required technical gate
 

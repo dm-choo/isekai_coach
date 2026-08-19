@@ -14,6 +14,7 @@ export interface GridProjectionConfig {
   readonly rowStep: number;
   readonly cellWidth: number;
   readonly cellHeight: number;
+  readonly rowXOffset?: number;
 }
 
 export const DEFAULT_GRID_PROJECTION: GridProjectionConfig = {
@@ -24,20 +25,29 @@ export const DEFAULT_GRID_PROJECTION: GridProjectionConfig = {
   cellHeight: 68,
 };
 
+export const SUBMISSION_GRID_PROJECTION: GridProjectionConfig = {
+  origin: { x: 45, y: 420 },
+  columnStep: 105,
+  rowStep: 42,
+  cellWidth: 102,
+  cellHeight: 40,
+  rowXOffset: 18,
+};
+
 /** Logical coordinates stay independent from the replaceable side-view projection. */
 export class GridProjector {
   public constructor(private readonly config: GridProjectionConfig = DEFAULT_GRID_PROJECTION) {}
 
   public gridToWorld(position: LogicalPosition): WorldPosition {
     return {
-      x: this.config.origin.x + position.x * this.config.columnStep,
+      x: this.config.origin.x + position.x * this.config.columnStep + position.y * (this.config.rowXOffset ?? 0),
       y: this.config.origin.y + position.y * this.config.rowStep,
     };
   }
 
   public worldToGrid(position: WorldPosition): LogicalPosition {
     const y = Math.round((position.y - this.config.origin.y) / this.config.rowStep);
-    const x = Math.round((position.x - this.config.origin.x) / this.config.columnStep);
+    const x = Math.round((position.x - this.config.origin.x - y * (this.config.rowXOffset ?? 0)) / this.config.columnStep);
     return { x, y };
   }
 

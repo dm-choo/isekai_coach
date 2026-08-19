@@ -5,15 +5,18 @@ import {
   getVfxVisual,
   SLICE_ENVIRONMENT,
   SLICE_GROUND_ATLAS,
+  SUBMISSION_ENVIRONMENT,
+  SUBMISSION_GROUND_ATLAS,
+  type BattleVisualTheme,
 } from '../../assets/AssetManifest';
 import type { IntentIconKind } from '../bridge/PresentationPort';
 import type { BattlePredictionPresentation } from '../bridge/PresentationPort';
-import { GridProjector } from './GridProjector';
+import { GridProjector, SUBMISSION_GRID_PROJECTION } from './GridProjector';
 import { TelegraphView, type RenderableIntent } from './TelegraphView';
 import { UnitView } from './UnitView';
 
 export class BattleRenderer {
-  private readonly projector = new GridProjector();
+  private readonly projector: GridProjector;
   private readonly unitViews = new Map<string, UnitView>();
   private readonly telegraphs: TelegraphView;
   private readonly groundObjects: Phaser.GameObjects.GameObject[] = [];
@@ -28,9 +31,12 @@ export class BattleRenderer {
   public constructor(
     private readonly scene: Phaser.Scene,
     private readonly onUnitSelected?: (unitId: string) => void,
+    private readonly visualTheme: BattleVisualTheme = 'SLICE',
   ) {
+    this.projector = new GridProjector(visualTheme === 'SUBMISSION' ? SUBMISSION_GRID_PROJECTION : undefined);
+    const environment = visualTheme === 'SUBMISSION' ? SUBMISSION_ENVIRONMENT : SLICE_ENVIRONMENT;
     scene.cameras.main.setBackgroundColor('#071009');
-    const background = scene.add.image(640, 360, SLICE_ENVIRONMENT.textureKey)
+    const background = scene.add.image(640, 360, environment.textureKey)
       .setDisplaySize(1280, 720)
       .setDepth(-100);
     this.ambientObjects.push(background);
@@ -522,26 +528,35 @@ export class BattleRenderer {
   }
 
   private drawGroundCues(state: BattleState): void {
-    const atlasExists = this.scene.textures.exists(SLICE_GROUND_ATLAS.textureKey);
+    const atlas = this.visualTheme === 'SUBMISSION' ? SUBMISSION_GROUND_ATLAS : SLICE_GROUND_ATLAS;
+    const atlasExists = this.scene.textures.exists(atlas.textureKey);
     const tileSize = this.projector.tileSize;
+    if (this.visualTheme === 'SUBMISSION') {
+      const foundation = this.scene.add.polygon(640, 462, [-635,-65, 600,-65, 635,65, -600,65], 0x17140c, 0.72).setDepth(1);
+      this.groundObjects.push(foundation);
+    }
     for (let x = 0; x < state.map.width; x += 1) {
       for (let y = 0; y < state.map.height; y += 1) {
         const world = this.projector.gridToWorld({ x, y });
         const tile = atlasExists
-          ? this.scene.add.image(world.x, world.y, SLICE_GROUND_ATLAS.textureKey, (x * 3 + y) % 4)
+          ? this.scene.add.image(world.x, world.y, atlas.textureKey, (x * 3 + y) % 4)
           : this.scene.add.rectangle(world.x, world.y, tileSize.width, tileSize.height, 0x2b2415, 1);
-        tile
-          .setDisplaySize(tileSize.width + 1, tileSize.height + 1)
-          .setAlpha(1)
-          .setDepth(2);
-        const blockEdge = this.scene.add.rectangle(
-          world.x,
-          world.y,
-          tileSize.width - 1,
-          tileSize.height - 1,
-          0x000000,
-          0,
-        ).setStrokeStyle(2, 0x171109, 0.72).setDepth(3);
+        tile.setDisplaySize(tileSize.width + 1, tileSize.height + 1).setAlpha(1).setDepth(2);
+        const blockEdge = this.visualTheme === 'SUBMISSION'
+          ? this.scene.add.polygon(world.x, world.y, [
+              -tileSize.width / 2 + 8, -tileSize.height / 2,
+              tileSize.width / 2, -tileSize.height / 2,
+              tileSize.width / 2 - 8, tileSize.height / 2,
+              -tileSize.width / 2, tileSize.height / 2,
+            ], 0x000000, 0).setStrokeStyle(2, 0x171109, 0.72).setDepth(3)
+          : this.scene.add.rectangle(
+              world.x,
+              world.y,
+              tileSize.width - 1,
+              tileSize.height - 1,
+              0x000000,
+              0,
+            ).setStrokeStyle(2, 0x171109, 0.72).setDepth(3);
         this.groundObjects.push(tile, blockEdge);
       }
     }

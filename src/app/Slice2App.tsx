@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { Intent, Unit } from '../game/combat';
+import type { BattleVisualTheme } from '../game/assets/AssetManifest';
 import { POLICY_COPY, type SliceActionId, type SliceSnapshot } from '../game/slice';
 import {
   Slice2RunController,
@@ -283,11 +284,13 @@ export interface CombatRunView {
   readonly defeatReturnsToTerritory?: boolean;
 }
 
-export function CombatStage({ snapshot, run, controller, encounter }: {
+export function CombatStage({ snapshot, run, controller, encounter, visualTheme, prologueEncounter = false }: {
   readonly snapshot: SliceSnapshot;
   readonly run: CombatRunView;
   readonly controller: CombatViewController;
   readonly encounter?: EncounterContent;
+  readonly visualTheme?: BattleVisualTheme;
+  readonly prologueEncounter?: boolean;
 }) {
   const state = snapshot.mode === 'PLAYER_TURN' ? snapshot.previewState : snapshot.state;
   const party = state.units.filter((unit) => unit.faction === 'STUDENT');
@@ -295,7 +298,7 @@ export function CombatStage({ snapshot, run, controller, encounter }: {
   return (
     <div className={`slice2-combat ${run.isNight ? 'is-night' : ''}`}>
       <Suspense fallback={<div className="phaser-host phaser-loading" aria-label="전장 불러오는 중"><i /><span>전장 불러오는 중</span></div>}>
-        <PhaserCanvas controller={controller} />
+        <PhaserCanvas controller={controller} visualTheme={visualTheme} />
       </Suspense>
       <div className="stage-vignette" />
       <header className="slice2-combat-hud">
@@ -306,19 +309,20 @@ export function CombatStage({ snapshot, run, controller, encounter }: {
         <div className="enemy-bars">{enemies.map((unit) => <UnitBar key={unit.id} unit={unit} enemy />)}</div>
       </header>
       <IntentStack snapshot={snapshot} />
-      {snapshot.mode === 'PLAYER_TURN' && <AllyIntentPanel snapshot={snapshot} />}
+      {snapshot.mode === 'PLAYER_TURN' && party.length > 1 && <AllyIntentPanel snapshot={snapshot} />}
       {run.canUseLight && <button type="button" className="light-button" onClick={controller.useLight}>휴대용 조명 사용 · Intent 공개</button>}
       {snapshot.mode !== 'INTRO' && <CombatTurnBanner snapshot={snapshot} />}
       {snapshot.mode !== 'INTRO' && snapshot.mode !== 'PLAYER_TURN' && snapshot.mode !== 'SEAL_UNLOCKED' && <div className="combat-notice"><span />{snapshot.notice}</div>}
-      {snapshot.mode === 'ALLY_TURN' && <PolicyReadout snapshot={snapshot} />}
+      {snapshot.mode === 'ALLY_TURN' && party.length > 1 && <PolicyReadout snapshot={snapshot} />}
       {snapshot.mode === 'PLAYER_TURN' && run.elapsedBattleTurns === 0 && snapshot.state.turn === 1 && <FirstCombatCue snapshot={snapshot} />}
       {snapshot.mode === 'PLAYER_TURN' && <CombatControls snapshot={snapshot} controller={controller} />}
-      {snapshot.mode === 'INTRO' && (
-        <div className="encounter-overlay"><div className="encounter-rule" /><p>SCOUTED ENCOUNTER</p><h1>{encounterTitle(encounter)}</h1><span>{snapshot.notice}</span><button type="button" onClick={controller.startEncounter}>전투 시작 <kbd>SPACE</kbd></button></div>
+      {snapshot.mode === 'INTRO' && (prologueEncounter
+        ? <div className="encounter-overlay is-prologue"><button type="button" aria-label="첫 전투 시작" onClick={controller.startEncounter}><img src={`${BASE_URL}assets/ui/intent-attack.svg`} alt="" /><kbd>SPACE</kbd></button></div>
+        : <div className="encounter-overlay"><div className="encounter-rule" /><p>SCOUTED ENCOUNTER</p><h1>{encounterTitle(encounter)}</h1><span>{snapshot.notice}</span><button type="button" onClick={controller.startEncounter}>전투 시작 <kbd>SPACE</kbd></button></div>
       )}
       {snapshot.mode === 'VICTORY' && (run.isBossEncounter
         ? <div className="result-overlay"><p>BARRIER GUARDIAN DEFEATED</p><h2>봉인이 드러났다</h2><span>관리자만 이 오브젝트의 봉인을 해제할 수 있습니다.</span><button type="button" onClick={controller.unlockSeal}>봉인 해제 <kbd>E</kbd></button></div>
-        : <div className="result-overlay"><p>PATH SECURED</p><h2>인카운터 해결</h2><span>현재 HP와 소요 턴이 원정에 유지됩니다.</span><button type="button" onClick={controller.completeEncounter}>통로로 복귀 <kbd>SPACE</kbd></button></div>
+        : <div className="result-overlay"><p>{prologueEncounter ? 'FIRST THREAT BROKEN' : 'PATH SECURED'}</p><h2>{prologueEncounter ? '봉인이 드러났다' : '인카운터 해결'}</h2><span>{prologueEncounter ? '쓰러진 위협 너머의 빛이 다시 움직입니다.' : '현재 HP와 소요 턴이 원정에 유지됩니다.'}</span><button type="button" onClick={controller.completeEncounter}>{prologueEncounter ? '바깥 유적으로 이동' : '통로로 복귀'} <kbd>SPACE</kbd></button></div>
       )}
       {snapshot.mode === 'SEAL_UNLOCKED' && run.isBossEncounter && (
         <div className="result-overlay"><p>SEAL RELEASED</p><h2>결계문이 열렸다</h2><span>네 개 월드 타일의 선택과 전투 결과가 여기까지 이어졌습니다.</span><button type="button" onClick={controller.completeEncounter}>데모 완료 <kbd>SPACE</kbd></button></div>

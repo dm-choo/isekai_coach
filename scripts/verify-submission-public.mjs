@@ -14,29 +14,26 @@ try {
 
   await page.goto(`${publicBase}/`, { waitUntil: 'networkidle' });
   if (await page.title() !== '결계의 바깥') throw new Error(`Public root title mismatch: ${await page.title()}`);
-  const start = page.locator('[data-submission-primary="start-expedition"]');
-  if (await start.count() !== 1 || await start.getAttribute('data-primary-key') !== 'SPACE') throw new Error('Public root primary action is missing');
-  const supplyFit = await page.locator('.submission-resources span').evaluateAll((elements) => elements.map((element) => {
-    const rect = element.getBoundingClientRect();
-    return { left: rect.left, right: rect.right, width: rect.width, viewportWidth: window.innerWidth };
-  }));
-  if (supplyFit.length !== 2 || supplyFit.some((rect) => rect.width <= 0 || rect.left < 0 || rect.right > rect.viewportWidth)) {
-    throw new Error(`Public supply HUD is clipped: ${JSON.stringify(supplyFit)}`);
+  const start = page.locator('[data-submission-primary="advance-prologue"]');
+  if (await start.count() !== 1 || await start.getAttribute('data-primary-key') !== 'D') throw new Error('Public awakening movement is missing');
+  if (await page.locator('.submission-topbar,.submission-prologue h1,.submission-prologue p,img[alt="원거리 동료"]').count()) {
+    throw new Error('Public opening leaks future party state or explanatory copy');
   }
   await page.screenshot({ path: new URL('00-public-root.png', artifactDir).pathname });
-  await start.click();
-  await page.locator('.submission-corridor').waitFor();
-  const move = page.locator('[data-submission-primary="advance-corridor"]');
-  await move.dispatchEvent('pointerdown');
+  const characterBefore = await page.locator('.prologue-protagonist').evaluate((element) => element.getBoundingClientRect().x);
+  await start.dispatchEvent('pointerdown');
   await page.waitForTimeout(130);
-  await move.dispatchEvent('pointerup');
-  const distanceBeforeReload = (await page.locator('.submission-distance span').innerText()).trim();
-  if (distanceBeforeReload.startsWith('0 ')) throw new Error(`Public pointer movement was not accepted: ${distanceBeforeReload}`);
+  await start.dispatchEvent('pointerup');
+  const characterAfter = await page.locator('.prologue-protagonist').evaluate((element) => element.getBoundingClientRect().x);
+  const checkpointBeforeReload = await page.evaluate(() => JSON.parse(localStorage.getItem('isekai-coach:submission:v2') ?? 'null'));
+  if (characterAfter <= characterBefore || checkpointBeforeReload?.prologueProgress <= 0) {
+    throw new Error(`Public pointer movement was not accepted: ${JSON.stringify({ characterBefore, characterAfter, checkpointBeforeReload })}`);
+  }
   await page.reload({ waitUntil: 'networkidle' });
-  await page.locator('.submission-corridor').waitFor();
-  const distanceAfterReload = (await page.locator('.submission-distance span').innerText()).trim();
-  if (distanceAfterReload !== distanceBeforeReload || await page.locator('.submission-autosave').count() !== 1) {
-    throw new Error(`Public checkpoint restore mismatch: ${distanceBeforeReload} → ${distanceAfterReload}`);
+  await page.locator('.submission-prologue').waitFor();
+  const checkpointAfterReload = await page.evaluate(() => JSON.parse(localStorage.getItem('isekai-coach:submission:v2') ?? 'null'));
+  if (checkpointAfterReload?.prologueProgress !== checkpointBeforeReload.prologueProgress) {
+    throw new Error(`Public checkpoint restore mismatch: ${checkpointBeforeReload?.prologueProgress} → ${checkpointAfterReload?.prologueProgress}`);
   }
   await page.screenshot({ path: new URL('01-public-restored.png', artifactDir).pathname });
 
@@ -57,10 +54,11 @@ try {
     status: 'PUBLIC_BROWSER_PASS',
     publicBase,
     title: await page.title(),
-    primaryAction: 'start-expedition',
-    supplyFit,
-    distanceBeforeReload,
-    distanceAfterReload,
+    primaryAction: 'advance-prologue',
+    opening: { solo: true, textIndependent: true, partyHudHidden: true },
+    characterMovement: { before: characterBefore, after: characterAfter },
+    progressBeforeReload: checkpointBeforeReload.prologueProgress,
+    progressAfterReload: checkpointAfterReload.prologueProgress,
     checkpointRestored: true,
     regression,
     browserErrors: errors,

@@ -1,13 +1,17 @@
 import { useEffect, useRef } from 'react';
 import { createPhaserGame } from '../game/phaser/config/createGame';
 import type { PresentationPort } from '../game/phaser/bridge/PresentationPort';
+import type { BattleVisualTheme } from '../game/assets/AssetManifest';
 
 interface PresentationController {
   attachPresentation(presentation: PresentationPort): () => void;
   selectTarget(unitId: string): void;
 }
 
-export function PhaserCanvas({ controller }: { readonly controller: PresentationController }) {
+export function PhaserCanvas({ controller, visualTheme = 'SLICE' }: {
+  readonly controller: PresentationController;
+  readonly visualTheme?: BattleVisualTheme;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -24,7 +28,7 @@ export function PhaserCanvas({ controller }: { readonly controller: Presentation
           return;
         }
         detach = controller.attachPresentation(presentation);
-      }, controller.selectTarget);
+      }, controller.selectTarget, visualTheme);
     });
 
     return () => {
@@ -32,7 +36,7 @@ export function PhaserCanvas({ controller }: { readonly controller: Presentation
       detach?.();
       game?.destroy(true);
     };
-  }, [controller]);
+  }, [controller, visualTheme]);
 
   return <div className="phaser-host" ref={hostRef} aria-label="Phaser combat presentation" />;
 }

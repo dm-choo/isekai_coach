@@ -37,10 +37,39 @@ try {
 
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   if (await page.title() !== '결계의 바깥') throw new Error(`Unexpected title: ${await page.title()}`);
-  if (await page.locator('.primary-expedition').count() !== 1) throw new Error('Intro does not expose exactly one primary expedition action');
-  if (verifyP5) await assertPrimaryAction(page, 'start-expedition', 'SPACE');
-  await capture(page, '00-intro');
+  if (verifyP5) await assertPrimaryAction(page, 'advance-prologue', 'D');
+  const opening = await submissionSnapshot(page);
+  if (opening.mode !== 'AWAKENING' || opening.companionJoined || await page.locator('.submission-topbar').count() || await page.locator('img[alt="원거리 동료"]').count()) {
+    throw new Error(`Opening is not an authoritative solo awakening: ${JSON.stringify({ mode: opening.mode, companionJoined: opening.companionJoined })}`);
+  }
+  await capture(page, '00-awakening');
+  await advancePrologueUntilCombat(page);
+  let run = await submissionSnapshot(page);
+  const soloStudents = run.combat?.state.units.filter((unit) => unit.faction === 'STUDENT') ?? [];
+  if (run.mode !== 'COMBAT' || run.encounterId !== 'SOLO_WARRIOR' || run.prologueProgress !== 100 || soloStudents.length !== 1 || soloStudents[0].visualKey !== 'administrator_submission_01') {
+    throw new Error(`Prologue did not enter the fixed solo encounter: ${JSON.stringify({ mode: run.mode, encounterId: run.encounterId, progress: run.prologueProgress, soloStudents })}`);
+  }
+  await capture(page, '01-solo-encounter');
+  let firstInputFeedback;
+  if (verifyP5) firstInputFeedback = await verifyFirstCombatInput(page);
+  const soloCombat = await completeCurrentCombat(page);
+  run = await submissionSnapshot(page);
+  if (run.mode !== 'COMPANION_SEALED' || !run.soloEncounterResolved || run.companionJoined) {
+    throw new Error(`Solo victory did not reveal a sealed companion: ${JSON.stringify(pickRunState(run))}`);
+  }
+  if (verifyP5) await assertPrimaryAction(page, 'release-companion', 'SPACE');
+  if (await page.locator('.submission-companion.is-sealed .companion-archer').count() !== 1) throw new Error('Sealed companion is not visible in the world');
+  await capture(page, '02-companion-sealed');
   await page.keyboard.press('Space');
+  await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'COMPANION_JOINED');
+  run = await submissionSnapshot(page);
+  if (!run.companionJoined || await page.locator('.submission-topbar').count() !== 1 || await page.locator('img[alt="원거리 동료"]').count() !== 1) {
+    throw new Error(`Companion join did not unlock party presentation: ${JSON.stringify({ joined: run.companionJoined })}`);
+  }
+  if (verifyP5) await assertPrimaryAction(page, 'depart-with-companion', 'D');
+  await capture(page, '03-companion-joined');
+  const expeditionMinute = run.worldMinute;
+  await page.keyboard.press('d');
   await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'CORRIDOR');
   if (verifyP5) await assertPrimaryAction(page, 'advance-corridor', 'D');
 
@@ -55,20 +84,22 @@ try {
   await capture(page, '01-corridor');
 
   await advanceCorridorUntil(page, 200);
-  let run = await submissionSnapshot(page);
-  if (run.mode !== 'COMBAT' || run.encounterId !== 'FIRST_WARRIOR' || run.corridorProgress !== 200 || run.worldTime !== '10:04') {
+  run = await submissionSnapshot(page);
+  if (run.mode !== 'COMBAT' || run.encounterId !== 'FIRST_WARRIOR' || run.corridorProgress !== 200 || run.worldMinute !== expeditionMinute + 4) {
     throw new Error(`First spatial encounter did not stop at 200m: ${JSON.stringify(pickRunState(run))}`);
   }
+  if (run.combat.state.units.filter((unit) => unit.faction === 'STUDENT').length !== 2) throw new Error('First joint encounter does not contain the joined companion');
   await capture(page, '02-first-encounter');
-  let firstInputFeedback;
-  if (verifyP5) firstInputFeedback = await verifyFirstCombatInput(page);
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot?.mode === 'PLAYER_TURN');
+  if (!(await combatSnapshot(page)).allyIntent) throw new Error('Joined companion does not expose a deterministic action preview');
   const firstCombat = await completeCurrentCombat(page);
   run = await submissionSnapshot(page);
   if (run.mode !== 'CORRIDOR' || run.corridorProgress !== 200) throw new Error(`First combat did not resume the same corridor position: ${JSON.stringify(pickRunState(run))}`);
 
   await advanceCorridorUntil(page, 400);
   run = await submissionSnapshot(page);
-  if (run.mode !== 'CENTER_GATE' || run.corridorProgress !== 400 || run.worldMinute !== 608 + firstCombat.turns) {
+  if (run.mode !== 'CENTER_GATE' || run.corridorProgress !== 400 || run.worldMinute !== expeditionMinute + 8 + firstCombat.turns) {
     throw new Error(`Central room gate was not reached at 400m: ${JSON.stringify(pickRunState(run))}`);
   }
   if (verifyP5) await assertPrimaryAction(page, 'enter-center', 'SPACE');
@@ -273,12 +304,12 @@ try {
     const criticalFit = await assertCriticalFit(page);
     await assertPrimaryAction(page, 'restart-submission', 'SPACE');
     await page.locator('[data-submission-primary="restart-submission"]').click();
-    await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'INTRO');
+    await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'AWAKENING');
     const restarted = await submissionSnapshot(page);
     if (restarted.worldTime !== '10:00' || restarted.supplies.water !== 1 || restarted.corridorProgress !== 0) {
       throw new Error(`Restart did not restore a clean submission state: ${JSON.stringify(restarted)}`);
     }
-    await assertPrimaryAction(page, 'start-expedition', 'SPACE');
+    await assertPrimaryAction(page, 'advance-prologue', 'D');
     interactionGate = { singlePrimaryAction: true, keyboardRoute: true, pointerRestart: true, criticalFit };
   }
   if (errors.length) throw new Error(`Browser errors:\n${errors.join('\n')}`);
@@ -296,6 +327,7 @@ try {
       territory: frontier.territory,
       corridorsScouted: frontier.corridorsScouted,
     },
+    prologue: { solo: true, companionJoined: true, soloCombat },
     combat: { first: firstCombat, center: centerCombat },
     partyAnchored: beforeTravel.partyX === afterTravel.partyX,
     worldScrolled: beforeTravel.backdropPosition !== afterTravel.backdropPosition && beforeTravel.groundPosition !== afterTravel.groundPosition,
@@ -321,6 +353,16 @@ async function advanceCorridorUntil(page, meters) {
     await page.keyboard.press('d');
   }
   throw new Error(`Corridor failed to reach ${meters}m`);
+}
+
+async function advancePrologueUntilCombat(page) {
+  for (let step = 0; step < 25; step += 1) {
+    const run = await submissionSnapshot(page);
+    if (run.mode === 'COMBAT') return;
+    if (run.mode !== 'AWAKENING' && run.mode !== 'SOLO_APPROACH') throw new Error(`Expected prologue travel, got ${run.mode}`);
+    await page.keyboard.press('d');
+  }
+  throw new Error('Prologue did not reach the fixed solo encounter');
 }
 
 async function advanceAnchorUntil(page, meters) {

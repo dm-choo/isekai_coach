@@ -348,6 +348,10 @@ button:disabled { cursor: not-allowed; }
   background: radial-gradient(circle at 50% 48%, rgba(5,9,5,.08), rgba(1,3,2,.8) 75%);
 }
 .encounter-overlay { animation: encounter-in 1.2s ease both; }
+.encounter-overlay.is-prologue { background: radial-gradient(circle at 50% 49%, rgba(2,5,3,.02), rgba(1,3,2,.54) 96%); }
+.encounter-overlay.is-prologue button { display: flex; min-width: 136px; height: 52px; align-items: center; justify-content: center; gap: 17px; margin: 0; padding: 8px 13px; border-color: rgba(244,154,101,.72); border-radius: 27px; background: rgba(28,10,6,.82); }
+.encounter-overlay.is-prologue button img { width: 27px; height: 27px; filter: sepia(1) saturate(3) hue-rotate(325deg) brightness(1.35); }
+.encounter-overlay.is-prologue button kbd { display: grid; min-width: 68px; height: 32px; place-items: center; border: 1px solid rgba(255,219,183,.52); border-radius: 4px; background: rgba(7,3,2,.72); color: #ffe9d2; font: 900 10px ui-monospace,monospace; }
 .encounter-rule { width: 170px; height: 1px; margin-bottom: 18px; background: linear-gradient(90deg, transparent, #cba756, transparent); }
 .encounter-overlay p, .result-overlay p { margin: 0; color: #b7a475; font: 700 10px ui-monospace, monospace; letter-spacing: .2em; }
 .encounter-overlay h1, .result-overlay h2 { margin: 10px 0 3px; font-family: Georgia, "Pretendard Variable", serif; font-size: clamp(37px, 4vw, 66px); font-weight: 500; letter-spacing: .08em; text-shadow: 0 4px 14px #000; }
@@ -503,7 +507,7 @@ button:disabled { cursor: not-allowed; }
 /* Submission — persistent territory and barrier contour */
 .submission-shell { width: 100vw; min-height: 100svh; overflow: hidden; background: #020705; color: #f3ead8; }
 .submission-world { position: relative; width: 100vw; min-height: 100svh; overflow: hidden; isolation: isolate; background: #07100b; }
-.submission-sky { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(2,8,6,.16), rgba(2,5,3,.9)), url('/assets/slice1/jungle-background-v3.png') center/cover; filter: saturate(.72) brightness(.67); transform: scale(1.03); }
+.submission-sky { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(2,8,6,.16), rgba(2,5,3,.9)), url('/assets/submission/awakening-sanctuary-v1.png') center/cover; filter: saturate(.72) brightness(.67); transform: scale(1.03); }
 .submission-canopy { position: absolute; z-index: 1; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 58% 50%, transparent 12%, rgba(2,8,5,.2) 50%, rgba(0,2,1,.86) 98%), linear-gradient(90deg, rgba(2,7,4,.74), transparent 32%); box-shadow: inset 0 0 180px 30px #010302; }
 .submission-topbar { position: absolute; z-index: 20; top: 0; right: 0; left: 0; display: flex; min-height: 74px; align-items: center; justify-content: space-between; padding: 0 34px; border-bottom: 1px solid rgba(193,219,180,.16); background: linear-gradient(180deg, rgba(3,10,7,.94), rgba(3,9,6,.62)); backdrop-filter: blur(10px); }
 .submission-mark { display: flex; align-items: center; gap: 12px; }.submission-mark > i { width: 29px; height: 29px; rotate: 45deg; border: 1px solid #8be5c0; background: radial-gradient(circle, #bfffe2 0 14%, #2b6d57 15% 27%, transparent 29%); box-shadow: 0 0 22px rgba(90,232,184,.36); }.submission-mark small,.submission-mark strong { display: block; }.submission-mark small { color: #7d9d8e; font: 700 9px ui-monospace,monospace; letter-spacing: .14em; }.submission-mark strong { margin-top: 3px; font-size: 14px; letter-spacing: .04em; }
@@ -512,7 +516,7 @@ button:disabled { cursor: not-allowed; }
 .world-copy { position: absolute; z-index: 9; top: 12%; left: 5.5%; width: min(360px, 29vw); pointer-events: none; }.world-copy small { color: #79d6b0; font: 800 9px ui-monospace,monospace; letter-spacing: .2em; }.world-copy h1 { margin: 10px 0 12px; font-family: Georgia,"Pretendard Variable",serif; font-size: clamp(34px,4vw,68px); font-weight: 500; line-height: 1.03; letter-spacing: -.045em; text-shadow: 0 5px 22px #000; }.world-copy p { margin: 0; color: #b9c5b8; font-size: 13px; }
 .tile-field { position: absolute; z-index: 4; top: 0; right: 0; bottom: 0; left: 24%; perspective: 1200px; }
 .submission-tile { position: absolute; width: 210px; height: 126px; translate: -50% -50%; transform: rotateX(58deg) rotateZ(-2deg); transform-style: preserve-3d; transition: filter .25s, opacity .25s, transform .25s; }
-.tile-terrain { position: absolute; inset: 0; overflow: hidden; border: 1px solid rgba(131,123,86,.42); border-radius: 18px 9px 20px 7px; background: linear-gradient(145deg,rgba(122,95,52,.87),rgba(44,54,31,.94)), url('/assets/slice1/jungle-ground-atlas-v2.png') center/cover; box-shadow: inset 0 0 35px rgba(4,12,7,.68), 0 22px 38px rgba(0,0,0,.56); clip-path: polygon(3% 10%,92% 1%,100% 84%,10% 100%,0 62%); }
+.tile-terrain { position: absolute; inset: 0; overflow: hidden; border: 1px solid rgba(131,123,86,.42); border-radius: 18px 9px 20px 7px; background: linear-gradient(145deg,rgba(122,95,52,.42),rgba(44,54,31,.58)), url('/assets/submission/ground-atlas-v1.png') center/cover; box-shadow: inset 0 0 35px rgba(4,12,7,.68), 0 22px 38px rgba(0,0,0,.56); clip-path: polygon(3% 10%,92% 1%,100% 84%,10% 100%,0 62%); }
 .submission-tile.is-owned .tile-terrain { border-color: rgba(111,231,185,.58); filter: saturate(1.08) brightness(1.05); box-shadow: inset 0 0 34px rgba(37,120,83,.32),0 22px 38px #0009,0 0 28px rgba(81,226,174,.12); }
 .submission-tile.is-frontier .tile-terrain { filter: grayscale(.2) saturate(.58) brightness(.7); }.submission-tile.is-unseen { opacity: .17; filter: blur(1px) grayscale(1); }.submission-tile.is-unseen .tile-terrain { border-style: dashed; background: #0a110d; }
 .submission-tile > strong,.submission-tile > small { position: absolute; z-index: 4; left: 50%; display: block; width: 180px; translate: -50% 0; transform: rotateZ(2deg) rotateX(-58deg); text-align: center; text-shadow: 0 3px 8px #000; }.submission-tile > strong { top: 40px; font-size: 14px; }.submission-tile > small { top: 61px; color: #90ab9c; font: 700 9px ui-monospace,monospace; letter-spacing: .12em; }.submission-tile.is-frontier > small { color: #c6a869; }
@@ -532,8 +536,8 @@ button:disabled { cursor: not-allowed; }
 .territory-stage.is-intro .world-copy,.territory-stage.is-intro .tile-field { top: 74px; bottom: 50px; }
 .territory-stage.is-intro .world-copy { top: 17%; }
 .submission-corridor,.submission-scouted { position: absolute; inset: 0; overflow: hidden; background: #071009; }
-.corridor-moving-backdrop { position: absolute; inset: 0; background: linear-gradient(180deg,rgba(1,5,3,.02),rgba(2,8,5,.58)),url('/assets/slice1/jungle-background-v3.png') repeat-x center/auto 100%; filter: saturate(.78) brightness(.72); transition: background-position .08s linear; }
-.corridor-moving-ground { position: absolute; right: -12%; bottom: -10%; left: -12%; height: 48%; transform: perspective(800px) rotateX(51deg); transform-origin: center bottom; background: linear-gradient(180deg,rgba(87,84,50,.78),rgba(24,38,22,.96)),url('/assets/slice1/jungle-ground-atlas-v2.png') repeat-x center/460px 220px; box-shadow: inset 0 18px 48px #071008aa; transition: background-position .08s linear; }
+.corridor-moving-backdrop { position: absolute; inset: 0; background: linear-gradient(180deg,rgba(1,5,3,.02),rgba(2,8,5,.58)),url('/assets/submission/frontier-combat-v1.png') repeat-x center/auto 100%; filter: saturate(.78) brightness(.72); transition: background-position .08s linear; }
+.corridor-moving-ground { position: absolute; right: -12%; bottom: -10%; left: -12%; height: 48%; transform: perspective(800px) rotateX(51deg); transform-origin: center bottom; background: linear-gradient(180deg,rgba(87,84,50,.28),rgba(24,38,22,.62)),url('/assets/submission/ground-atlas-v1.png') repeat-x center/460px 220px; box-shadow: inset 0 18px 48px #071008aa; transition: background-position .08s linear; }
 .corridor-shade { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 52% 59%,transparent 8%,rgba(1,5,3,.18) 55%,rgba(0,2,1,.82) 100%),linear-gradient(180deg,rgba(1,5,3,.45),transparent 28%,transparent 72%,rgba(1,5,3,.78)); }
 .submission-travel-copy { position: absolute; z-index: 4; top: 112px; left: 5.5%; }.submission-travel-copy small,.submission-travel-copy strong { display: block; }.submission-travel-copy small { color: #74b99d; font: 800 9px ui-monospace,monospace; letter-spacing: .14em; }.submission-travel-copy strong { margin-top: 7px; font: 500 clamp(27px,3vw,48px) Georgia,serif; text-shadow: 0 4px 18px #000; }
 .submission-travel-party { position: absolute; z-index: 5; bottom: 22%; left: 28%; width: 230px; height: 270px; filter: drop-shadow(0 16px 7px #000b); animation: travel-presence 1.15s ease-in-out infinite alternate; }.submission-travel-party::after { position: absolute; right: 28px; bottom: 13px; left: 24px; height: 20px; border-radius: 50%; content: ''; background: #010302aa; filter: blur(7px); }.submission-travel-party img { position: absolute; z-index: 1; bottom: 22px; width: 155px; height: 225px; object-fit: contain; }.submission-travel-party img:first-child { left: 0; }.submission-travel-party img:nth-child(2) { right: 0; width: 125px; height: 195px; }
@@ -614,4 +618,181 @@ button:disabled { cursor: not-allowed; }
   .tile-field { left: -17%; transform: scale(.62); transform-origin: 70% 52%; }
   .primary-expedition { right: 14px; bottom: 24px; min-width: 215px; }
   .submission-travel-party { left: 10%; scale: .76; transform-origin: bottom left; }.submission-destination { right: 13%; }.submission-travel-copy { left: 18px; }.submission-travel-notice { left: 18px; max-width: 46%; }.corridor-primary { right: 14px; width: 220px; }.scouted-copy { top: 14%; width: 78%; }.scout-map { top: 55%; left: 50%; scale: .63; }.scouted-next { right: 15px; bottom: 4%; left: 15px; width: auto; }.scout-causality { display: none; }
+}
+
+/* Submission P9 — the opening is a physical scene, not a text dashboard. */
+.submission-prologue,
+.submission-companion {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  overflow: hidden;
+  background: #030806;
+}
+.prologue-background,
+.companion-background {
+  position: absolute;
+  inset: -2%;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  transition: background-position 90ms linear;
+}
+.prologue-background { background-image: url('/assets/submission/awakening-sanctuary-v1.png'); }
+.companion-background { background-image: url('/assets/submission/companion-seal-ruin-v1.png'); }
+.prologue-depth,
+.companion-depth {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 49% 58%, transparent 16%, rgba(0,3,2,.09) 57%, rgba(0,2,1,.68) 112%), linear-gradient(180deg, rgba(0,3,2,.18), transparent 32%, transparent 72%, rgba(0,2,1,.46));
+}
+.prologue-safe-pulse {
+  position: absolute;
+  z-index: 1;
+  bottom: 7%;
+  left: 5%;
+  width: 43%;
+  height: 56%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(59,231,227,.12), transparent 67%);
+  animation: prologue-safe-breathe 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes prologue-safe-breathe { 50% { opacity: .48; } }
+.prologue-protagonist,
+.companion-protagonist,
+.companion-archer {
+  position: absolute;
+  z-index: 4;
+  bottom: 8.2%;
+  width: clamp(132px, 15vw, 228px);
+  height: 48%;
+  translate: -50% 0;
+  filter: drop-shadow(0 15px 8px rgba(0,0,0,.82));
+  pointer-events: none;
+}
+.prologue-protagonist { transition: left 90ms linear; }
+.prologue-protagonist img,
+.companion-protagonist img,
+.companion-archer img { position: relative; z-index: 2; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; }
+.prologue-protagonist > i,
+.companion-protagonist > i,
+.companion-archer > i {
+  position: absolute;
+  z-index: 1;
+  right: 17%;
+  bottom: 1.2%;
+  left: 17%;
+  height: 7%;
+  border-radius: 50%;
+  background: rgba(0,0,0,.72);
+  filter: blur(6px);
+}
+.prologue-move-control,
+.companion-depart-control {
+  position: absolute;
+  z-index: 8;
+  right: 8%;
+  bottom: 13%;
+  display: flex;
+  min-width: 128px;
+  height: 54px;
+  align-items: center;
+  justify-content: center;
+  gap: 17px;
+  border: 1px solid rgba(168,231,213,.42);
+  border-radius: 28px;
+  background: rgba(3,13,10,.62);
+  color: #d9fff4;
+  box-shadow: 0 12px 30px #0009, 0 0 22px rgba(73,220,184,.09);
+  backdrop-filter: blur(5px);
+}
+.prologue-move-control:hover,
+.prologue-move-control:focus-visible,
+.companion-depart-control:hover,
+.companion-depart-control:focus-visible { border-color: #caffec; background: rgba(12,48,35,.78); }
+.prologue-move-control kbd,
+.companion-depart-control kbd,
+.companion-seal-control kbd {
+  display: grid;
+  min-width: 35px;
+  height: 35px;
+  place-items: center;
+  border: 1px solid rgba(215,255,241,.7);
+  border-radius: 5px;
+  background: rgba(1,8,6,.82);
+  color: #effff9;
+  font: 900 13px ui-monospace, monospace;
+  box-shadow: inset 0 -3px rgba(255,255,255,.08);
+}
+.prologue-move-control span,
+.companion-depart-control span { color: #98efd0; font-size: 30px; line-height: 1; animation: prologue-arrow 1.15s ease-in-out infinite; }
+@keyframes prologue-arrow { 50% { translate: 7px 0; opacity: .58; } }
+.prologue-distance {
+  position: absolute;
+  z-index: 7;
+  right: 8%;
+  bottom: 8%;
+  width: 128px;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgba(195,226,212,.16);
+}
+.prologue-distance i { display: block; height: 100%; background: #7ee0bd; box-shadow: 0 0 9px #54d6aa; transition: width 90ms linear; }
+.companion-protagonist { left: 35%; }
+.companion-archer { left: 68%; width: clamp(118px, 13vw, 198px); }
+.submission-companion.is-sealed .companion-archer {
+  bottom: 29%;
+  height: 34%;
+  opacity: .74;
+  filter: sepia(.72) saturate(2.15) hue-rotate(350deg) brightness(1.18) drop-shadow(0 0 15px #ffc44d);
+  mix-blend-mode: normal;
+}
+.companion-seal-control {
+  position: absolute;
+  z-index: 9;
+  top: 27%;
+  left: 68%;
+  display: grid;
+  width: 190px;
+  height: 280px;
+  translate: -50% 0;
+  place-items: end center;
+  padding-bottom: 15px;
+  border: 0;
+  background: transparent;
+}
+.companion-seal-control > span { position: absolute; inset: 7% 4% 18%; }
+.companion-seal-control > span i { position: absolute; inset: 0; border: 1px solid rgba(255,202,78,.3); border-radius: 50%; animation: companion-seal-pulse 1.8s ease-out infinite; }
+.companion-seal-control > span i:nth-child(2) { animation-delay: .6s; }
+.companion-seal-control > span i:nth-child(3) { animation-delay: 1.2s; }
+@keyframes companion-seal-pulse { from { scale: .35; opacity: 1; } to { scale: 1.12; opacity: 0; } }
+.companion-seal-control kbd { min-width: 68px; border-color: rgba(255,217,129,.76); color: #fff0c5; }
+.submission-companion.is-joined::before {
+  position: absolute;
+  z-index: 2;
+  top: 20%;
+  left: 68%;
+  width: 27%;
+  height: 58%;
+  translate: -50% 0;
+  border-radius: 48%;
+  content: '';
+  background: radial-gradient(ellipse, rgba(2,6,4,.72), transparent 70%);
+  pointer-events: none;
+}
+.submission-companion.is-joined .companion-protagonist { left: 37%; }
+.submission-companion.is-joined .companion-archer { left: 51%; bottom: 8.2%; height: 44%; opacity: 1; }
+.submission-companion.is-joined .companion-depart-control { right: 8%; }
+
+@media (max-aspect-ratio: 4 / 3) {
+  .prologue-protagonist { width: clamp(126px, 20vw, 200px); }
+  .companion-protagonist { left: 28%; }
+  .submission-companion.is-sealed .companion-archer { left: 69%; }
+  .companion-seal-control { left: 69%; }
+  .submission-companion.is-joined .companion-protagonist { left: 28%; }
+  .submission-companion.is-joined .companion-archer { left: 45%; }
 }

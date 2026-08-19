@@ -10,6 +10,7 @@ related:
   - first-15-minutes.md
   - sector-1-golden-run.md
   - acceptance-criteria.md
+  - p9-first-experience-contract.md
   - release-candidate.md
 ---
 
@@ -28,11 +29,12 @@ OpenAI Game Builders Seoul 제출용 Web Build가 전체 게임 설계에서 선
 - [First 15 minutes](./first-15-minutes.md): 점진 공개와 행동 학습 순서
 - [Submission golden run](./sector-1-golden-run.md): 직접 탐사→위임→결계 확장→샘 활성화 제출 경로
 - [Acceptance criteria](./acceptance-criteria.md): 제출본 완료 판정
+- [P9 first experience contract](./p9-first-experience-contract.md): 단독 각성→첫 전투→동료 해방의 무설명 경험 계약
 - [Release candidate gate](./release-candidate.md): 재현 가능한 기술 검증, 배포·복구와 사람 gate
 
 ## Status summary
 
-- **accepted**: 주인공 1명·동료 1명, 초기 결계와 첫 frontier, 직접 규칙 학습, 정책 한 곳 수정, 동일 규칙 위임, 인접 편입, contour 확장, 샘과 다음 좌표의 완전한 최소 cycle
+- **accepted**: 주인공 단독 각성·첫 위협, world object로 동료 해방, 초기 결계와 첫 frontier, 직접 규칙 학습, 정책 한 곳 수정, 동일 규칙 위임, 인접 편입, contour 확장, 샘과 다음 좌표의 완전한 최소 cycle
 - **under-validation**: 실제 사용성·선택 충돌·정책 수정 전이와 15~25분 총 플레이 시간
 - **provisional**: 개별 거리·피해·AP·적재 수치
 - **deferred**: 추가 동료·다중 별동대, 복합 경제·시설 건설, 섹터 보스와 다음 섹터, 장기 정책 언어, 고급 분석과 최종 타이틀
