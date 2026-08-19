@@ -27,8 +27,9 @@ M0 범위 고정
 
 - M0: accepted. [Scope](./scope.md)의 축소된 증명 범위를 사용한다.
 - M1: implemented, automated validation passed, public build deployed. 무설명 사람 검증은 다음 외부 테스트 시 누적한다.
-- M2: next.
-- M3~M7: pending.
+- M2: implemented and deployed. 적 이동→공격 순서, BODY/GROUND의 플레이어 언어, A/B/C 소유자 연결이 자동 검증을 통과했으며 무설명 사람 판독은 under-validation이다.
+- M3: next.
+- M4~M7: pending.
 
 ## Economical validation ladder
 
