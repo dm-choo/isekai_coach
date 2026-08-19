@@ -259,9 +259,22 @@ try {
       await page.keyboard.press('Space');
       await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'ANCHOR_APPROACH');
       if (verifyP5) await assertPrimaryAction(page, 'approach-anchor', 'D');
+      run = await submissionSnapshot(page);
+      await assertAnchorSpatialPresentation(page, run, false);
       const beforeAnchorTravel = await anchorPresentation(page);
+      const pointerProgressBefore = run.anchorProgress;
+      const anchorTravelPrimary = page.locator('[data-submission-primary="approach-anchor"]');
+      await anchorTravelPrimary.dispatchEvent('pointerdown');
+      await page.waitForTimeout(100);
+      await anchorTravelPrimary.dispatchEvent('pointerup');
+      run = await submissionSnapshot(page);
+      if (run.anchorProgress <= pointerProgressBefore) throw new Error('Pointer hold did not advance the protagonist on the secured route');
+      const pointerProgressAfter = run.anchorProgress;
       await page.keyboard.press('d');
       await page.waitForTimeout(100);
+      run = await submissionSnapshot(page);
+      if (run.anchorProgress !== pointerProgressAfter + 5) throw new Error(`Keyboard D did not add one 5m anchor step: ${pointerProgressAfter} → ${run.anchorProgress}`);
+      await assertAnchorSpatialPresentation(page, run, false);
       const afterAnchorTravel = await anchorPresentation(page);
       if (beforeAnchorTravel.partyX !== afterAnchorTravel.partyX) {
         throw new Error(`Protagonist drifted during safe-route travel: ${beforeAnchorTravel.partyX} → ${afterAnchorTravel.partyX}`);
@@ -270,6 +283,13 @@ try {
         throw new Error('Safe-route world did not move behind the protagonist');
       }
       await capture(page, '12-anchor-approach');
+      const anchorApproachTextOff = await page.addStyleTag({ content: '.submission-anchor-approach strong,.submission-anchor-approach kbd,.submission-topbar strong,.submission-topbar small{visibility:hidden!important}' });
+      await capture(page, '12-anchor-approach-text-off');
+      await anchorApproachTextOff.evaluate((element) => element.remove());
+      await page.setViewportSize({ width: 960, height: 720 });
+      await assertAnchorSpatialPresentation(page, run, false);
+      await capture(page, '12-anchor-approach-4x3');
+      await page.setViewportSize({ width: 1280, height: 720 });
       await advanceAnchorUntil(page, 400);
       run = await submissionSnapshot(page);
       const readyFrontier = run.world.tiles.find((tile) => tile.id === 'frontier-east');
@@ -277,11 +297,19 @@ try {
         throw new Error(`Protagonist arrival skipped or prematurely incorporated the tile: ${JSON.stringify({ mode: run.mode, progress: run.anchorProgress, readyFrontier })}`);
       }
       if (run.worldMinute !== beforeAnchorMinute + 8) throw new Error(`400m anchor travel did not cost 8 minutes: ${beforeAnchorMinute} → ${run.worldMinute}`);
+      await assertAnchorSpatialPresentation(page, run, true);
       if (verifyP5) {
         await assertPrimaryAction(page, 'activate-anchor', 'SPACE');
         await assertKoreanFonts(page);
       }
       await capture(page, '13-anchor-ready');
+      const anchorReadyTextOff = await page.addStyleTag({ content: '.submission-anchor-approach strong,.submission-anchor-approach kbd,.submission-topbar strong,.submission-topbar small{visibility:hidden!important}' });
+      await capture(page, '13-anchor-ready-text-off');
+      await anchorReadyTextOff.evaluate((element) => element.remove());
+      await page.setViewportSize({ width: 960, height: 720 });
+      await assertAnchorSpatialPresentation(page, run, true);
+      await capture(page, '13-anchor-ready-4x3');
+      await page.setViewportSize({ width: 1280, height: 720 });
       await page.keyboard.press('Space');
       await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'EXPANDED');
       await page.waitForTimeout(1100);
@@ -604,6 +632,49 @@ async function assertOperationResultPresentation(page, run, expectedOutcome) {
   }));
   if (layout.bounds.some((box) => box.left < -1 || box.top < -1 || box.right > layout.viewport.width + 1 || box.bottom > layout.viewport.height + 1)) {
     throw new Error(`Operation result does not fit viewport: ${JSON.stringify(layout)}`);
+  }
+}
+async function assertAnchorSpatialPresentation(page, run, ready) {
+  const scene = page.locator('.submission-anchor-approach.is-spatial');
+  const frontier = run.world.tiles.find((tile) => tile.id === 'frontier-east');
+  if (!frontier?.routeSafe || !frontier.anchorPrepared || frontier.territory !== 'OUTSIDE'
+    || Boolean(frontier.protagonistAtAnchor) !== ready
+    || (ready ? run.anchorProgress !== 400 : run.anchorProgress >= 400)) {
+    throw new Error(`Anchor handoff state is invalid: ${JSON.stringify({ mode: run.mode, progress: run.anchorProgress, frontier })}`);
+  }
+  if (await scene.getAttribute('data-anchor-state') !== (ready ? 'READY' : 'TRAVELING')
+    || Number(await scene.getAttribute('data-anchor-progress')) !== run.anchorProgress
+    || await scene.getAttribute('data-route-safe') !== 'true'
+    || await scene.getAttribute('data-anchor-prepared') !== 'true'
+    || await scene.getAttribute('data-protagonist-at-anchor') !== String(ready)
+    || await scene.getAttribute('data-territory') !== 'OUTSIDE') {
+    throw new Error('Anchor handoff presentation diverges from frontier state');
+  }
+  if (await page.locator('.anchor-travel-party').count() !== 1
+    || await page.locator('.anchor-destination.is-spatial').count() !== 1
+    || await page.locator('.anchor-route-ally').count() !== 1
+    || await page.locator('.anchor-route-protagonist').count() !== 1
+    || await page.locator('.anchor-route-goal').count() !== 1
+    || Number(await page.locator('.anchor-route-progress').getAttribute('data-route-progress')) !== run.anchorProgress) {
+    throw new Error('Anchor handoff lost its protagonist, secured-route owner, progress, or closed goal');
+  }
+  const primaryId = ready ? 'activate-anchor' : 'approach-anchor';
+  const primaryKey = ready ? 'SPACE' : 'D';
+  if (await page.locator(`[data-submission-primary="${primaryId}"][data-primary-key="${primaryKey}"]`).count() !== 1
+    || await page.locator('.submission-travel-copy,.submission-distance,.submission-travel-notice,.anchor-travel-party span,.submission-anchor-approach h1,.submission-anchor-approach p').count()) {
+    throw new Error('Anchor handoff restored explanatory copy or lost its single spatial action');
+  }
+  const layout = await page.locator('.anchor-travel-party,.anchor-destination.is-spatial,.anchor-route-progress,.anchor-spatial-primary').evaluateAll((elements) => ({
+    viewport: { width: innerWidth, height: innerHeight },
+    overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    bounds: elements.map((element) => {
+      const box = element.getBoundingClientRect();
+      return { left: box.left, top: box.top, right: box.right, bottom: box.bottom };
+    }),
+  }));
+  if (layout.bounds.some((box) => box.left < -1 || box.top < -1 || box.right > layout.viewport.width + 1 || box.bottom > layout.viewport.height + 1)
+    || layout.overflow > 1) {
+    throw new Error(`Anchor handoff does not fit viewport: ${JSON.stringify(layout)}`);
   }
 }
 async function submissionSnapshot(page) { return page.evaluate(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot); }

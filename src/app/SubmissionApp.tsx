@@ -465,18 +465,23 @@ function AnchorApproachStage({ snapshot, controller }: { readonly snapshot: Subm
 
   const ready = snapshot.mode === 'ANCHOR_READY';
   const progress = snapshot.anchorProgress / 400;
-  return <div className={`submission-anchor-approach ${ready ? 'is-ready' : ''}`}>
+  const frontier = snapshot.world.tiles.find((tile) => tile.id === 'frontier-east');
+  return <div className={`submission-anchor-approach is-spatial ${ready ? 'is-ready' : ''}`} data-anchor-state={ready ? 'READY' : 'TRAVELING'} data-anchor-progress={snapshot.anchorProgress} data-route-safe={Boolean(frontier?.routeSafe)} data-anchor-prepared={Boolean(frontier?.anchorPrepared)} data-protagonist-at-anchor={Boolean(frontier?.protagonistAtAnchor)} data-territory={frontier?.territory}>
     <div className="corridor-moving-backdrop" style={{ backgroundPositionX: `${progress * -980}px` }} />
     <div className="corridor-moving-ground" style={{ backgroundPositionX: `${progress * -720}px` }} />
     <div className="safe-route-glow" /><div className="corridor-shade" />
-    <div className="submission-travel-copy"><small>SECURED ROUTE · EAST</small><strong>{ready ? '확장 거점 도착' : '되찾은 길을 걷는다'}</strong><p>{ready ? '이 땅은 아직 결계 밖이다. 주인공이 마지막 연결을 수행한다.' : '위협은 제거됐지만, 직접 도착하기 전에는 내 영토가 아니다.'}</p></div>
-    <div className="anchor-travel-party"><img src={`${BASE_URL}assets/submission/administrator-v1.png`} alt="관리자" /><span>주인공</span></div>
-    <div className="submission-destination anchor-destination"><i>✦</i><span data-korean-critical>{ready ? '확장 거점' : `${400 - snapshot.anchorProgress}m`}</span></div>
-    <div className="submission-distance" aria-label={`${snapshot.anchorProgress}미터 이동`}><i style={{ width: `${progress * 100}%` }} />{[100, 200, 300].map((meter) => <b key={meter} style={{ left: `${meter / 4}%` }} />)}<span>{snapshot.anchorProgress} / 400m</span></div>
+    <div className="anchor-travel-party"><img src={`${BASE_URL}assets/submission/administrator-v1.png`} alt="주인공" /><i /></div>
+    <div className="anchor-destination is-spatial" aria-label={ready ? '주인공이 도착했지만 아직 결계 밖인 비활성 확장 거점' : `확보된 길 끝의 비활성 확장 거점까지 ${400 - snapshot.anchorProgress}미터`}><i className="anchor-seal-glyph"><b /><em /></i></div>
+    <div className="anchor-route-progress" data-route-progress={snapshot.anchorProgress} aria-label={`동료가 확보한 400미터 길을 주인공이 ${snapshot.anchorProgress}미터 이동`}>
+      <span className="anchor-route-ally"><img src={`${BASE_URL}assets/submission/archer-v1.png`} alt="" /><b>✓</b></span>
+      <i className="anchor-route-track"><b style={{ width: `${progress * 100}%` }} />{[100, 200, 300].map((meter) => <em key={meter} style={{ left: `${meter / 4}%` }} />)}</i>
+      <span className="anchor-route-protagonist" style={{ left: `${8 + progress * 82}%` }}><img src={`${BASE_URL}assets/submission/administrator-v1.png`} alt="" /></span>
+      <span className={`anchor-route-goal ${ready ? 'is-ready' : ''}`}><i /></span>
+      <strong>{ready ? '✓' : `${400 - snapshot.anchorProgress}m`}</strong>
+    </div>
     {ready
-      ? <button type="button" className="corridor-primary anchor-activate" data-submission-primary="activate-anchor" data-primary-key="SPACE" onClick={controller.performPrimaryAction}><span><small>조건 충족 · 주인공 현장 도착</small><strong>확장 거점 활성화</strong></span><kbd>SPACE</kbd></button>
-      : <button type="button" className="corridor-primary hold-control" data-submission-primary="approach-anchor" data-primary-key="D" onPointerDown={start} onPointerUp={stop} onPointerLeave={stop}><span><small>누르는 동안 이동</small><strong>경계 방으로 전진</strong></span><kbd>D</kbd></button>}
-    <div className="submission-travel-notice" role="status"><i />{snapshot.notice}</div>
+      ? <button type="button" className="submission-flow-primary is-icon-first anchor-spatial-primary is-ready" data-submission-primary="activate-anchor" data-primary-key="SPACE" aria-label="도착한 주인공이 비활성 확장 거점을 결계에 연결" onClick={controller.performPrimaryAction}><img src={`${BASE_URL}assets/submission/administrator-v1.png`} alt="" /><i className="flow-forward" aria-hidden="true" /><span className="anchor-button-goal is-ready"><i /></span><kbd>SPACE</kbd></button>
+      : <button type="button" className="submission-flow-primary is-icon-first anchor-spatial-primary hold-control" data-submission-primary="approach-anchor" data-primary-key="D" aria-label="누르는 동안 주인공이 확보된 경로를 따라 확장 거점으로 이동" onPointerDown={start} onPointerUp={stop} onPointerLeave={stop}><img src={`${BASE_URL}assets/submission/administrator-v1.png`} alt="" /><i className="flow-forward" aria-hidden="true" /><span className="anchor-button-goal"><i /></span><kbd>D</kbd></button>}
   </div>;
 }
 

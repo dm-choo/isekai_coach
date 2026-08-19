@@ -1,7 +1,7 @@
 ---
 title: Submission Product Release Candidate Gate
 status: accepted
-last_updated: 2026-08-19
+last_updated: 2026-08-20
 related:
   - milestones.md
   - scope.md
@@ -38,8 +38,9 @@ P7은 기능 추가가 아니라 하나의 commit을 재현 가능한 제품 후
 14. 직전 사격 실패→두 공간 대응→한 정책 변화와 pointer/keyboard parity
 15. 선택 정책→400m 경로·두 위협→중단 조건→비합산 병렬 시간의 위임 계획
 16. 실제 12×3 위임 기록→피해·시간→TIME_LIMIT/SECURED 경로 결과와 다음 행동
-17. 16:9·4:3 layout과 console/page/request errors 0건
-18. 기존 Slice 1·2 회귀
+17. 동료 확보 경로→주인공 400m 이동→도착 후에도 OUTSIDE인 비활성 거점 연결
+18. 16:9·4:3 layout과 console/page/request errors 0건
+19. 기존 Slice 1·2 회귀
 
 중간 단계가 실패하면 뒤 단계를 실행하지 않는다. technical pass는 재미, 직관성 또는 pacing 통과를 뜻하지 않는다.
 

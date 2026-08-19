@@ -1,7 +1,7 @@
 ---
 title: Submission Acceptance Evidence Matrix
 status: technical-candidate
-last_updated: 2026-08-19
+last_updated: 2026-08-20
 related:
   - acceptance-criteria.md
   - release-candidate.md
@@ -16,6 +16,7 @@ related:
   - p16-retrospective.md
   - p17-retrospective.md
   - p18-retrospective.md
+  - p19-retrospective.md
 ---
 
 # 제출본 수용 기준 증거 매트릭스
@@ -38,6 +39,7 @@ related:
 | 직접 조우→규칙 관찰→정책 수정→알려진 통로 위임 | `verify:submission:golden`의 단일 complete cycle | A+V, 무설명 흐름은 H REQUIRED |
 | 위임 결과가 경로·행동·피해·시간으로 설명됨 | 실제 400m routeSafe verdict, 12×3 finalState·movement/policy trace, four metric, shared `max()`의 TIME_LIMIT/SECURED parity와 text-off·양 비율 캡처 | A+V, 손익 설명은 H REQUIRED |
 | 동료 확보만으로 편입되지 않음 | golden이 `routeSafe=true`, `territory=OUTSIDE`를 동시에 검증 | A |
+| 동료가 연 길을 주인공이 직접 이어야 편입 가능 | P4 golden의 ally check→400m rail→protagonist marker→closed anchor, D/pointer parity, 이동 +8분과 도착 후 `protagonistAtAnchor=true`·`territory=OUTSIDE`, text-off·양 비율 캡처 | A+V, 역할 분리 이해는 H REQUIRED |
 | 주인공 활성화 뒤 contour·샘·다음 좌표 변화 | world unit + golden expanded scene | A+V |
 | 승리/편입/안정화를 별개로 읽음 | 독립 world state + expanded `소속·안정·효용` ledger | A+V, 실제 개념 구분은 H REQUIRED |
 

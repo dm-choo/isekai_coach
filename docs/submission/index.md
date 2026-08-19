@@ -28,6 +28,8 @@ related:
   - p17-retrospective.md
   - p18-delegation-result-contract.md
   - p18-retrospective.md
+  - p19-anchor-handoff-contract.md
+  - p19-retrospective.md
   - release-candidate.md
 ---
 
@@ -65,6 +67,8 @@ OpenAI Game Builders Seoul 제출용 Web Build가 전체 게임 설계에서 선
 - [P17 retrospective](./p17-retrospective.md): 경로 중심 위임 계획·병렬 시간 시각 오류·검증 비용 회고
 - [P18 delegation result contract](./p18-delegation-result-contract.md): 실제 정책 행동·최종 좌표·피해·공유 시간에서 경로 결과를 복원하는 계약
 - [P18 retrospective](./p18-retrospective.md): 위임 actual grid·world/combat route 분리·두 정책 손익 검증 회고
+- [P19 anchor handoff contract](./p19-anchor-handoff-contract.md): 동료의 안전 경로→주인공 400m 이동→비활성 거점 연결의 역할 계약
+- [P19 retrospective](./p19-retrospective.md): 확보 주체·이동 주체·편입 주체를 한 공간 축으로 분리한 판단·검증 회고
 - [Release candidate gate](./release-candidate.md): 재현 가능한 기술 검증, 배포·복구와 사람 gate
 
 ## Status summary

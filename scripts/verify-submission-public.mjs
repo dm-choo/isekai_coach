@@ -269,6 +269,61 @@ try {
   }
   await page.screenshot({ path: new URL('11-public-delegation-time-limit-result.png', artifactDir).pathname });
 
+  await page.evaluate((checkpoint) => localStorage.setItem('isekai-coach:submission:v2', JSON.stringify(checkpoint)), afterCenterSave);
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.locator('[data-scout-map-state="FOUR_CORRIDORS_SCOUTED"]').waitFor();
+  await page.keyboard.press('Space');
+  await page.locator('[data-policy-choice="PUSH_FIRST"]').waitFor();
+  await page.keyboard.press('1');
+  await page.locator('[data-policy-choice="PUSH_FIRST"].is-selected').waitFor();
+  await page.keyboard.press('Space');
+  await page.locator('.submission-delegation-plan[data-delegation-policy="PUSH_FIRST"]').waitFor();
+  await page.keyboard.press('Space');
+  await page.locator('.submission-delegation-result[data-operation-outcome="SECURED"]').waitFor();
+  const publicSecuredSave = await savedSubmission(page);
+  if (publicSecuredSave?.delegationResult?.outcome !== 'SECURED'
+    || !publicSecuredSave.world.tiles.find((tile) => tile.id === 'frontier-east')?.routeSafe) {
+    throw new Error(`Public push-first checkpoint branch did not secure the route: ${JSON.stringify(publicSecuredSave?.delegationResult)}`);
+  }
+  await page.keyboard.press('Space');
+  await page.locator('.submission-anchor-approach.is-spatial[data-anchor-state="TRAVELING"]').waitFor();
+  let publicAnchorSave = await savedSubmission(page);
+  await assertPublicAnchorSpatial(page, publicAnchorSave, false);
+  const beforePublicAnchorMinute = publicAnchorSave.worldMinute;
+  const beforePublicAnchorSupplies = { ...publicAnchorSave.supplies };
+  const beforePublicAnchorVisual = await publicAnchorPresentation(page);
+  const publicAnchorPrimary = page.locator('[data-submission-primary="approach-anchor"]');
+  await publicAnchorPrimary.dispatchEvent('pointerdown');
+  await page.waitForTimeout(100);
+  await publicAnchorPrimary.dispatchEvent('pointerup');
+  publicAnchorSave = await savedSubmission(page);
+  if (publicAnchorSave.anchorProgress <= 0) throw new Error('Public pointer hold did not advance the protagonist');
+  const afterPointerProgress = publicAnchorSave.anchorProgress;
+  await page.keyboard.press('d');
+  await page.waitForFunction((progress) => JSON.parse(localStorage.getItem('isekai-coach:submission:v2') ?? 'null')?.anchorProgress === progress + 5, afterPointerProgress);
+  publicAnchorSave = await savedSubmission(page);
+  await assertPublicAnchorSpatial(page, publicAnchorSave, false);
+  const afterPublicAnchorVisual = await publicAnchorPresentation(page);
+  if (beforePublicAnchorVisual.partyX !== afterPublicAnchorVisual.partyX
+    || beforePublicAnchorVisual.backdropPosition === afterPublicAnchorVisual.backdropPosition
+    || beforePublicAnchorVisual.groundPosition === afterPublicAnchorVisual.groundPosition) {
+    throw new Error(`Public safe-route movement lost its grounded protagonist or moving world: ${JSON.stringify({ beforePublicAnchorVisual, afterPublicAnchorVisual })}`);
+  }
+  await page.screenshot({ path: new URL('12-public-anchor-approach.png', artifactDir).pathname });
+  for (let step = 0; step < 100 && await page.locator('[data-anchor-state="READY"]').count() === 0; step += 1) await page.keyboard.press('d');
+  await page.locator('.submission-anchor-approach.is-spatial[data-anchor-state="READY"]').waitFor();
+  publicAnchorSave = await savedSubmission(page);
+  await assertPublicAnchorSpatial(page, publicAnchorSave, true);
+  const publicReadyFrontier = publicAnchorSave.world.tiles.find((tile) => tile.id === 'frontier-east');
+  if (publicAnchorSave.anchorProgress !== 400
+    || publicAnchorSave.worldMinute !== beforePublicAnchorMinute + 8
+    || !publicReadyFrontier?.protagonistAtAnchor
+    || publicReadyFrontier.territory !== 'OUTSIDE'
+    || JSON.stringify(publicAnchorSave.supplies) !== JSON.stringify(beforePublicAnchorSupplies)) {
+    throw new Error(`Public anchor arrival changed time, supplies, or territory incorrectly: ${JSON.stringify({ beforePublicAnchorMinute, publicAnchorSave, publicReadyFrontier })}`);
+  }
+  await page.screenshot({ path: new URL('13-public-anchor-ready.png', artifactDir).pathname });
+
   const regression = {};
   for (const [path, expectedTitle] of [['slice1', 'Slice1'], ['slice2', 'Slice2']]) {
     const regressionPage = await context.newPage();
@@ -300,6 +355,7 @@ try {
     policyChoice: { recordLinked: true, spatialResponses: 2, keyboardChoice: '2', selected: publicPolicySave.policyChoice, order: publicPolicySave.policy, keepRange: publicPolicySave.policyDirectives.keepRange },
     delegationPlan: { policy: publicDelegationSave.policyChoice, routeMeters: 400, travelMinutes: 8, knownThreats: 2, retreatAtHp: 2, turnLimit: 12, unknownRule: 'PAUSE', suppliesUsed: 0, parallelRule: 'MAX_NOT_SUM', protagonistMinutes: 5 },
     delegationResult: { outcome: publicOperation.outcome, routeSafe: false, turns: publicOperation.turns, damageTaken: publicOperation.damageTaken, elapsedMinutes: publicOperation.elapsedMinutes, finalHp: publicOperation.finalHp, livingEnemies: publicLivingEnemies, routeTraceLength: publicOperation.route.length, sharedMinutes: Math.max(5, publicOperation.elapsedMinutes) },
+    anchorHandoff: { checkpointBranch: 'PUSH_FIRST', routeSafe: publicReadyFrontier.routeSafe, progress: publicAnchorSave.anchorProgress, travelMinutes: publicAnchorSave.worldMinute - beforePublicAnchorMinute, protagonistAtAnchor: publicReadyFrontier.protagonistAtAnchor, territoryBeforeActivation: publicReadyFrontier.territory, suppliesUnchanged: true, pointerAndKeyboard: true, worldScrolled: true },
     regression,
     browserErrors: errors,
   };
@@ -313,6 +369,56 @@ function observeErrors(page, errors) {
   page.on('console', (message) => { if (message.type() === 'error') errors.push(`console ${message.text()}`); });
   page.on('pageerror', (error) => errors.push(`page ${error.message}`));
   page.on('requestfailed', (request) => errors.push(`request ${request.method()} ${request.url()} ${request.failure()?.errorText}`));
+}
+
+async function publicAnchorPresentation(page) {
+  return page.evaluate(() => {
+    const party = document.querySelector('.anchor-travel-party')?.getBoundingClientRect();
+    const backdrop = document.querySelector('.submission-anchor-approach .corridor-moving-backdrop');
+    const ground = document.querySelector('.submission-anchor-approach .corridor-moving-ground');
+    return {
+      partyX: party?.x,
+      backdropPosition: backdrop ? getComputedStyle(backdrop).backgroundPositionX : undefined,
+      groundPosition: ground ? getComputedStyle(ground).backgroundPositionX : undefined,
+    };
+  });
+}
+
+async function assertPublicAnchorSpatial(page, save, ready) {
+  const frontier = save?.world?.tiles?.find((tile) => tile.id === 'frontier-east');
+  const scene = page.locator('.submission-anchor-approach.is-spatial');
+  if (!frontier?.routeSafe || !frontier.anchorPrepared || frontier.territory !== 'OUTSIDE'
+    || Boolean(frontier.protagonistAtAnchor) !== ready
+    || (ready ? save.anchorProgress !== 400 : save.anchorProgress >= 400)) {
+    throw new Error(`Public anchor handoff state is invalid: ${JSON.stringify({ progress: save?.anchorProgress, frontier })}`);
+  }
+  if (await scene.getAttribute('data-anchor-state') !== (ready ? 'READY' : 'TRAVELING')
+    || Number(await scene.getAttribute('data-anchor-progress')) !== save.anchorProgress
+    || await scene.getAttribute('data-route-safe') !== 'true'
+    || await scene.getAttribute('data-protagonist-at-anchor') !== String(ready)
+    || await scene.getAttribute('data-territory') !== 'OUTSIDE'
+    || await page.locator('.anchor-route-ally,.anchor-route-protagonist,.anchor-route-goal').count() !== 3
+    || Number(await page.locator('.anchor-route-progress').getAttribute('data-route-progress')) !== save.anchorProgress) {
+    throw new Error('Public anchor presentation diverges from its saved frontier state');
+  }
+  const primaryId = ready ? 'activate-anchor' : 'approach-anchor';
+  const primaryKey = ready ? 'SPACE' : 'D';
+  if (await page.locator(`[data-submission-primary="${primaryId}"][data-primary-key="${primaryKey}"]`).count() !== 1
+    || await page.locator('.submission-travel-copy,.submission-distance,.submission-travel-notice,.anchor-travel-party span,.submission-anchor-approach h1,.submission-anchor-approach p').count()) {
+    throw new Error('Public anchor presentation restored explanatory copy or lost its single action');
+  }
+  const layout = await page.locator('.anchor-travel-party,.anchor-destination.is-spatial,.anchor-route-progress,.anchor-spatial-primary').evaluateAll((elements) => ({
+    viewport: { width: innerWidth, height: innerHeight },
+    overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    bounds: elements.map((element) => {
+      const box = element.getBoundingClientRect();
+      return { left: box.left, top: box.top, right: box.right, bottom: box.bottom };
+    }),
+  }));
+  if (layout.bounds.some((box) => box.left < -1 || box.top < -1 || box.right > layout.viewport.width + 1 || box.bottom > layout.viewport.height + 1)
+    || layout.overflow > 1) {
+    throw new Error(`Public anchor presentation does not fit 4:3: ${JSON.stringify(layout)}`);
+  }
 }
 
 async function completePublicCombat(page, resultSelector, label, maxTurns) {
