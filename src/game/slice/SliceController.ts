@@ -76,6 +76,14 @@ export interface SliceActionCandidate {
   readonly apCost: number;
   readonly executable: boolean;
   readonly failureReason?: ActionFailureReason;
+  readonly failureMessage?: string;
+}
+
+export interface SliceInputFeedback {
+  readonly serial: number;
+  readonly kind: 'ACCEPTED' | 'REJECTED' | 'COMMITTED';
+  readonly message: string;
+  readonly actionId?: SliceActionId;
 }
 
 export interface SliceRuntimeStatus {
@@ -108,6 +116,7 @@ export interface SliceSnapshot {
   readonly canUndo: boolean;
   readonly canConfirm: boolean;
   readonly concealedIntentIds: readonly string[];
+  readonly inputFeedback?: SliceInputFeedback;
 }
 
 type SnapshotListener = () => void;
@@ -150,6 +159,8 @@ export class SliceController {
   private selectedTargetId: string | undefined;
   private readonly concealOneEnemyIntent: boolean;
   private enemyIntentsRevealed = false;
+  private inputFeedback: SliceInputFeedback | undefined;
+  private inputFeedbackSerial = 0;
   private snapshot: SliceSnapshot;
 
   public constructor(options: SliceControllerOptions = {}) {
@@ -219,7 +230,13 @@ export class SliceController {
     // Hover prediction may include a lethal candidate and remove its target.
     // Input must branch from committed plan state, never from that what-if state.
     const action = this.actionFor(actionId, this.simulateActions(this.plannedActions).state);
-    if (action) this.appendPlannedAction(action);
+    if (action) {
+      this.appendPlannedAction(action, actionId);
+      return;
+    }
+    this.notice = unavailableActionCopy(actionId);
+    this.setInputFeedback('REJECTED', this.notice, actionId);
+    this.publish();
   };
 
   public setActionHover = (actionId?: SliceActionId): void => {
@@ -244,6 +261,7 @@ export class SliceController {
     this.selectedTargetId = target.id;
     this.hoveredActionId = undefined;
     this.notice = `${unitDisplayName(target)}을 공격 대상으로 지정했다.`;
+    this.setInputFeedback('ACCEPTED', `${unitDisplayName(target)} 선택`);
     this.publish();
   };
 
@@ -252,6 +270,7 @@ export class SliceController {
     this.plannedActions = this.plannedActions.slice(0, -1);
     this.hoveredActionId = undefined;
     this.notice = this.plannedActions.length === 0 ? '행동 계획을 비웠다.' : '마지막 계획 행동을 취소했다.';
+    this.setInputFeedback('ACCEPTED', this.notice);
     this.publish();
   };
 
@@ -262,6 +281,7 @@ export class SliceController {
     this.hoveredActionId = undefined;
     this.presentation?.setPrediction?.(null);
     if (waitsWithoutAction) this.notice = '대기하고 현재 턴을 종료한다.';
+    this.setInputFeedback('COMMITTED', waitsWithoutAction ? '대기 확정 · 실행 시작' : `행동 ${this.plannedActions.length}개 확정 · 실행 시작`);
     this.publish();
     for (const action of this.plannedActions) {
       const result = this.engine.performStudentAction(action);
@@ -308,6 +328,7 @@ export class SliceController {
     this.hoveredActionId = undefined;
     this.selectedTargetId = this.firstLivingEnemyId();
     this.enemyIntentsRevealed = false;
+    this.inputFeedback = undefined;
     this.attempt += 1;
     this.notice = this.introNotice;
     this.presentation?.reset(this.engine.getState());
@@ -325,17 +346,24 @@ export class SliceController {
     return this.mode === 'PLAYER_TURN' && !this.isBusy && this.engine.getState().outcome === 'ONGOING';
   }
 
-  private appendPlannedAction(action: CombatAction): void {
+  private appendPlannedAction(action: CombatAction, actionId?: SliceActionId): void {
     const result = this.simulateActions([...this.plannedActions, action]);
     if (!result.executable) {
       this.notice = failureCopy(result.reason);
+      this.setInputFeedback('REJECTED', this.notice, actionId);
       this.publish();
       return;
     }
     this.plannedActions = [...this.plannedActions, action];
     this.hoveredActionId = undefined;
     this.notice = `${actionLabel(action)} 계획 · Z 취소 / SPACE 확정`;
+    this.setInputFeedback('ACCEPTED', `${actionLabel(action)}이 계획 ${this.plannedActions.length}번에 추가됨`, actionId);
     this.publish();
+  }
+
+  private setInputFeedback(kind: SliceInputFeedback['kind'], message: string, actionId?: SliceActionId): void {
+    this.inputFeedbackSerial += 1;
+    this.inputFeedback = { serial: this.inputFeedbackSerial, kind, message, ...(actionId ? { actionId } : {}) };
   }
 
   private async runAllyTurn(): Promise<void> {
@@ -590,7 +618,10 @@ export class SliceController {
       return {
         ...definition,
         executable: this.canAcceptPlayerInput() && (result?.executable ?? false),
-        failureReason: result && !result.executable ? result.reason : undefined,
+        failureReason: result && !result.executable ? result.reason : action ? undefined : 'INVALID_TARGET',
+        failureMessage: result && !result.executable
+          ? failureCopy(result.reason)
+          : action ? undefined : unavailableActionCopy(definition.id),
       };
     });
   }
@@ -629,6 +660,7 @@ export class SliceController {
       canUndo: this.canAcceptPlayerInput() && this.plannedActions.length > 0,
       canConfirm: this.canAcceptPlayerInput(),
       concealedIntentIds: this.concealedIntentIds(projection.state),
+      inputFeedback: this.inputFeedback,
     };
   }
 
@@ -769,4 +801,9 @@ function failureCopy(reason: ActionFailureReason): string {
     BLOCKED_KNOCKBACK: '뒤칸이 막혀 밀칠 수 없다.',
   };
   return copy[reason] ?? '지금은 그 행동을 실행할 수 없다.';
+}
+
+function unavailableActionCopy(actionId: SliceActionId): string {
+  if (actionId === 'PUSH' || actionId === 'SLAM') return '인접한 적이 없음 · 먼저 이동';
+  return '현재 위치에서는 사용할 수 없음';
 }

@@ -65,6 +65,40 @@ describe('SliceController barrier-guardian encounter', () => {
     expect(snapshot.policy).toEqual(['EVADE', 'POSITION', 'SHOOT', 'PUSH', 'EMPTY']);
   });
 
+  it('turns every rejected, planned, and committed input into explicit feedback', async () => {
+    const controller = new SliceController();
+    controller.attachPresentation(new InstantPresentation());
+    controller.startEncounter();
+    await flushPromises();
+
+    controller.useAction('PUSH');
+    let snapshot = controller.getSnapshot();
+    expect(snapshot.plannedActions).toHaveLength(0);
+    expect(snapshot.inputFeedback).toMatchObject({
+      serial: 1,
+      kind: 'REJECTED',
+      actionId: 'PUSH',
+      message: '인접한 적이 없음 · 먼저 이동',
+    });
+    expect(snapshot.actions.find((action) => action.id === 'PUSH')).toMatchObject({
+      executable: false,
+      failureReason: 'INVALID_TARGET',
+      failureMessage: '인접한 적이 없음 · 먼저 이동',
+    });
+
+    controller.move('UP');
+    snapshot = controller.getSnapshot();
+    expect(snapshot.plannedActions.map((action) => action.label)).toEqual(['이동']);
+    expect(snapshot.inputFeedback).toMatchObject({ serial: 2, kind: 'ACCEPTED', message: '이동이 계획 1번에 추가됨' });
+
+    controller.confirmPlan();
+    expect(controller.getSnapshot().inputFeedback).toMatchObject({
+      serial: 3,
+      kind: 'COMMITTED',
+      message: '행동 1개 확정 · 실행 시작',
+    });
+  });
+
   it('keeps planned movement provisional, supports one-step undo, then commits on Space semantics', async () => {
     const controller = new SliceController();
     const presentation = new InstantPresentation();

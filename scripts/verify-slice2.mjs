@@ -21,6 +21,7 @@ let intentOwnershipVerified = false;
 let expeditionPolicyTuned = false;
 let multiIntentCaptured = false;
 let bomberIntentCaptured = false;
+let inputFeedbackVerified = false;
 
 await mkdir(artifactDir, { recursive: true });
 
@@ -136,7 +137,7 @@ try {
       combatCount += 1;
       if (combatCount === 1) await capture(page, '02-first-encounter');
       await page.keyboard.press('Space');
-      await page.waitForTimeout(100);
+      await page.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot.mode === 'PLAYER_TURN' && !window.__ISEKAI_COACH_COMBAT__?.snapshot.isBusy);
       const activeCombat = await combatSnapshot(page);
       const markers = await page.locator('.intent-owner').allTextContents();
       if (markers.length !== activeCombat.previewState.intents.length || markers.some((marker, index) => marker !== String.fromCharCode(65 + index))) {
@@ -144,6 +145,20 @@ try {
       }
       if (await page.locator('.encounter-title').count() !== 0) throw new Error('Encounter title persisted after combat introduction');
       intentOwnershipVerified = true;
+      if (!inputFeedbackVerified) {
+        const blockedAction = page.locator('.skill-button.is-disabled').first();
+        if (await blockedAction.count() === 0) throw new Error('First combat did not expose a locally explained unavailable action');
+        const plannedBefore = activeCombat.plannedActions.length;
+        await blockedAction.click();
+        await page.locator('.input-feedback.is-rejected').waitFor();
+        const rejectedCombat = await combatSnapshot(page);
+        if (rejectedCombat.plannedActions.length !== plannedBefore || rejectedCombat.inputFeedback?.kind !== 'REJECTED') {
+          throw new Error(`Rejected input changed the plan or lacked feedback: ${JSON.stringify(rejectedCombat.inputFeedback)}`);
+        }
+        inputFeedbackVerified = true;
+        await page.mouse.move(640, 150);
+        await capture(page, '02a-input-feedback');
+      }
       if (!multiIntentCaptured && activeCombat.previewState.intents.length >= 2) {
         multiIntentCaptured = true;
         await capture(page, '02c-multi-enemy-ownership');
@@ -193,6 +208,7 @@ try {
   if (!multiIntentCaptured) throw new Error('Multi-enemy intent ownership was not captured');
   if (!bomberIntentCaptured) throw new Error('Bomber intent ownership was not captured');
   if (!targetPickerHiddenVerified || !targetPickerShownVerified) throw new Error('Target picker did not exercise both hidden and actionable states');
+  if (!inputFeedbackVerified) throw new Error('Rejected input feedback was not verified');
   await capture(page, '03-complete');
   const night = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   night.on('console', (message) => { if (message.type() === 'error') errors.push(`night ${message.text()}`); });
@@ -256,6 +272,7 @@ try {
     expeditionPolicyTuned,
     multiIntentCaptured,
     bomberIntentCaptured,
+    inputFeedbackVerified,
   };
   await writeFile(new URL('report.json', artifactDir), `${JSON.stringify(report, null, 2)}\n`);
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
@@ -294,7 +311,7 @@ async function playPlayerTurn(page, snapshot) {
       (actor.hp <= 2 && currentDanger > 0 && escape.danger < currentDanger)
     );
     if (shouldEscape) {
-      await page.getByRole('button', { name: escape.key, exact: true }).click();
+      await page.locator('.wasd-grid button').filter({ hasText: escape.key }).click();
       await page.waitForTimeout(30);
       continue;
     }
@@ -322,7 +339,7 @@ async function playPlayerTurn(page, snapshot) {
     }
     const move = actor.hp <= 2 ? escape?.key : bestMove(snapshot.previewState, actor.id, target.id);
     if (!move) break;
-    await page.getByRole('button', { name: move, exact: true }).click();
+    await page.locator('.wasd-grid button').filter({ hasText: move }).click();
     await page.waitForTimeout(30);
     const afterMove = await combatSnapshot(page);
     const warriorIntent = afterMove.previewState.intents.find((intent) => intent.sourceId === 'goblin-warrior');

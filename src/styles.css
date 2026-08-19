@@ -212,10 +212,10 @@ button:disabled { cursor: not-allowed; }
   position: absolute;
   bottom: calc(100% + 8px);
   left: 50%;
-  display: flex;
-  min-width: 320px;
+  display: grid;
+  min-width: 520px;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: center;
   gap: 12px;
   transform: translateX(-50%);
   padding: 7px 12px;
@@ -223,16 +223,29 @@ button:disabled { cursor: not-allowed; }
   background: rgba(5, 8, 5, .86);
   box-shadow: 0 8px 24px rgba(0,0,0,.34);
 }
-.plan-strip > small { color: #8f856f; font: 700 9px ui-monospace, monospace; letter-spacing: .08em; }
+.plan-phase { display: grid; min-width: 102px; padding-right: 11px; border-right: 1px solid rgba(210,188,131,.24); }
+.plan-phase strong { color: #f2d986; font-size: 11px; }
+.plan-phase small { margin-top: 2px; color: #aaa18d; font-size: 9px; }
+.phase-executing .plan-phase strong { color: #7de1ea; }
+.plan-sequence { display: flex; min-width: 190px; align-items: center; gap: 8px; }
 .target-picker { display: flex; align-items: center; gap: 4px; padding-right: 9px; border-right: 1px solid rgba(210,188,131,.24); }
 .target-picker small { margin-right: 2px; color: #8f856f; font: 700 8px ui-monospace, monospace; }
 .target-picker button { padding: 3px 6px; border: 1px solid rgba(207,98,76,.35); background: rgba(48,18,13,.72); color: #c8a99e; font-size: 9px; }
 .target-picker button:hover, .target-picker button:focus-visible { border-color: #ef8b72; color: #ffe0d7; }
 .target-picker button.is-selected { border-color: #ff8f75; background: #6a261d; color: #fff0e8; box-shadow: 0 0 8px rgba(225,83,56,.28); }
-.plan-strip > div { display: flex; gap: 6px; }
+.plan-actions-preview { display: flex; gap: 6px; }
 .plan-chip, .plan-empty { padding: 4px 8px; color: #f0dfad; background: #262217; font-size: 10px; }
 .plan-chip i { display: inline-grid; width: 16px; height: 16px; margin-right: 5px; place-items: center; border-radius: 50%; background: #aa843f; color: #171208; font: 800 9px ui-monospace, monospace; font-style: normal; }
+.plan-chip:last-child { border: 1px solid #d6ad55; animation: plan-added .26s ease-out both; }
 .plan-empty { color: #77705f; background: transparent; }
+.input-feedback { display: flex; max-width: 240px; align-items: center; gap: 7px; justify-self: end; color: #bce7c9; font-size: 10px; font-weight: 700; line-height: 1.3; animation: input-feedback-in .24s ease-out both; }
+.input-feedback i { display: grid; width: 18px; height: 18px; flex: 0 0 18px; place-items: center; border-radius: 50%; background: #275b3a; color: #d8ffe5; font-style: normal; font-weight: 900; }
+.input-feedback.is-rejected { color: #ffad9a; }
+.input-feedback.is-rejected i { background: #7a271d; color: #ffe1da; }
+.input-feedback.is-committed { color: #9ce9f0; }
+.input-feedback.is-committed i { background: #23606a; color: #dcfbff; }
+@keyframes input-feedback-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@keyframes plan-added { from { transform: scale(.82); filter: brightness(1.8); } to { transform: scale(1); filter: none; } }
 .control-caption { display: block; margin-bottom: 8px; color: #e3d6b6; font-size: 11px; font-weight: 800; letter-spacing: .08em; }
 .control-caption small { margin-left: 5px; color: #817967; font: 600 9px ui-monospace, monospace; }
 .movement-control { display: grid; grid-template-columns: 66px 96px; align-items: end; gap: 10px; }
@@ -244,6 +257,8 @@ button:disabled { cursor: not-allowed; }
 .wasd-grid button:nth-child(3) { grid-row: 2; grid-column: 2; }
 .wasd-grid button:nth-child(4) { grid-row: 2; grid-column: 3; }
 .wasd-grid button:hover { border-color: #d2b967; background: #27271b; }
+.wasd-grid button:active:not(:disabled) { transform: translateY(2px); border-color: #f0ce69; background: #443b1f; box-shadow: inset 0 1px #0b0c08; }
+.wasd-grid button:disabled { opacity: .35; }
 
 .action-control { justify-self: center; }
 .action-control .control-caption { text-align: center; }
@@ -252,8 +267,8 @@ button:disabled { cursor: not-allowed; }
   position: relative;
   display: grid;
   width: 104px;
-  height: 94px;
-  grid-template-rows: 1fr auto auto;
+  height: 108px;
+  grid-template-rows: 1fr auto auto auto;
   place-items: center;
   padding: 9px 7px 7px;
   overflow: visible;
@@ -262,12 +277,21 @@ button:disabled { cursor: not-allowed; }
   box-shadow: inset 0 0 0 2px #090a07, 0 7px 18px #000;
 }
 .skill-button:hover:not(:disabled) { transform: translateY(-3px); border-color: #e2bd66; filter: brightness(1.13); }
-.skill-button:disabled, .skill-button.is-disabled { opacity: .48; filter: grayscale(.55); }
-.skill-button.is-disabled:hover, .skill-button.is-disabled:focus-visible { opacity: .72; border-color: #a88555; }
+.skill-button:disabled { opacity: .42; filter: grayscale(.7); }
+.skill-button.is-disabled { opacity: .68; filter: grayscale(.42); }
+.skill-button.is-disabled:hover, .skill-button.is-disabled:focus-visible { opacity: .9; border-color: #a88555; }
+.skill-button.is-ready { border-color: #b1904e; }
+.skill-button:active:not(:disabled) { transform: translateY(2px); }
+.skill-button.feedback-rejected { animation: rejected-input .26s ease-out; }
+.skill-button.feedback-accepted { animation: accepted-input .26s ease-out; }
+@keyframes rejected-input { 35% { transform: translateX(-4px); border-color: #ff755f; } 70% { transform: translateX(4px); } }
+@keyframes accepted-input { 45% { transform: translateY(-4px); border-color: #8ce6ae; filter: brightness(1.4); } }
 .skill-button kbd { position: absolute; top: 4px; left: 5px; color: #8f856f; font: 700 9px ui-monospace, monospace; }
 .skill-button > img { width: 34px; height: 34px; filter: drop-shadow(0 0 8px rgba(226,184,88,.26)); }
 .skill-button > strong { font-size: 13px; }
 .skill-button > small { color: #aaa087; font: 700 9px ui-monospace, monospace; }
+.skill-state { max-width: 92px; overflow: hidden; color: #e39b86; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.skill-state.is-ready { color: #86d69f; }
 .skill-tooltip { position: absolute; bottom: calc(100% + 9px); left: 50%; display: none; width: 280px; transform: translateX(-50%); padding: 11px 12px; border: 1px solid #806d48; background: rgba(8,9,6,.97); color: #eee1c3; font-size: 11px; line-height: 1.45; text-align: left; white-space: normal; }
 .skill-tooltip b, .skill-tooltip small { display: block; }
 .skill-tooltip b { margin-bottom: 5px; color: #fff0bd; font-size: 13px; }

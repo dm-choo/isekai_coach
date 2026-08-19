@@ -275,7 +275,7 @@ function CombatStage({ snapshot, run, controller, encounter }: {
       {snapshot.mode === 'PLAYER_TURN' && <AllyIntentPanel snapshot={snapshot} />}
       {run.canUseLight && <button type="button" className="light-button" onClick={controller.useLight}>휴대용 조명 사용 · Intent 공개</button>}
       {snapshot.mode !== 'INTRO' && <CombatTurnBanner snapshot={snapshot} />}
-      {snapshot.mode !== 'INTRO' && <div className="combat-notice"><span />{snapshot.notice}</div>}
+      {snapshot.mode !== 'INTRO' && snapshot.mode !== 'PLAYER_TURN' && <div className="combat-notice"><span />{snapshot.notice}</div>}
       {snapshot.mode === 'ALLY_TURN' && <PolicyReadout snapshot={snapshot} />}
       {snapshot.mode === 'PLAYER_TURN' && <CombatControls snapshot={snapshot} controller={controller} />}
       {snapshot.mode === 'INTRO' && (
@@ -294,18 +294,28 @@ function CombatStage({ snapshot, run, controller, encounter }: {
 function CombatControls({ snapshot, controller }: { readonly snapshot: SliceSnapshot; readonly controller: Slice2RunController }) {
   const administrator = snapshot.previewState.units.find((unit) => unit.id === 'administrator-slice2');
   const enemies = snapshot.previewState.units.filter((unit) => snapshot.targetableEnemyIds.includes(unit.id));
+  const phase = snapshot.isBusy ? 'EXECUTING' : snapshot.plannedActions.length ? 'PLANNING' : 'INPUT';
+  const phaseCopy = phase === 'EXECUTING'
+    ? ['3 · 실행 중', '입력이 잠겼습니다']
+    : phase === 'PLANNING'
+      ? ['2 · 계획 확인', 'SPACE로 실행']
+      : ['1 · 행동 선택', '이동 또는 기술을 입력'];
   return (
-    <section className={`player-controls ${snapshot.isBusy ? 'is-busy' : ''}`}>
-      <div className="plan-strip">{enemies.length > 0 && <><small>대상</small><div className="target-picker">{enemies.map((enemy) => <button key={enemy.id} type="button" className={snapshot.selectedTargetId === enemy.id ? 'is-selected' : ''} onClick={() => controller.selectTarget(enemy.id)}>{unitName(enemy)}</button>)}</div></>}<div>{snapshot.plannedActions.length ? snapshot.plannedActions.map((action, index) => <span key={action.id} className="plan-chip"><i>{index + 1}</i>{action.label}</span>) : <span className="plan-empty">이동 또는 공격을 선택</span>}</div></div>
-      <div className="movement-control"><span className="control-caption">이동 <small>AP 1</small></span><div className="wasd-grid"><button type="button" onClick={() => controller.move('UP')}>W</button><button type="button" onClick={() => controller.move('LEFT')}>A</button><button type="button" onClick={() => controller.move('DOWN')}>S</button><button type="button" onClick={() => controller.move('RIGHT')}>D</button></div></div>
-      <div className="action-control"><span className="control-caption">공격</span><div className="skill-row">{snapshot.actions.map((action, index) => <ActionButton key={action.id} action={action} index={index} controller={controller} />)}</div></div>
+    <section className={`player-controls phase-${phase.toLowerCase()} ${snapshot.isBusy ? 'is-busy' : ''}`}>
+      <div className="plan-strip">
+        <div className="plan-phase"><strong>{phaseCopy[0]}</strong><small>{phaseCopy[1]}</small></div>
+        <div className="plan-sequence">{enemies.length > 0 && <div className="target-picker"><small>대상</small>{enemies.map((enemy) => <button key={enemy.id} type="button" className={snapshot.selectedTargetId === enemy.id ? 'is-selected' : ''} onClick={() => controller.selectTarget(enemy.id)}>{unitName(enemy)}</button>)}</div>}<div className="plan-actions-preview">{snapshot.plannedActions.length ? snapshot.plannedActions.map((action, index) => <span key={action.id} className="plan-chip"><i>{index + 1}</i>{action.label}</span>) : <span className="plan-empty">아직 입력된 행동 없음</span>}</div></div>
+        {snapshot.inputFeedback && <output key={snapshot.inputFeedback.serial} className={`input-feedback is-${snapshot.inputFeedback.kind.toLowerCase()}`}><i aria-hidden="true">{snapshot.inputFeedback.kind === 'REJECTED' ? '!' : snapshot.inputFeedback.kind === 'COMMITTED' ? '▶' : '✓'}</i>{snapshot.inputFeedback.message}</output>}
+      </div>
+      <div className="movement-control"><span className="control-caption">이동 <small>AP 1</small></span><div className="wasd-grid"><button type="button" disabled={snapshot.isBusy} aria-label="위로 이동" onClick={() => controller.move('UP')}>W</button><button type="button" disabled={snapshot.isBusy} aria-label="왼쪽으로 이동" onClick={() => controller.move('LEFT')}>A</button><button type="button" disabled={snapshot.isBusy} aria-label="아래로 이동" onClick={() => controller.move('DOWN')}>S</button><button type="button" disabled={snapshot.isBusy} aria-label="오른쪽으로 이동" onClick={() => controller.move('RIGHT')}>D</button></div></div>
+      <div className="action-control"><span className="control-caption">기술</span><div className="skill-row">{snapshot.actions.map((action, index) => <ActionButton key={`${action.id}-${snapshot.inputFeedback?.actionId === action.id ? snapshot.inputFeedback.serial : 0}`} action={action} index={index} busy={snapshot.isBusy} feedbackKind={snapshot.inputFeedback?.actionId === action.id ? snapshot.inputFeedback.kind : undefined} controller={controller} />)}</div></div>
       <div className="turn-control"><div className="ap-readout"><small>ACTION POINT</small><strong>{'◆'.repeat(administrator?.ap ?? 0)}<i>{'◇'.repeat(Math.max(0, (administrator?.maxAp ?? 0) - (administrator?.ap ?? 0)))}</i></strong></div><div className="plan-actions"><button type="button" className="undo-button" disabled={!snapshot.canUndo} onClick={controller.undoLastAction}><span>되돌리기</span><kbd>Z</kbd></button><button type="button" className="end-turn-button" disabled={!snapshot.canConfirm} onClick={controller.confirmPlan}><span>{snapshot.plannedActions.length ? '행동 확정' : '대기'}</span><kbd>SPACE</kbd></button></div></div>
     </section>
   );
 }
 
-function ActionButton({ action, index, controller }: { readonly action: SliceSnapshot['actions'][number]; readonly index: number; readonly controller: Slice2RunController }) {
-  return <button type="button" className={`skill-button ${action.executable ? '' : 'is-disabled'}`} disabled={false} aria-disabled={!action.executable} onClick={() => controller.useAction(action.id as SliceActionId)} onMouseEnter={() => controller.setActionHover(action.id as SliceActionId)} onMouseLeave={() => controller.setActionHover()}><kbd>{index === 0 ? '1 / Q' : index === 1 ? '2 / E' : index === 2 ? '3 / R' : index + 1}</kbd><img src={`${BASE_URL}assets/ui/intent-${action.icon.toLowerCase()}.svg`} alt="" /><strong>{action.label}</strong><small>AP {action.apCost}</small><span className="skill-tooltip"><b>{action.label}</b>{action.description}{!action.executable && <em>현재 계획에서 실행할 수 없습니다.</em>}<small>{action.tags.join(' ')}</small></span></button>;
+function ActionButton({ action, index, busy, feedbackKind, controller }: { readonly action: SliceSnapshot['actions'][number]; readonly index: number; readonly busy: boolean; readonly feedbackKind?: 'ACCEPTED' | 'REJECTED' | 'COMMITTED'; readonly controller: Slice2RunController }) {
+  return <button type="button" className={`skill-button ${action.executable ? 'is-ready' : 'is-disabled'} ${feedbackKind ? `feedback-${feedbackKind.toLowerCase()}` : ''}`} disabled={busy} data-executable={action.executable} aria-label={`${action.label}, AP ${action.apCost}${action.executable ? ', 사용 가능' : `, ${action.failureMessage ?? '사용 불가'}`}`} onClick={() => controller.useAction(action.id as SliceActionId)} onMouseEnter={() => controller.setActionHover(action.id as SliceActionId)} onMouseLeave={() => controller.setActionHover()}><kbd>{index === 0 ? '1 / Q' : index === 1 ? '2 / E' : index === 2 ? '3 / R' : index + 1}</kbd><img src={`${BASE_URL}assets/ui/intent-${action.icon.toLowerCase()}.svg`} alt="" /><strong>{action.label}</strong><small>AP {action.apCost}</small><span className={`skill-state ${action.executable ? 'is-ready' : ''}`}>{action.executable ? '사용 가능' : action.failureMessage ?? '사용 불가'}</span><span className="skill-tooltip"><b>{action.label}</b>{action.description}{!action.executable && <em>{action.failureMessage ?? '현재 계획에서 실행할 수 없습니다.'}</em>}<small>{action.tags.join(' ')}</small></span></button>;
 }
 
 function IntentStack({ snapshot }: { readonly snapshot: SliceSnapshot }) {
