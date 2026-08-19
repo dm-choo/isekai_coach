@@ -54,6 +54,12 @@ try {
   await page.locator('.solo-learning-controls .wasd-grid button').filter({ hasText: 'W' }).click();
   await page.locator('[data-onboarding-primary="execute-plan"]').waitFor();
   await page.screenshot({ path: new URL('02-public-solo-plan.png', artifactDir).pathname });
+  await page.locator('[data-onboarding-primary="execute-plan"]').click();
+  await page.locator('.submission-action-dock[data-decision-focus="INPUT"]').waitFor();
+  if (await page.locator('.turn-banner-player_turn,.submission-action-dock .target-picker,.submission-action-dock .skill-tooltip:visible').count()) {
+    throw new Error('Public normal combat hierarchy regressed');
+  }
+  await page.screenshot({ path: new URL('03-public-normal-combat.png', artifactDir).pathname });
 
   const regression = {};
   for (const [path, expectedTitle] of [['slice1', 'Slice1'], ['slice2', 'Slice2']]) {
@@ -79,6 +85,7 @@ try {
     progressAfterReload: checkpointAfterReload.prologueProgress,
     checkpointRestored: true,
     soloCombat: { progressiveDisclosure: true, unsafePlanRevises: true, safePlanExecutes: true },
+    normalCombat: { sceneFirst: true, actionDock: true, detailOnDemand: true },
     regression,
     browserErrors: errors,
   };

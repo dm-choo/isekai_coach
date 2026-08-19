@@ -12,6 +12,8 @@ related:
   - acceptance-criteria.md
   - p9-first-experience-contract.md
   - p10-solo-combat-interaction-contract.md
+  - p11-normal-combat-information-contract.md
+  - p11-retrospective.md
   - release-candidate.md
 ---
 
@@ -33,6 +35,8 @@ OpenAI Game Builders Seoul 제출용 Web Build가 전체 게임 설계에서 선
 - [P9 first experience contract](./p9-first-experience-contract.md): 단독 각성→첫 전투→동료 해방의 무설명 경험 계약
 - [P10 solo combat interaction contract](./p10-solo-combat-interaction-contract.md): 첫 전투의 위협→이동→예정 결과→실행 점진 공개 계약
 - [P10 retrospective](./p10-retrospective.md): 첫 단독 전투 산출물과 판단·재작업·검증 비용 회고
+- [P11 normal combat information contract](./p11-normal-combat-information-contract.md): 정상 턴의 위협→응답→결과→실행 action dock 계약
+- [P11 retrospective](./p11-retrospective.md): 정상 전투 action dock의 산출물·오류·검증 비용 회고
 - [Release candidate gate](./release-candidate.md): 재현 가능한 기술 검증, 배포·복구와 사람 gate
 
 ## Status summary

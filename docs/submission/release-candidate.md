@@ -30,8 +30,9 @@ P7은 기능 추가가 아니라 하나의 commit을 재현 가능한 제품 후
 6. production build
 7. 첫 입력부터 샘·다음 좌표까지 browser golden path
 8. 첫 단독 전투의 위협→위험한 preview 수정→안전한 실행→정상 턴 전이
-9. 16:9·4:3 layout과 console/page/request errors 0건
-10. 기존 Slice 1·2 회귀
+9. 정상 턴의 scene-first Intent, action dock과 계획 결과 전경화
+10. 16:9·4:3 layout과 console/page/request errors 0건
+11. 기존 Slice 1·2 회귀
 
 중간 단계가 실패하면 뒤 단계를 실행하지 않는다. technical pass는 재미, 직관성 또는 pacing 통과를 뜻하지 않는다.
 

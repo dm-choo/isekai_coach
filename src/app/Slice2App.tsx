@@ -295,6 +295,7 @@ export function CombatStage({ snapshot, run, controller, encounter, visualTheme,
   const state = snapshot.mode === 'PLAYER_TURN' ? snapshot.previewState : snapshot.state;
   const party = state.units.filter((unit) => unit.faction === 'STUDENT');
   const enemies = state.units.filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0);
+  const submissionPresentation = visualTheme === 'SUBMISSION';
   const firstLearningTurn = snapshot.mode === 'PLAYER_TURN' && run.elapsedBattleTurns === 0 && snapshot.state.turn === 1;
   const soloLearningTurn = prologueEncounter && firstLearningTurn;
   const soloLearningPhase = soloLearningTurn && snapshot.plannedActions.length > 0 ? 'outcome' : 'threat';
@@ -311,14 +312,14 @@ export function CombatStage({ snapshot, run, controller, encounter, visualTheme,
           : <div aria-hidden="true" />}
         <div className="enemy-bars">{enemies.map((unit) => <UnitBar key={unit.id} unit={unit} enemy />)}</div>
       </header>
-      <IntentStack snapshot={snapshot} focused={soloLearningTurn} />
+      <IntentStack snapshot={snapshot} focused={soloLearningTurn} sceneFirst={submissionPresentation} />
       {snapshot.mode === 'PLAYER_TURN' && party.length > 1 && <AllyIntentPanel snapshot={snapshot} />}
       {run.canUseLight && <button type="button" className="light-button" onClick={controller.useLight}>휴대용 조명 사용 · Intent 공개</button>}
-      {snapshot.mode !== 'INTRO' && !soloLearningTurn && <CombatTurnBanner snapshot={snapshot} />}
+      {snapshot.mode !== 'INTRO' && !soloLearningTurn && !(submissionPresentation && snapshot.mode === 'PLAYER_TURN') && <CombatTurnBanner snapshot={snapshot} />}
       {snapshot.mode !== 'INTRO' && snapshot.mode !== 'PLAYER_TURN' && snapshot.mode !== 'SEAL_UNLOCKED' && <div className="combat-notice"><span />{snapshot.notice}</div>}
       {snapshot.mode === 'ALLY_TURN' && party.length > 1 && <PolicyReadout snapshot={snapshot} />}
       {firstLearningTurn && (soloLearningTurn ? <SoloCombatGuide snapshot={snapshot} /> : <FirstCombatCue snapshot={snapshot} />)}
-      {snapshot.mode === 'PLAYER_TURN' && <CombatControls snapshot={snapshot} controller={controller} onboarding={soloLearningTurn} />}
+      {snapshot.mode === 'PLAYER_TURN' && <CombatControls snapshot={snapshot} controller={controller} onboarding={soloLearningTurn} compact={submissionPresentation && !soloLearningTurn} />}
       {snapshot.mode === 'INTRO' && (prologueEncounter
         ? <div className="encounter-overlay is-prologue"><button type="button" aria-label="첫 전투 시작" onClick={controller.startEncounter}><img src={`${BASE_URL}assets/ui/intent-attack.svg`} alt="" /><kbd>SPACE</kbd></button></div>
         : <div className="encounter-overlay"><div className="encounter-rule" /><p>SCOUTED ENCOUNTER</p><h1>{encounterTitle(encounter)}</h1><span>{snapshot.notice}</span><button type="button" onClick={controller.startEncounter}>전투 시작 <kbd>SPACE</kbd></button></div>
@@ -360,7 +361,7 @@ function FirstCombatCue({ snapshot }: { readonly snapshot: SliceSnapshot }) {
   </aside>;
 }
 
-function CombatControls({ snapshot, controller, onboarding = false }: { readonly snapshot: SliceSnapshot; readonly controller: CombatViewController; readonly onboarding?: boolean }) {
+function CombatControls({ snapshot, controller, onboarding = false, compact = false }: { readonly snapshot: SliceSnapshot; readonly controller: CombatViewController; readonly onboarding?: boolean; readonly compact?: boolean }) {
   const administrator = snapshot.previewState.units.find((unit) => unit.id === 'administrator-slice2');
   const enemies = snapshot.previewState.units.filter((unit) => snapshot.targetableEnemyIds.includes(unit.id));
   const phase = snapshot.isBusy ? 'EXECUTING' : snapshot.plannedActions.length ? 'PLANNING' : 'INPUT';
@@ -369,6 +370,9 @@ function CombatControls({ snapshot, controller, onboarding = false }: { readonly
     : phase === 'PLANNING'
       ? ['2 · 계획 확인', 'SPACE로 실행']
       : ['1 · 행동 선택', '이동 또는 기술을 입력'];
+  const visibleInputFeedback = compact && phase === 'INPUT' && snapshot.inputFeedback?.kind === 'COMMITTED'
+    ? undefined
+    : snapshot.inputFeedback;
   if (onboarding) {
     const planning = snapshot.plannedActions.length > 0;
     const destinationThreatened = planning && administrator !== undefined && snapshot.previewState.intents.some((intent) => (
@@ -390,15 +394,19 @@ function CombatControls({ snapshot, controller, onboarding = false }: { readonly
     </section>;
   }
   return (
-    <section className={`player-controls phase-${phase.toLowerCase()} ${snapshot.isBusy ? 'is-busy' : ''}`}>
+    <section className={`player-controls phase-${phase.toLowerCase()} ${compact ? 'submission-action-dock' : ''} ${snapshot.isBusy ? 'is-busy' : ''}`} data-decision-focus={snapshot.plannedActions.length ? 'OUTCOME' : 'INPUT'}>
+      {compact && <div className="combat-actor-panel" aria-label={`주인공, 행동력 ${administrator?.ap ?? 0}/${administrator?.maxAp ?? 0}`}>
+        <img src={`${BASE_URL}assets/submission/administrator-v1.png`} alt="" />
+        <div><small>TURN {snapshot.state.turn}</small><span className="combat-actor-ap" aria-hidden="true">{Array.from({ length: administrator?.maxAp ?? 0 }, (_, index) => <i key={index} className={index < (administrator?.ap ?? 0) ? 'is-ready' : ''}>◆</i>)}</span></div>
+      </div>}
       <div className="plan-strip">
-        <div className="plan-phase"><strong>{phaseCopy[0]}</strong><small>{phaseCopy[1]}</small></div>
-        <div className="plan-sequence">{enemies.length > 0 && <div className="target-picker"><small>대상</small>{enemies.map((enemy) => <button key={enemy.id} type="button" className={snapshot.selectedTargetId === enemy.id ? 'is-selected' : ''} onClick={() => controller.selectTarget(enemy.id)}>{unitName(enemy)}</button>)}</div>}<div className="plan-actions-preview">{snapshot.plannedActions.length ? snapshot.plannedActions.map((action, index) => <span key={action.id} className="plan-chip"><i>{index + 1}</i>{action.label}</span>) : <span className="plan-empty">아직 입력된 행동 없음</span>}</div></div>
-        {snapshot.inputFeedback && <output key={snapshot.inputFeedback.serial} className={`input-feedback is-${snapshot.inputFeedback.kind.toLowerCase()}`}><i aria-hidden="true">{snapshot.inputFeedback.kind === 'REJECTED' ? '!' : snapshot.inputFeedback.kind === 'COMMITTED' ? '▶' : '✓'}</i>{snapshot.inputFeedback.message}</output>}
+        <div className="plan-phase">{compact ? <><strong aria-hidden="true">{phase === 'EXECUTING' ? '▶' : snapshot.plannedActions.length ? '◇' : '＋'}</strong><small>T{snapshot.state.turn}</small></> : <><strong>{phaseCopy[0]}</strong><small>{phaseCopy[1]}</small></>}</div>
+        <div className="plan-sequence">{enemies.length > (compact ? 1 : 0) && <div className="target-picker"><small>대상</small>{enemies.map((enemy) => <button key={enemy.id} type="button" className={snapshot.selectedTargetId === enemy.id ? 'is-selected' : ''} onClick={() => controller.selectTarget(enemy.id)}>{unitName(enemy)}</button>)}</div>}<div className="plan-actions-preview">{snapshot.plannedActions.length ? snapshot.plannedActions.map((action, index) => <span key={action.id} className="plan-chip"><i>{index + 1}</i>{compact && <img src={`${BASE_URL}${plannedActionIcon(action.action)}`} alt="" />}{action.label}</span>) : compact ? <span className="plan-empty is-symbolic" aria-label="계획된 행동 없음"><i /><i /><i /></span> : <span className="plan-empty">아직 입력된 행동 없음</span>}</div></div>
+        {visibleInputFeedback && <output key={visibleInputFeedback.serial} className={`input-feedback is-${visibleInputFeedback.kind.toLowerCase()}`}><i aria-hidden="true">{visibleInputFeedback.kind === 'REJECTED' ? '!' : visibleInputFeedback.kind === 'COMMITTED' ? '▶' : '✓'}</i>{visibleInputFeedback.message}</output>}
       </div>
       <MovementControl snapshot={snapshot} controller={controller} caption />
-      <div className="action-control"><span className="control-caption">기술</span><div className="skill-row">{snapshot.actions.map((action, index) => <ActionButton key={`${action.id}-${snapshot.inputFeedback?.actionId === action.id ? snapshot.inputFeedback.serial : 0}`} action={action} index={index} busy={snapshot.isBusy} feedbackKind={snapshot.inputFeedback?.actionId === action.id ? snapshot.inputFeedback.kind : undefined} controller={controller} />)}</div></div>
-      <div className="turn-control"><div className="ap-readout"><small>ACTION POINT</small><strong>{'◆'.repeat(administrator?.ap ?? 0)}<i>{'◇'.repeat(Math.max(0, (administrator?.maxAp ?? 0) - (administrator?.ap ?? 0)))}</i></strong></div><div className="plan-actions"><button type="button" className="undo-button" disabled={!snapshot.canUndo} onClick={controller.undoLastAction}><span>되돌리기</span><kbd>Z</kbd></button><button type="button" className="end-turn-button" disabled={!snapshot.canConfirm} onClick={controller.confirmPlan}><span>{snapshot.plannedActions.length ? '행동 확정' : '대기'}</span><kbd>SPACE</kbd></button></div></div>
+      <div className="action-control"><span className="control-caption">기술</span><div className="skill-row">{snapshot.actions.map((action, index) => <ActionButton key={`${action.id}-${visibleInputFeedback?.actionId === action.id ? visibleInputFeedback.serial : 0}`} action={action} index={index} busy={snapshot.isBusy} feedbackKind={visibleInputFeedback?.actionId === action.id ? visibleInputFeedback.kind : undefined} controller={controller} />)}</div></div>
+      <div className="turn-control"><div className="ap-readout"><small>ACTION POINT</small><strong>{'◆'.repeat(administrator?.ap ?? 0)}<i>{'◇'.repeat(Math.max(0, (administrator?.maxAp ?? 0) - (administrator?.ap ?? 0)))}</i></strong></div><div className="plan-actions"><button type="button" className="undo-button" disabled={!snapshot.canUndo} aria-label="마지막 계획 되돌리기" onClick={controller.undoLastAction}><span aria-hidden={compact}>{compact ? '↶' : '되돌리기'}</span><kbd>Z</kbd></button><button type="button" className="end-turn-button" disabled={!snapshot.canConfirm} data-combat-primary={snapshot.plannedActions.length ? 'execute-plan' : 'wait'} aria-label={snapshot.plannedActions.length ? '예정 행동 실행' : '대기하고 턴 실행'} onClick={controller.confirmPlan}><span aria-hidden={compact}>{compact ? snapshot.plannedActions.length ? '▶' : 'Ⅱ' : snapshot.plannedActions.length ? '행동 확정' : '대기'}</span><kbd>SPACE</kbd></button></div></div>
     </section>
   );
 }
@@ -421,9 +429,9 @@ function ActionButton({ action, index, busy, feedbackKind, controller }: { reado
   return <button type="button" className={`skill-button ${action.executable ? 'is-ready' : 'is-disabled'} ${feedbackKind ? `feedback-${feedbackKind.toLowerCase()}` : ''} ${tooltipVisible ? 'is-tooltip-visible' : ''}`} disabled={busy} data-executable={action.executable} aria-label={`${action.label}, AP ${action.apCost}${action.executable ? ', 사용 가능' : `, ${action.failureMessage ?? '사용 불가'}`}`} onClick={() => controller.useAction(action.id as SliceActionId)} onPointerMove={reveal} onPointerLeave={conceal} onFocus={reveal} onBlur={conceal}><kbd>{index === 0 ? '1 / Q' : index === 1 ? '2 / E' : index === 2 ? '3 / R' : index + 1}</kbd><img src={`${BASE_URL}assets/ui/intent-${action.icon.toLowerCase()}.svg`} alt="" /><strong>{action.label}</strong><small>AP {action.apCost}</small><span className={`skill-state ${action.executable ? 'is-ready' : ''}`}>{action.executable ? '사용 가능' : action.failureMessage ?? '사용 불가'}</span><span className="skill-tooltip"><b>{action.label}</b>{action.description}{!action.executable && <em>{action.failureMessage ?? '현재 계획에서 실행할 수 없습니다.'}</em>}<small>{action.tags.join(' ')}</small></span></button>;
 }
 
-function IntentStack({ snapshot, focused = false }: { readonly snapshot: SliceSnapshot; readonly focused?: boolean }) {
+function IntentStack({ snapshot, focused = false, sceneFirst = false }: { readonly snapshot: SliceSnapshot; readonly focused?: boolean; readonly sceneFirst?: boolean }) {
   const hidden = new Set(snapshot.concealedIntentIds);
-  return <div className={`intent-stack ${focused ? 'is-learning-focus' : ''}`}>{snapshot.previewState.intents.map((intent, index) => <EnemyIntentCard key={intent.id} intent={intent} owner={String.fromCharCode(65 + index)} unit={snapshot.previewState.units.find((unit) => unit.id === intent.sourceId)} concealed={hidden.has(intent.id)} />)}</div>;
+  return <div className={`intent-stack ${sceneFirst ? 'is-scene-first' : ''} ${focused ? 'is-learning-focus' : ''}`}>{snapshot.previewState.intents.map((intent, index) => <EnemyIntentCard key={intent.id} intent={intent} owner={String.fromCharCode(65 + index)} unit={snapshot.previewState.units.find((unit) => unit.id === intent.sourceId)} concealed={hidden.has(intent.id)} />)}</div>;
 }
 
 function EnemyIntentCard({ intent, owner, unit, concealed }: { readonly intent: Intent; readonly owner: string; readonly unit?: Unit; readonly concealed: boolean }) {
@@ -585,5 +593,12 @@ function intentDetail(id?: string): string {
 function intentIcon(id?: string): string {
   if (id === 'goblin-long-shot') return 'assets/ui/intent-shoot.svg';
   if (id === 'goblin-rush') return 'assets/ui/intent-move.svg';
+  return 'assets/ui/intent-attack.svg';
+}
+
+function plannedActionIcon(action: SliceSnapshot['plannedActions'][number]['action']): string {
+  if (action.type === 'MOVE') return 'assets/ui/intent-move.svg';
+  if (action.abilityId === 'push') return 'assets/ui/intent-push.svg';
+  if (action.abilityId === 'intercept') return 'assets/ui/intent-intercept.svg';
   return 'assets/ui/intent-attack.svg';
 }

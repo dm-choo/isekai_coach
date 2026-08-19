@@ -535,6 +535,81 @@ button:disabled { cursor: not-allowed; }
 .solo-input-feedback > i { display: grid; width: 22px; height: 22px; flex: 0 0 22px; place-items: center; border-radius: 50%; background: #246b58; color: #e4fff8; font-style: normal; }
 .solo-input-feedback.is-rejected { color: #ffc0b3; }.solo-input-feedback.is-rejected > i { background: #76291f; }
 
+/* P11 — Darkest Dungeon-like scene-first dock for learned submission turns. */
+.intent-stack.is-scene-first:not(.is-learning-focus) { top: 148px; width: 214px; }
+.intent-stack.is-scene-first:not(.is-learning-focus) .enemy-intent-card { grid-template-columns: 24px 1fr; gap: 6px; padding: 7px 8px; border-width: 3px; background: rgba(43,12,8,.92); }
+.intent-stack.is-scene-first:not(.is-learning-focus) .intent-main-icon,
+.intent-stack.is-scene-first:not(.is-learning-focus) .intent-name,
+.intent-stack.is-scene-first:not(.is-learning-focus) .intent-anchor-rule { display: none; }
+.intent-stack.is-scene-first:not(.is-learning-focus) .intent-sequence { grid-row: 1; grid-column: 2; min-width: 0; }
+.intent-stack.is-scene-first:not(.is-learning-focus) .intent-sequence > span { min-width: 46px; justify-content: center; padding: 4px 5px; }
+.intent-stack.is-scene-first:not(.is-learning-focus) .intent-sequence img { width: 23px; height: 23px; }
+.intent-stack.is-scene-first:not(.is-learning-focus) .intent-sequence b { font-size: 8px; }
+
+.submission-action-dock {
+  grid-template-columns: 116px 92px minmax(300px,390px) minmax(270px,1fr);
+  grid-template-rows: 112px;
+  align-items: center;
+  gap: 12px;
+  min-height: 132px;
+  padding: 9px 3vw 11px;
+  background: linear-gradient(180deg,rgba(12,16,11,.98),#030503 34%);
+}
+.combat-actor-panel { position: relative; display: grid; height: 104px; grid-template-columns: 66px 1fr; align-items: end; overflow: hidden; border-left: 2px solid #69d7c1; background: linear-gradient(90deg,rgba(33,67,55,.72),rgba(7,12,8,.32)); }
+.combat-actor-panel > img { width: 72px; height: 102px; object-fit: contain; object-position: center bottom; filter: drop-shadow(0 7px 4px #000c); }
+.combat-actor-panel > div { align-self: center; padding: 0 6px 0 1px; }
+.combat-actor-panel small { color: #778a80; font: 800 8px ui-monospace,monospace; white-space: nowrap; }
+.combat-actor-ap { display: grid; gap: 2px; margin-top: 6px; }
+.combat-actor-ap i { color: #3d4942; font-size: 13px; font-style: normal; line-height: .82; }
+.combat-actor-ap i.is-ready { color: #e7c862; filter: drop-shadow(0 0 4px rgba(235,201,94,.28)); }
+
+.submission-action-dock .plan-strip { position: relative; right: auto; bottom: auto; left: auto; grid-row: 1; grid-column: 4; align-self: start; width: 100%; min-width: 0; min-height: 42px; transform: none; grid-template-columns: 34px minmax(0,1fr) auto; gap: 7px; padding: 5px 7px; border-color: rgba(174,158,113,.18); background: rgba(12,15,10,.82); box-shadow: none; transition: border-color .15s,background .15s; }
+.submission-action-dock .plan-phase { min-width: 0; align-content: center; padding-right: 6px; text-align: center; }
+.submission-action-dock .plan-phase strong { color: #877e69; font: 500 18px Georgia,serif; line-height: 1; }
+.submission-action-dock .plan-phase small { margin-top: 2px; color: #655f51; font: 700 7px ui-monospace,monospace; }
+.submission-action-dock .plan-sequence { min-width: 0; gap: 5px; overflow: hidden; }
+.submission-action-dock .target-picker { min-width: 0; overflow-x: auto; }
+.submission-action-dock .target-picker small { display: none; }
+.submission-action-dock .target-picker button { max-width: 86px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.submission-action-dock .plan-actions-preview { min-width: 0; gap: 3px; overflow: hidden; }
+.submission-action-dock .plan-chip { display: flex; min-width: 0; align-items: center; padding: 3px 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.submission-action-dock .plan-chip i { width: 15px; height: 15px; flex: 0 0 15px; margin-right: 3px; font-size: 8px; }
+.submission-action-dock .plan-chip img { width: 17px; height: 17px; flex: 0 0 17px; margin-right: 3px; }
+.submission-action-dock .plan-empty.is-symbolic { display: flex; gap: 5px; padding: 0; background: none; }
+.submission-action-dock .plan-empty.is-symbolic i { width: 17px; height: 17px; border: 1px solid #403c31; transform: rotate(45deg) scale(.58); background: #171912; }
+.submission-action-dock .input-feedback { max-width: 112px; overflow: hidden; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.submission-action-dock .input-feedback i { width: 16px; height: 16px; flex-basis: 16px; }
+
+.submission-action-dock .movement-control { display: block; grid-row: 1; grid-column: 2; justify-self: center; }
+.submission-action-dock .movement-control .control-caption,
+.submission-action-dock .action-control .control-caption { display: none; }
+.submission-action-dock .wasd-grid { grid-template-columns: repeat(3,27px); grid-template-rows: repeat(2,27px); gap: 3px; }
+.submission-action-dock .wasd-grid button { border-color: #525c52; background: #101510; color: #c6d6ca; }
+
+.submission-action-dock .action-control { grid-row: 1; grid-column: 3; justify-self: center; transition: opacity .15s; }
+.submission-action-dock .skill-row { gap: 7px; }
+.submission-action-dock .skill-button { width: 91px; height: 88px; grid-template-rows: 1fr auto auto; padding: 8px 6px 6px; border-width: 1px; background: radial-gradient(circle at 50% 28%,#342f22,#11130e 70%); box-shadow: inset 0 0 0 2px #070806,0 5px 12px #000b; }
+.submission-action-dock .skill-button > img { width: 33px; height: 33px; }
+.submission-action-dock .skill-button > strong { font-size: 11px; }
+.submission-action-dock .skill-button > small { font-size: 8px; }
+.submission-action-dock .skill-state { display: none; }
+.submission-action-dock .skill-button kbd { top: 4px; left: 5px; font-size: 8px; }
+.submission-action-dock .skill-tooltip { bottom: calc(100% + 12px); }
+
+.submission-action-dock .turn-control { grid-row: 1; grid-column: 4; align-self: end; justify-content: flex-end; }
+.submission-action-dock .ap-readout { display: none; }
+.submission-action-dock .plan-actions { gap: 5px; }
+.submission-action-dock .undo-button { min-width: 52px; height: 52px; }
+.submission-action-dock .end-turn-button { min-width: 108px; height: 52px; }
+.submission-action-dock .undo-button span,
+.submission-action-dock .end-turn-button span { font-size: 18px; line-height: 1; }
+.submission-action-dock .undo-button kbd,
+.submission-action-dock .end-turn-button kbd { margin-top: 3px; font-size: 8px; }
+.submission-action-dock .end-turn-button[data-combat-primary="execute-plan"] { border-color: #76d9c6; background: linear-gradient(#1d6355,#0c2d26); color: #e6fff9; box-shadow: inset 0 0 0 2px #061712,0 0 18px rgba(81,213,190,.18); }
+.submission-action-dock.phase-input .plan-strip { opacity: .64; }
+.submission-action-dock.phase-planning .plan-strip { border-color: rgba(106,218,197,.52); background: rgba(13,39,32,.92); }
+.submission-action-dock.phase-planning .action-control { opacity: .78; }
+
 @media (max-aspect-ratio: 4 / 3) {
   .slice2-stage { width: 100vw; min-height: 100svh; aspect-ratio: auto; }
   .run-route span { min-width: 0; }.run-route span { font-size: 0; }.run-route i { font-size: 9px; }
@@ -545,6 +620,12 @@ button:disabled { cursor: not-allowed; }
   .intent-stack.is-learning-focus { right: 14px; width: 184px; }
   .solo-learning-actor { left: 24px; }
   .solo-input-feedback { right: 24px; max-width: 205px; }
+  .intent-stack.is-scene-first:not(.is-learning-focus) { right: 14px; width: 205px; }
+  .submission-action-dock { grid-template-columns: 102px 85px minmax(276px,1fr) 260px; gap: 8px; padding-right: 24px; padding-left: 24px; }
+  .combat-actor-panel { grid-template-columns: 61px 1fr; }
+  .combat-actor-panel > img { width: 66px; }
+  .submission-action-dock .skill-button { width: 86px; }
+  .submission-action-dock .input-feedback { max-width: 84px; }
 }
 
 /* Submission — persistent territory and barrier contour */

@@ -24,6 +24,7 @@
     "verify:slice2:public": "node scripts/verify-slice2-public.mjs",
     "verify:submission:interaction": "node scripts/verify-submission-interaction.mjs",
     "verify:submission:solo-combat": "node scripts/verify-submission-solo-combat.mjs",
+    "verify:submission:normal-combat": "node scripts/verify-submission-normal-combat.mjs",
     "verify:submission:failure": "node scripts/verify-submission-failure.mjs",
     "verify:submission:public": "node scripts/verify-submission-public.mjs",
     "verify:submission:p2": "node scripts/submission-golden-driver.mjs",
