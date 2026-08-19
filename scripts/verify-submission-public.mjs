@@ -359,6 +359,7 @@ try {
   await page.screenshot({ path: new URL('14-public-expanded.png', artifactDir).pathname });
   await page.reload({ waitUntil: 'networkidle' });
   await page.locator('.submission-expanded.is-spatial').waitFor();
+  await page.waitForTimeout(1300);
   publicExpandedSave = await savedSubmission(page);
   await assertPublicExpansionSpatial(page, publicExpandedSave, beforePublicExpansion);
   await page.screenshot({ path: new URL('14a-public-expanded-restored.png', artifactDir).pathname });

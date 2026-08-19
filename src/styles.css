@@ -834,7 +834,7 @@ button:disabled { cursor: not-allowed; }
   .tile-field { left: 12%; transform: scale(.82); transform-origin: 66% 50%; }
   .primary-expedition { right: 3%; bottom: 5%; min-width: 230px; }
   .submission-travel-party { left: 20%; }.scout-map { left: 50%; scale: .82; }
-  .expanded-tile-field.is-spatial { transform: scale(.9); transform-origin: 55% 50%; }
+  .expanded-tile-field.is-spatial { transform: translateX(-4vw) scale(.9); transform-origin: 55% 50%; }
   .submission-expanded .expanded-restart { right: 3%; }
 }
 

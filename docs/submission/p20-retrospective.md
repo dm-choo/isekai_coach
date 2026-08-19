@@ -48,6 +48,8 @@ related:
 - 첫 owned bridge는 positive z-index로 두 tile 위를 넓게 덮어 평평한 초록 직사각형처럼 보였다. 자동 bounds는 통과했지만 캡처 비교에서 즉시 탈락시켰다. bridge를 tile 뒤로 보내 실제 gap만 메우고 ground atlas·외곽 glow를 맞췄다.
 - next link는 얇은 청록선이므로 text-off에서 세 방향은 읽히지만, 이것이 `다음에 갈 수 있는 곳`인지 단순 장식인지 사람 증거는 없다.
 - 새 tile의 열린 anchor와 주인공이 겹쳐 actor가 떠 보일 위험이 있다. 현재 sprite 발과 node 중심, drop shadow를 맞췄지만 최종 grounding 평가는 human gate에 남는다.
+- exact RC와 배포 health가 통과한 뒤 공개 브라우저의 최초 960×720 진입에서 동쪽 OUTSIDE tile이 오른쪽으로 약 30px 잘렸다. 동적 viewport 변경으로 만든 local 4:3 캡처가 실제 cold-load 4:3을 완전히 대변하지 못한 것이다.
+- 첫 공개 실패를 reload 직후 animation 안정화 문제로 오진해 reload assertion 앞에 1.3초를 더 기다렸다. 그러나 실패 지점은 reload 전 최초 assertion이었다. 로그의 정확한 line과 첫 frame bounds를 다시 대조한 뒤, 검증을 느슨하게 하지 않고 4:3 spatial field를 왼쪽으로 4vw 옮겨 고쳤다. reload 대기는 전이 animation 뒤의 안정된 최종 frame을 검증한다는 의미가 있어 유지했다.
 
 ## User and delegation boundary
 
@@ -57,7 +59,7 @@ related:
 
 P19의 next rule대로 P15 link, 기존 tile/contour, P19 anchor primitive를 재사용했다. 신규 state나 asset은 만들지 않았고 기존 P4 lifecycle 뒤 assertion만 교체했다. retired panel markup과 CSS를 함께 삭제해 시각 단순화가 JS 감소로 이어졌다.
 
-긴 RC 전에 state→DOM parity, text-off, 4:3, 캡처 순으로 닫았다. 두 번의 실패는 각각 잘못된 revision 가정과 bridge의 시각 품질이었고 둘 다 focused 1분 안에서 발견됐다. exact RC와 배포 왕복 전에 발견했기 때문에 검증 구조가 의도한 비용 곡선을 지켰다.
+긴 RC 전에 state→DOM parity, text-off, 4:3, 캡처 순으로 닫았다. 두 번의 실패는 각각 잘못된 revision 가정과 bridge의 시각 품질이었고 둘 다 focused 1분 안에서 발견됐다. 다만 local에서 viewport를 바꾸는 검사만으로 cold-load responsive layout까지 닫았다고 판단한 것은 성급했다. 공개 smoke가 실제 화면 잘림을 잡았고, 첫 원인 진단도 한 번 틀렸다. 다음부터 최종 공간 장면은 exact RC 전에 fresh context의 목표 viewport로 직접 시작하는 저비용 검사를 추가해야 한다.
 
 ## Next rules
 
@@ -66,6 +68,8 @@ P19의 next rule대로 P15 link, 기존 tile/contour, P19 anchor primitive를 �
 3. 연결 지형은 actor와 tile 위를 덮지 않고 실제 gap만 메운다.
 4. REVEALED/OUTSIDE는 link를 가지되 owned surface와 contour를 받지 않는다.
 5. 자동 bounds가 통과한 합성 레이어도 캡처에서 재질·z-order를 별도 판정한다.
+6. responsive 최종 장면은 resize 결과뿐 아니라 fresh page의 목표 viewport 최초 frame으로도 검증한다.
+7. 공개 실패를 고칠 때는 assertion line이 전이 전인지 reload 후인지 먼저 확인하고, 기다림을 추가하기 전에 실제 element bounds를 대조한다.
 
 ## Next task
 
