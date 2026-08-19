@@ -89,6 +89,27 @@ try {
     throw new Error('Public ally forecast lacks policy source or opens detail by default');
   }
   await page.screenshot({ path: new URL('04-public-ally-policy.png', artifactDir).pathname });
+  const beforeJointMinute = Number(await page.locator('.slice2-combat').getAttribute('data-world-minute'));
+  if (!Number.isFinite(beforeJointMinute)) throw new Error('Public combat does not expose its current world minute');
+  await completePublicJointCombat(page);
+  const publicPathResult = page.locator('.result-overlay.is-seamless-path[data-combat-result="PATH_SECURED"]');
+  await publicPathResult.waitFor({ timeout: 90_000 });
+  if (await page.locator('.turn-banner-victory,.combat-notice,.result-overlay.is-seamless-path h2,.result-overlay.is-seamless-path p').count()) {
+    throw new Error('Public path result restored duplicate victory explanation');
+  }
+  const publicBattleMinutes = Number((await page.locator('.result-time-cost b').innerText()).replace('+', ''));
+  if (!Number.isFinite(publicBattleMinutes) || publicBattleMinutes <= 0 || await page.locator('[data-combat-primary="resume-corridor"] kbd').innerText() !== 'SPACE') {
+    throw new Error('Public path result lacks its time cost or resume action');
+  }
+  await page.screenshot({ path: new URL('05-public-path-secured.png', artifactDir).pathname });
+  await page.keyboard.press('Space');
+  await page.locator('.submission-corridor .submission-distance').waitFor();
+  const afterJointSave = await savedSubmission(page);
+  if (!afterJointSave?.firstEncounterResolved || afterJointSave.corridorProgress !== 200 || afterJointSave.worldMinute !== beforeJointMinute + publicBattleMinutes) {
+    throw new Error(`Public encounter return lost progress or time: ${JSON.stringify({ beforeJointMinute, publicBattleMinutes, afterJointSave })}`);
+  }
+  if (!(await page.locator('.submission-corridor .submission-distance').innerText()).includes('200 / 400m')) throw new Error('Public corridor did not resume at 200 / 400m');
+  await page.screenshot({ path: new URL('06-public-corridor-resumed.png', artifactDir).pathname });
 
   const regression = {};
   for (const [path, expectedTitle] of [['slice1', 'Slice1'], ['slice2', 'Slice2']]) {
@@ -116,6 +137,7 @@ try {
     soloCombat: { progressiveDisclosure: true, unsafePlanRevises: true, safePlanExecutes: true },
     normalCombat: { sceneFirst: true, actionDock: true, detailOnDemand: true },
     allyPolicy: { rankedForecast: true, detailDefaultClosed: true, publicFirstJointEncounter: true },
+    encounterReturn: { titleFree: true, pathSecured: true, timeApplied: publicBattleMinutes, corridorProgress: afterJointSave.corridorProgress, nextInput: 'D' },
     regression,
     browserErrors: errors,
   };
@@ -129,4 +151,40 @@ function observeErrors(page, errors) {
   page.on('console', (message) => { if (message.type() === 'error') errors.push(`console ${message.text()}`); });
   page.on('pageerror', (error) => errors.push(`page ${error.message}`));
   page.on('requestfailed', (request) => errors.push(`request ${request.method()} ${request.url()} ${request.failure()?.errorText}`));
+}
+
+async function completePublicJointCombat(page) {
+  for (let turn = 0; turn < 16; turn += 1) {
+    await page.waitForFunction(() => document.querySelector('.result-overlay.is-seamless-path') || document.querySelector('.submission-action-dock:not(.is-busy)'), undefined, { timeout: 45_000 });
+    if (await page.locator('.result-overlay.is-seamless-path').count()) return;
+    for (let decision = 0; decision < 3; decision += 1) {
+      const slam = page.locator('.submission-action-dock .skill-button[data-action-id="SLAM"][data-executable="true"]:not([disabled])');
+      if (await slam.count()) {
+        await slam.click();
+        break;
+      }
+      const beforePlans = await page.locator('.submission-action-dock .plan-chip').count();
+      let moved = false;
+      for (const key of ['D', 'W', 'S', 'A']) {
+        const move = page.locator('.submission-action-dock .wasd-grid button').filter({ hasText: key });
+        if (!await move.isEnabled()) continue;
+        await move.click();
+        await page.waitForTimeout(80);
+        if (await page.locator('.submission-action-dock .plan-chip').count() > beforePlans) {
+          moved = true;
+          break;
+        }
+      }
+      if (!moved) break;
+    }
+    const execute = page.locator('[data-combat-primary="execute-plan"]');
+    if (!await execute.isEnabled()) throw new Error('Public first joint combat produced no executable plan');
+    await execute.click();
+    await page.waitForTimeout(250);
+  }
+  throw new Error('Public first joint combat did not finish within 16 turns');
+}
+
+async function savedSubmission(page) {
+  return page.evaluate(() => JSON.parse(localStorage.getItem('isekai-coach:submission:v2') ?? 'null'));
 }
