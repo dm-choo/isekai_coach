@@ -23,9 +23,12 @@ related:
 - 같은 focused lifecycle 반복 실행: 동일 결과
 - `npm run verify:submission:p3`: KEEP_RANGE가 TIME_LIMIT/HP 8/20분, PUSH_FIRST가 SECURED/HP 4/14분으로 이어지는 기존 실제 trade-off 유지, browser error 0
 - production build 정상 속도 public-style 경로: 공개형 localStorage에 `KEEP_RANGE`, 기본 order, `keepRange=true`가 저장되고 선택 feedback·changed slot까지 통과했다. 단일 root preview의 예상된 `/slice1/` title 회귀에서만 이후 중단했다.
+- exact-SHA `1e522aa1b40025c7c674155b4b6c9bf7f2ed2f7d` 누적 RC: `TECHNICAL_PASS`, worktree clean, 제출본 전체·Slice1·Slice2 7전투 회귀 통과
+- 공개 release `/srv/ooh/releases/20260819T140340Z-1e522aa-submission`과 root·Slice1/2 health pass
+- `npm run verify:submission:public`: `PUBLIC_BROWSER_PASS`; 실제 2번 입력이 저장된 `KEEP_RANGE`, 기본 order, `keepRange=true`와 일치했고 route title·browser error 0
 - 직접 비교: `12-policy-spatial-choice`, `13-policy-keep-range`, `14-policy-keep-range-text-off`, `15-policy-keep-range-4x3`
 
-이 증거는 현재 working tree의 focused·golden 경로다. exact-SHA RC, 공개 저장·입력·route 회귀는 커밋·배포 뒤 별도로 판정한다. 두 공간 장면을 신규 사용자가 의도한 선택 차이로 해석하는지는 human gate 전까지 REQUIRED다.
+기술·배포 증거는 닫혔지만 두 공간 장면을 신규 사용자가 의도한 선택 차이로 해석하는지는 human gate 전까지 REQUIRED다. P16은 technical candidate다.
 
 ## Initial model
 
@@ -52,6 +55,8 @@ related:
 ## Process and efficiency
 
 controller와 simulation을 변경하지 않고 기존 canonical rule을 먼저 감사한 것이 가장 큰 비용 절감이었다. 선택 card의 effect와 5-slot delta를 snapshot의 실제 `policy`, `policyDirectives`에서 렌더링해 별도 UI state를 만들지 않았다. P15 lifecycle 말단에 P16을 붙여 중앙 전투를 재사용했고, pointer·keyboard·text-off·4:3을 한 run에서 수집했다.
+
+production bundle은 P15 대비 CSS가 약 4.99KB, SubmissionApp JS가 약 2.67KB 늘었다. 초기 entry와 deferred Phaser chunk는 변하지 않았다. 두 공간 lane과 policy delta가 추가한 비용이며 제출 범위에서는 수용하지만, P17부터는 기존 route·stop-condition primitive를 재조합하고 새 CSS vocabulary를 더 늘리지 않는다.
 
 재작업은 focus/selected 상태를 캡처 전 CSS contract로 명시하지 않아 한 번 발생했다. 다음 Task에서는 시각 상태마다 `selected`, `focused`, `disabled`, `result`의 shape·border·motion owner를 구현 전에 표로 고정한다.
 
