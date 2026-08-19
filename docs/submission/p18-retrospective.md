@@ -24,10 +24,13 @@ primary는 TIME_LIMIT에서 `pause→선택 정책→SPACE`, SECURED에서 `주�
 - 13 files, 93 unit tests: pass
 - `npm run verify:submission:encounter-transition`: `ENCOUNTER_TRANSITION_PASS`; TIME_LIMIT 12턴·피해 2·HP 8·20분, final unit 3·living enemy 1, trace length 32, routeSafe false, shared 20, text panel 0, 4:3 overflow 0, browser error 0
 - `npm run verify:submission:p3`: KEEP_RANGE TIME_LIMIT/HP 8/20분과 PUSH_FIRST SECURED/HP 4/14분, routeSafe·anchorPrepared true와 territory OUTSIDE 유지, 두 결과의 actual grid/state parity, 4:3 overflow 0, browser error 0
-- production build: pass; P17 공개본 대비 CSS `113,059→117,391` bytes(+4,332), SubmissionApp JS `113,332→115,778` bytes(+2,446)
+- production build: pass; P17 공개본 대비 CSS `113,059→117,340` bytes(+4,281), SubmissionApp JS `113,332→115,778` bytes(+2,446)
+- exact-SHA `28cd7ec4424982b9d6e069b12e7f23bf3ab3c285` 누적 RC: `TECHNICAL_PASS`, worktree clean, 13 files/93 tests, 제출본 EXPANDED, Slice1과 Slice2 4타일·7전투 회귀 통과
+- 공개 release `/srv/ooh/releases/20260819T150408Z-28cd7ec-submission`과 root·Slice1/2 health pass
+- `npm run verify:submission:public`: `PUBLIC_BROWSER_PASS`; 실제 저장된 TIME_LIMIT 12턴·피해 2·HP 4·20분·living enemy 1·trace 32가 공개 DOM과 일치했고 routeSafe false·shared 20, Slice1/2 title과 browser error 0
 - 직접 비교: focused `19-delegation-time-limit-result`, `20-delegation-time-limit-text-off`, `21-delegation-time-limit-4x3`; golden `10-delegation-result`, `10-delegation-result-text-off`, `11-delegation-result-4x3`
 
-exact-SHA 누적 RC와 공개 배포 증거는 implementation commit 뒤 현재 SHA에서 새로 수집한다. 자동·시각 증거는 결과 parity와 공간 인과를 닫지만, 신규 사용자가 KEEP_RANGE를 안전하지만 느린 실패, PUSH_FIRST를 빠르지만 피해가 큰 성공으로 설명하는지는 human gate 전까지 REQUIRED다.
+자동·시각·공개 증거는 결과 parity와 공간 인과를 닫지만, 신규 사용자가 KEEP_RANGE를 안전하지만 느린 실패, PUSH_FIRST를 빠르지만 피해가 큰 성공으로 설명하는지는 human gate 전까지 REQUIRED다.
 
 ## Initial model
 
@@ -50,7 +53,8 @@ exact-SHA 누적 RC와 공개 배포 증거는 implementation commit 뒤 현재 
 - `result.route`라는 이름만 보면 400m world route의 진행 거리로 오해하기 쉽다. 구현 전에 타입과 simulation을 감사해 이것이 동료의 combat grid 이동 history임을 확인했고, world track에는 확보 여부만 사용했다. 이 감사를 생략했다면 TIME_LIMIT이 특정 meter에서 멈췄다는 허위 표현을 만들었을 것이다.
 - SECURED 장면의 제거된 적 sprite는 의도적으로 매우 흐려 text-off에서 slash가 먼저 보인다. 자동화는 cleared count와 living enemy 0을 검증하지만, 사람이 이것을 `위협 제거`로 읽는지는 아직 증거가 없다.
 - action token의 좌표는 실제지만 `1,0` 같은 수치를 읽지 않는 사람에게는 icon sequence만 남는다. 상세 policy reason은 title에 있으므로 기본 화면의 부담은 줄었지만, 손익 설명 가능성은 human gate가 필요하다.
-- P18은 기존 결과 CSS를 제거했지만 actual grid와 두 결과 문법 때문에 bundle이 CSS +4,332, JS +2,446 bytes 늘었다. 제출 범위에서는 수용하되 이후 장면에서 또 다른 grid나 metric vocabulary를 만들 근거는 없다.
+- P18은 기존 결과 CSS를 제거했지만 actual grid와 두 결과 문법 때문에 bundle이 CSS +4,281, JS +2,446 bytes 늘었다. 제출 범위에서는 수용하되 이후 장면에서 또 다른 grid나 metric vocabulary를 만들 근거는 없다.
+- 공개 정상 속도 경로의 TIME_LIMIT finalHp는 focused fixture의 8과 달리 4였다. 앞선 실제 전투에서 이어진 HP가 다르기 때문이며, 공개 검증은 고정 수치를 강요하지 않고 저장된 `delegationResult.finalHp`와 화면 parity를 비교했다. fixture 결과를 production 기대값으로 오인하지 않은 사례다.
 
 ## User and delegation boundary
 
