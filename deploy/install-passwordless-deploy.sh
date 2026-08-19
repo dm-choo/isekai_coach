@@ -23,8 +23,8 @@ install -d -o root -g root -m 0755 "${install_root}"
 install -o root -g root -m 0755 "${script_dir}/root/isekai-coach-deploy" "${deploy_command}"
 install -o root -g root -m 0644 "${script_dir}/openai-8010.caddy" "${install_root}/openai-8010.caddy"
 
-printf '%s ALL=(root) NOPASSWD: %s slice1, %s slice2\n' \
-  "${invoking_user}" "${deploy_command}" "${deploy_command}" >"${sudoers_temp}"
+printf '%s ALL=(root) NOPASSWD: %s slice1, %s slice2, %s submission\n' \
+  "${invoking_user}" "${deploy_command}" "${deploy_command}" "${deploy_command}" >"${sudoers_temp}"
 chmod 0440 "${sudoers_temp}"
 visudo -cf "${sudoers_temp}" >/dev/null
 install -o root -g root -m 0440 "${sudoers_temp}" "${sudoers_file}"
@@ -32,4 +32,4 @@ visudo -cf /etc/sudoers >/dev/null
 
 echo "Installed ${deploy_command}"
 echo "Installed ${sudoers_file}"
-echo 'Future releases: npm run deploy:slice1 or npm run deploy:slice2'
+echo 'Future releases: npm run deploy:slice1, npm run deploy:slice2, or npm run deploy:submission'

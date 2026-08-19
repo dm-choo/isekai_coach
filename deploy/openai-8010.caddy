@@ -1,5 +1,5 @@
-# Shared origin for openai.ktwome.cc. The root OOH application remains the
-# fallback, while Isekai Coach owns only the /slice1/ and /slice2/ namespaces.
+# Shared origin for openai.ktwome.cc. The submission owns the root fallback,
+# while /slice1/ and /slice2/ remain isolated regression scenes.
 http://:8010 {
 	bind 127.0.0.1
 	encode zstd gzip

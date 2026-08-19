@@ -1,11 +1,12 @@
 ---
 title: Deployment Index
 status: accepted
-last_updated: 2026-08-18
+last_updated: 2026-08-19
 related:
   - ../index.md
   - slice1.md
   - slice2.md
+  - submission.md
 ---
 
 # Deployment
@@ -16,3 +17,4 @@ related:
 
 - [Slice 1 deployment](./slice1.md): `openai.ktwome.cc/slice1/` Amazon Barrier Guardian scene의 shared-origin 경계, 원자 배포와 browser smoke 절차
 - [Slice 2 deployment](./slice2.md): `openai.ktwome.cc/slice2/` Four World Tile Expedition의 독립 path, 원자 배포와 전체 원정 smoke 절차
+- [Submission root deployment](./submission.md): `openai.ktwome.cc/` 정식 제출본의 제한된 passwordless 배포, rollback과 Slice 회귀 보존 계약

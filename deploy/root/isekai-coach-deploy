@@ -6,8 +6,8 @@ if ((EUID != 0)); then
   exit 1
 fi
 
-if (($# != 1)) || [[ "$1" != 'slice1' && "$1" != 'slice2' ]]; then
-  echo 'Usage: isekai-coach-deploy slice1|slice2' >&2
+if (($# != 1)) || [[ "$1" != 'slice1' && "$1" != 'slice2' && "$1" != 'submission' ]]; then
+  echo 'Usage: isekai-coach-deploy slice1|slice2|submission' >&2
   exit 2
 fi
 
@@ -19,7 +19,8 @@ readonly caddy_fragment='/etc/caddy/ooh.caddy'
 readonly caddyfile='/etc/caddy/Caddyfile'
 readonly caddy_env='/etc/nest/caddy.env'
 readonly source_fragment='/usr/local/lib/isekai-coach-deploy/openai-8010.caddy'
-readonly expected_title="${target^}"
+readonly expected_title="$([[ "${target}" == 'submission' ]] && printf '결계의 바깥' || printf '%s' "${target^}")"
+readonly asset_prefix="$([[ "${target}" == 'submission' ]] && printf '/' || printf '/%s/' "${target}")"
 
 [[ -f "${dist_dir}/index.html" && ! -L "${dist_dir}/index.html" ]] || {
   echo "Missing regular build artifact: ${dist_dir}/index.html" >&2
@@ -37,8 +38,8 @@ grep -Fq "<title>${expected_title}</title>" "${dist_dir}/index.html" || {
   echo "Build is not ${expected_title}. Run the matching build first." >&2
   exit 1
 }
-grep -Eq "/${target}/assets/[^\" ]+\.(css|js)" "${dist_dir}/index.html" || {
-  echo "Build assets do not use /${target}/ as their base." >&2
+grep -Eq "${asset_prefix}assets/[^\" ]+\.(css|js)" "${dist_dir}/index.html" || {
+  echo "Build assets do not use ${asset_prefix} as their base." >&2
   exit 1
 }
 
@@ -83,16 +84,24 @@ caddy validate --config "${source_fragment}" --adapter caddyfile >/dev/null
 cp -a -- "${caddy_fragment}" "${caddy_backup}"
 install -d -o root -g caddy -m 0755 "${release_root}" "${release_root}/releases" "${release_dir}"
 
-shopt -s dotglob nullglob
-for existing_path in "${previous_release}"/*; do
-  existing_name="$(basename -- "${existing_path}")"
-  [[ "${existing_name}" == "${target}" ]] && continue
-  cp -a -- "${existing_path}" "${release_dir}/"
-done
-shopt -u dotglob nullglob
-
-install -d -o root -g caddy -m 0755 "${release_dir}/${target}"
-cp -a -- "${dist_dir}/." "${release_dir}/${target}/"
+if [[ "${target}" == 'submission' ]]; then
+  for preserved_path in slice1 slice2; do
+    if [[ -d "${previous_release}/${preserved_path}" ]]; then
+      cp -a -- "${previous_release}/${preserved_path}" "${release_dir}/"
+    fi
+  done
+  cp -a -- "${dist_dir}/." "${release_dir}/"
+else
+  shopt -s dotglob nullglob
+  for existing_path in "${previous_release}"/*; do
+    existing_name="$(basename -- "${existing_path}")"
+    [[ "${existing_name}" == "${target}" ]] && continue
+    cp -a -- "${existing_path}" "${release_dir}/"
+  done
+  shopt -u dotglob nullglob
+  install -d -o root -g caddy -m 0755 "${release_dir}/${target}"
+  cp -a -- "${dist_dir}/." "${release_dir}/${target}/"
+fi
 find "${release_dir}" -type d -exec chmod 0755 {} +
 find "${release_dir}" -type f -exec chmod 0644 {} +
 chown -R root:caddy "${release_dir}"
@@ -108,7 +117,11 @@ systemctl restart caddy.service
 root_html="$(curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8010/)"
 slice1_html="$(curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8010/slice1/)"
 slice2_html="$(curl --fail --silent --show-error --max-time 10 http://127.0.0.1:8010/slice2/)"
-[[ "${root_html}" == *'<title>OOH 기록전술 아카데미</title>'* ]]
+if [[ "${target}" == 'submission' ]]; then
+  [[ "${root_html}" == *'<title>결계의 바깥</title>'* ]]
+else
+  [[ "${root_html}" == *'<title>OOH 기록전술 아카데미</title>'* ]]
+fi
 [[ "${slice1_html}" == *'<title>Slice1</title>'* ]]
 [[ "${slice2_html}" == *'<title>Slice2</title>'* ]]
 

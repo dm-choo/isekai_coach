@@ -6,10 +6,15 @@ const viteSlice = (
     process?: { env?: Record<string, string | undefined> };
   }
 ).process?.env?.VITE_SLICE;
-const sliceName = viteSlice === '1' ? 'Slice1' : 'Slice2';
+const sliceName = viteSlice === '1'
+  ? 'Slice1'
+  : viteSlice === '2' || !viteSlice
+    ? 'Slice2'
+    : '결계의 바깥';
+const base = viteSlice === '1' ? '/slice1/' : viteSlice === 'submission' ? '/' : '/slice2/';
 
 export default defineConfig({
-  base: '/slice2/',
+  base,
   plugins: [
     react(),
     {
