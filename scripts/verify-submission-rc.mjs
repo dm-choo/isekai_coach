@@ -10,6 +10,7 @@ const steps = [
   ['unit', ['test', '--', '--run']],
   ['submission-build', ['run', 'build:submission']],
   ['submission-interaction', ['run', 'verify:submission:interaction']],
+  ['submission-solo-combat', ['run', 'verify:submission:solo-combat']],
   ['submission-failure-recovery', ['run', 'verify:submission:failure']],
   ['submission-golden-path', ['run', 'verify:submission:golden']],
   ['slice1-build', ['run', 'build:slice']],

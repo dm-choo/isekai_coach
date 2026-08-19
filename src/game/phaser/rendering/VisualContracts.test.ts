@@ -7,6 +7,7 @@ import {
   SUBMISSION_ENVIRONMENT,
   SUBMISSION_GROUND_ATLAS,
 } from '../../assets/AssetManifest';
+import { SUBMISSION_GRID_PROJECTION } from './GridProjector';
 
 describe('combat visual contracts', () => {
   it('gives every Slice 1 cutout an explicit foot anchor and bounded battlefield scale', () => {
@@ -55,9 +56,14 @@ describe('combat visual contracts', () => {
       const visual = CHARACTER_VISUALS[key];
       expect(visual.source?.url).toMatch(/^assets\/submission\//);
       expect(visual.footAnchor?.y).toBeGreaterThanOrEqual(0.875);
-      expect(visual.displaySize?.width).toBeLessThanOrEqual(164);
+      expect(visual.displaySize?.width).toBeLessThanOrEqual(112);
+      expect(visual.displaySize?.height).toBeLessThanOrEqual(135);
     }
     expect(SUBMISSION_ENVIRONMENT.source.url).toBe('assets/submission/frontier-combat-v1.png');
     expect(SUBMISSION_GROUND_ATLAS.source).toMatchObject({ type: 'SPRITESHEET', frameWidth: 627, frameHeight: 627 });
+    expect(SUBMISSION_GRID_PROJECTION.cellPolygon).toEqual([0, -40, 50, 0, 0, 40, -50, 0]);
+    expect(SUBMISSION_GRID_PROJECTION.columnStep).toBe(SUBMISSION_GRID_PROJECTION.cellWidth);
+    expect((SUBMISSION_GRID_PROJECTION.rowXOffset ?? 0) * 2).toBe(SUBMISSION_GRID_PROJECTION.cellWidth);
+    expect(SUBMISSION_GRID_PROJECTION.rowStep * 2).toBe(SUBMISSION_GRID_PROJECTION.cellHeight);
   });
 });

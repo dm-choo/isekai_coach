@@ -15,6 +15,7 @@ export interface GridProjectionConfig {
   readonly cellWidth: number;
   readonly cellHeight: number;
   readonly rowXOffset?: number;
+  readonly cellPolygon?: readonly number[];
 }
 
 export const DEFAULT_GRID_PROJECTION: GridProjectionConfig = {
@@ -26,12 +27,13 @@ export const DEFAULT_GRID_PROJECTION: GridProjectionConfig = {
 };
 
 export const SUBMISSION_GRID_PROJECTION: GridProjectionConfig = {
-  origin: { x: 45, y: 420 },
-  columnStep: 105,
-  rowStep: 42,
-  cellWidth: 102,
-  cellHeight: 40,
-  rowXOffset: 18,
+  origin: { x: 30, y: 355 },
+  columnStep: 100,
+  rowStep: 40,
+  cellWidth: 100,
+  cellHeight: 80,
+  rowXOffset: 50,
+  cellPolygon: [0, -40, 50, 0, 0, 40, -50, 0],
 };
 
 /** Logical coordinates stay independent from the replaceable side-view projection. */
@@ -57,5 +59,9 @@ export class GridProjector {
 
   public get tileSize(): Readonly<{ width: number; height: number }> {
     return { width: this.config.columnStep, height: this.config.rowStep };
+  }
+
+  public get cellPolygon(): readonly number[] | undefined {
+    return this.config.cellPolygon;
   }
 }

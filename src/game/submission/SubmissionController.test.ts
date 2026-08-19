@@ -39,6 +39,34 @@ describe('SubmissionController direct exploration', () => {
     controller.destroy();
   });
 
+  it('teaches one solo planning action before exposing the full combat vocabulary', async () => {
+    const controller = new SubmissionController();
+    for (let step = 0; step < 20; step += 1) controller.advancePrologue();
+    controller.startEncounter();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(controller.getSnapshot().combat).toMatchObject({ mode: 'PLAYER_TURN', isBusy: false, plannedActions: [] });
+    controller.confirmPlan();
+    controller.useAction('SLAM');
+    expect(controller.getSnapshot().combat).toMatchObject({ mode: 'PLAYER_TURN', plannedActions: [] });
+
+    controller.move('LEFT');
+    const planned = controller.getSnapshot().combat!;
+    expect(planned.plannedActions.map((action) => action.label)).toEqual(['이동']);
+    expect(planned.state.units.find((unit) => unit.id === 'administrator-slice2')?.position).toEqual({ x: 3, y: 1 });
+    expect(planned.previewState.units.find((unit) => unit.id === 'administrator-slice2')?.position).toEqual({ x: 2, y: 1 });
+
+    controller.move('LEFT');
+    expect(controller.getSnapshot().combat?.plannedActions).toHaveLength(1);
+    controller.confirmPlan();
+    expect(controller.getSnapshot().combat).toMatchObject({ mode: 'PLAYER_TURN', plannedActions: [{ label: '이동' }] });
+    controller.undoLastAction();
+    controller.move('UP');
+    expect(controller.getSnapshot().combat?.previewState.units.find((unit) => unit.id === 'administrator-slice2')?.position).toEqual({ x: 3, y: 0 });
+    controller.destroy();
+  });
+
   it('keeps the established 400m expedition cadence after the companion joins', () => {
     const controller = joinedController();
     controller.startExpedition();

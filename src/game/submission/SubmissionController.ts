@@ -213,7 +213,10 @@ export class SubmissionController {
     else if (this.mode === 'ANCHOR_READY') this.activateAnchor();
     else if (this.mode === 'EXPANDED') this.restartSubmission();
     else if (this.mode === 'COMBAT' && this.combat?.getSnapshot().mode === 'INTRO') this.startEncounter();
-    else if (this.mode === 'COMBAT' && this.combat?.getSnapshot().mode === 'PLAYER_TURN') this.confirmPlan();
+    else if (this.mode === 'COMBAT' && this.combat?.getSnapshot().mode === 'PLAYER_TURN') {
+      if (this.isSoloLearningTurn() && (this.combat.getSnapshot().plannedActions.length === 0 || this.isSoloLearningDestinationThreatened())) return false;
+      this.confirmPlan();
+    }
     else if (this.mode === 'COMBAT' && this.combat?.getSnapshot().mode === 'VICTORY') this.completeEncounter();
     else if (this.mode === 'COMBAT' && this.combat?.getSnapshot().mode === 'DEFEAT') this.retryEncounter();
     else return false;
@@ -423,13 +426,35 @@ export class SubmissionController {
 
   public selectTarget = (unitId: string): void => this.combat?.selectTarget(unitId);
   public startEncounter = (): void => this.combat?.startEncounter();
-  public move = (direction: Direction): void => this.combat?.move(direction);
-  public useAction = (actionId: SliceActionId): void => this.combat?.useAction(actionId);
+  public move = (direction: Direction): void => {
+    if (this.isSoloLearningTurn() && this.combat?.getSnapshot().plannedActions.length) return;
+    this.combat?.move(direction);
+  };
+  public useAction = (actionId: SliceActionId): void => {
+    if (this.isSoloLearningTurn()) return;
+    this.combat?.useAction(actionId);
+  };
   public setActionHover = (actionId?: SliceActionId): void => this.combat?.setActionHover(actionId);
   public undoLastAction = (): void => this.combat?.undoLastAction();
-  public confirmPlan = (): void => this.combat?.confirmPlan();
+  public confirmPlan = (): void => {
+    if (this.isSoloLearningTurn() && (this.combat?.getSnapshot().plannedActions.length === 0 || this.isSoloLearningDestinationThreatened())) return;
+    this.combat?.confirmPlan();
+  };
   public useLight = (): void => undefined;
   public unlockSeal = (): void => undefined;
+
+  private isSoloLearningTurn(): boolean {
+    const combat = this.combat?.getSnapshot();
+    return this.encounterId === 'SOLO_WARRIOR' && combat?.mode === 'PLAYER_TURN' && combat.state.turn === 1;
+  }
+
+  private isSoloLearningDestinationThreatened(): boolean {
+    const combat = this.combat?.getSnapshot();
+    const administrator = combat?.previewState.units.find((unit) => unit.id === SLICE2_ADMINISTRATOR_ID);
+    return administrator !== undefined && combat!.previewState.intents.some((intent) => (
+      intent.effectCells.some((cell) => cell.x === administrator.position.x && cell.y === administrator.position.y)
+    ));
+  }
 
   public completeEncounter = (): void => {
     if (this.mode !== 'COMBAT' || !this.combat || !this.encounterId) return;

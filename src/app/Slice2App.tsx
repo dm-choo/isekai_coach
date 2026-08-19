@@ -295,8 +295,11 @@ export function CombatStage({ snapshot, run, controller, encounter, visualTheme,
   const state = snapshot.mode === 'PLAYER_TURN' ? snapshot.previewState : snapshot.state;
   const party = state.units.filter((unit) => unit.faction === 'STUDENT');
   const enemies = state.units.filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0);
+  const firstLearningTurn = snapshot.mode === 'PLAYER_TURN' && run.elapsedBattleTurns === 0 && snapshot.state.turn === 1;
+  const soloLearningTurn = prologueEncounter && firstLearningTurn;
+  const soloLearningPhase = soloLearningTurn && snapshot.plannedActions.length > 0 ? 'outcome' : 'threat';
   return (
-    <div className={`slice2-combat ${run.isNight ? 'is-night' : ''}`}>
+    <div className={`slice2-combat ${run.isNight ? 'is-night' : ''} ${soloLearningTurn ? `is-solo-learning is-${soloLearningPhase}` : ''}`}>
       <Suspense fallback={<div className="phaser-host phaser-loading" aria-label="전장 불러오는 중"><i /><span>전장 불러오는 중</span></div>}>
         <PhaserCanvas controller={controller} visualTheme={visualTheme} />
       </Suspense>
@@ -308,14 +311,14 @@ export function CombatStage({ snapshot, run, controller, encounter, visualTheme,
           : <div aria-hidden="true" />}
         <div className="enemy-bars">{enemies.map((unit) => <UnitBar key={unit.id} unit={unit} enemy />)}</div>
       </header>
-      <IntentStack snapshot={snapshot} />
+      <IntentStack snapshot={snapshot} focused={soloLearningTurn} />
       {snapshot.mode === 'PLAYER_TURN' && party.length > 1 && <AllyIntentPanel snapshot={snapshot} />}
       {run.canUseLight && <button type="button" className="light-button" onClick={controller.useLight}>휴대용 조명 사용 · Intent 공개</button>}
-      {snapshot.mode !== 'INTRO' && <CombatTurnBanner snapshot={snapshot} />}
+      {snapshot.mode !== 'INTRO' && !soloLearningTurn && <CombatTurnBanner snapshot={snapshot} />}
       {snapshot.mode !== 'INTRO' && snapshot.mode !== 'PLAYER_TURN' && snapshot.mode !== 'SEAL_UNLOCKED' && <div className="combat-notice"><span />{snapshot.notice}</div>}
       {snapshot.mode === 'ALLY_TURN' && party.length > 1 && <PolicyReadout snapshot={snapshot} />}
-      {snapshot.mode === 'PLAYER_TURN' && run.elapsedBattleTurns === 0 && snapshot.state.turn === 1 && <FirstCombatCue snapshot={snapshot} />}
-      {snapshot.mode === 'PLAYER_TURN' && <CombatControls snapshot={snapshot} controller={controller} />}
+      {firstLearningTurn && (soloLearningTurn ? <SoloCombatGuide snapshot={snapshot} /> : <FirstCombatCue snapshot={snapshot} />)}
+      {snapshot.mode === 'PLAYER_TURN' && <CombatControls snapshot={snapshot} controller={controller} onboarding={soloLearningTurn} />}
       {snapshot.mode === 'INTRO' && (prologueEncounter
         ? <div className="encounter-overlay is-prologue"><button type="button" aria-label="첫 전투 시작" onClick={controller.startEncounter}><img src={`${BASE_URL}assets/ui/intent-attack.svg`} alt="" /><kbd>SPACE</kbd></button></div>
         : <div className="encounter-overlay"><div className="encounter-rule" /><p>SCOUTED ENCOUNTER</p><h1>{encounterTitle(encounter)}</h1><span>{snapshot.notice}</span><button type="button" onClick={controller.startEncounter}>전투 시작 <kbd>SPACE</kbd></button></div>
@@ -334,6 +337,18 @@ export function CombatStage({ snapshot, run, controller, encounter, visualTheme,
   );
 }
 
+function SoloCombatGuide({ snapshot }: { readonly snapshot: SliceSnapshot }) {
+  const planning = snapshot.plannedActions.length > 0;
+  if (planning) return null;
+  return <aside
+    className="solo-combat-guide is-threat"
+    data-learning-phase="THREAT"
+    aria-label="붉은 공격 범위를 피해 이동"
+  >
+    <span className="solo-danger-cell" aria-hidden="true"><b>A</b></span><i aria-hidden="true">→</i><span className="solo-move-glyph" aria-hidden="true"><img src={`${BASE_URL}assets/ui/intent-move.svg`} alt="" /></span>
+  </aside>;
+}
+
 function FirstCombatCue({ snapshot }: { readonly snapshot: SliceSnapshot }) {
   const planning = snapshot.plannedActions.length > 0;
   return <aside className={`first-combat-cue ${planning ? 'is-planned' : ''}`} aria-live="polite">
@@ -345,7 +360,7 @@ function FirstCombatCue({ snapshot }: { readonly snapshot: SliceSnapshot }) {
   </aside>;
 }
 
-function CombatControls({ snapshot, controller }: { readonly snapshot: SliceSnapshot; readonly controller: CombatViewController }) {
+function CombatControls({ snapshot, controller, onboarding = false }: { readonly snapshot: SliceSnapshot; readonly controller: CombatViewController; readonly onboarding?: boolean }) {
   const administrator = snapshot.previewState.units.find((unit) => unit.id === 'administrator-slice2');
   const enemies = snapshot.previewState.units.filter((unit) => snapshot.targetableEnemyIds.includes(unit.id));
   const phase = snapshot.isBusy ? 'EXECUTING' : snapshot.plannedActions.length ? 'PLANNING' : 'INPUT';
@@ -354,6 +369,26 @@ function CombatControls({ snapshot, controller }: { readonly snapshot: SliceSnap
     : phase === 'PLANNING'
       ? ['2 · 계획 확인', 'SPACE로 실행']
       : ['1 · 행동 선택', '이동 또는 기술을 입력'];
+  if (onboarding) {
+    const planning = snapshot.plannedActions.length > 0;
+    const destinationThreatened = planning && administrator !== undefined && snapshot.previewState.intents.some((intent) => (
+      intent.effectCells.some((cell) => cell.x === administrator.position.x && cell.y === administrator.position.y)
+    ));
+    return <section className={`player-controls solo-learning-controls is-${planning ? 'outcome' : 'threat'}`} data-onboarding-phase={planning ? 'OUTCOME' : 'THREAT'}>
+      <div className="solo-learning-actor" aria-label={`주인공 체력 ${administrator?.hp ?? 0}`}>
+        <img src={`${BASE_URL}assets/submission/administrator-v1.png`} alt="" />
+        <i><b style={{ width: `${(administrator?.hp ?? 0) / Math.max(1, administrator?.maxHp ?? 1) * 100}%` }} /></i>
+      </div>
+      {!planning
+        ? <MovementControl snapshot={snapshot} controller={controller} />
+        : <div className={`solo-outcome-controls ${destinationThreatened ? 'is-unsafe' : 'is-safe'}`} data-outcome-safety={destinationThreatened ? 'UNSAFE' : 'SAFE'}>
+            <span className="solo-outcome-token" aria-hidden="true">{destinationThreatened ? '!' : '◇'}</span>
+            <button type="button" className={`solo-undo-button ${destinationThreatened ? 'is-primary' : ''}`} data-onboarding-primary={destinationThreatened ? 'revise-plan' : undefined} aria-label="예정 이동 되돌리기" onClick={controller.undoLastAction}><span aria-hidden="true">↶</span><kbd>Z</kbd></button>
+            {!destinationThreatened && <button type="button" className="solo-execute-button" data-onboarding-primary="execute-plan" aria-label="예정 행동 실행" onClick={controller.confirmPlan}><span aria-hidden="true">▶</span><kbd>SPACE</kbd></button>}
+          </div>}
+      {snapshot.inputFeedback && <output key={snapshot.inputFeedback.serial} className={`solo-input-feedback is-${snapshot.inputFeedback.kind.toLowerCase()}`} aria-live="polite"><i aria-hidden="true">{snapshot.inputFeedback.kind === 'REJECTED' ? '!' : '✓'}</i><span>{snapshot.inputFeedback.message}</span></output>}
+    </section>;
+  }
   return (
     <section className={`player-controls phase-${phase.toLowerCase()} ${snapshot.isBusy ? 'is-busy' : ''}`}>
       <div className="plan-strip">
@@ -361,20 +396,34 @@ function CombatControls({ snapshot, controller }: { readonly snapshot: SliceSnap
         <div className="plan-sequence">{enemies.length > 0 && <div className="target-picker"><small>대상</small>{enemies.map((enemy) => <button key={enemy.id} type="button" className={snapshot.selectedTargetId === enemy.id ? 'is-selected' : ''} onClick={() => controller.selectTarget(enemy.id)}>{unitName(enemy)}</button>)}</div>}<div className="plan-actions-preview">{snapshot.plannedActions.length ? snapshot.plannedActions.map((action, index) => <span key={action.id} className="plan-chip"><i>{index + 1}</i>{action.label}</span>) : <span className="plan-empty">아직 입력된 행동 없음</span>}</div></div>
         {snapshot.inputFeedback && <output key={snapshot.inputFeedback.serial} className={`input-feedback is-${snapshot.inputFeedback.kind.toLowerCase()}`}><i aria-hidden="true">{snapshot.inputFeedback.kind === 'REJECTED' ? '!' : snapshot.inputFeedback.kind === 'COMMITTED' ? '▶' : '✓'}</i>{snapshot.inputFeedback.message}</output>}
       </div>
-      <div className="movement-control"><span className="control-caption">이동 <small>AP 1</small></span><div className="wasd-grid"><button type="button" disabled={snapshot.isBusy} aria-label="위로 이동" onClick={() => controller.move('UP')}>W</button><button type="button" disabled={snapshot.isBusy} aria-label="왼쪽으로 이동" onClick={() => controller.move('LEFT')}>A</button><button type="button" disabled={snapshot.isBusy} aria-label="아래로 이동" onClick={() => controller.move('DOWN')}>S</button><button type="button" disabled={snapshot.isBusy} aria-label="오른쪽으로 이동" onClick={() => controller.move('RIGHT')}>D</button></div></div>
+      <MovementControl snapshot={snapshot} controller={controller} caption />
       <div className="action-control"><span className="control-caption">기술</span><div className="skill-row">{snapshot.actions.map((action, index) => <ActionButton key={`${action.id}-${snapshot.inputFeedback?.actionId === action.id ? snapshot.inputFeedback.serial : 0}`} action={action} index={index} busy={snapshot.isBusy} feedbackKind={snapshot.inputFeedback?.actionId === action.id ? snapshot.inputFeedback.kind : undefined} controller={controller} />)}</div></div>
       <div className="turn-control"><div className="ap-readout"><small>ACTION POINT</small><strong>{'◆'.repeat(administrator?.ap ?? 0)}<i>{'◇'.repeat(Math.max(0, (administrator?.maxAp ?? 0) - (administrator?.ap ?? 0)))}</i></strong></div><div className="plan-actions"><button type="button" className="undo-button" disabled={!snapshot.canUndo} onClick={controller.undoLastAction}><span>되돌리기</span><kbd>Z</kbd></button><button type="button" className="end-turn-button" disabled={!snapshot.canConfirm} onClick={controller.confirmPlan}><span>{snapshot.plannedActions.length ? '행동 확정' : '대기'}</span><kbd>SPACE</kbd></button></div></div>
     </section>
   );
 }
 
-function ActionButton({ action, index, busy, feedbackKind, controller }: { readonly action: SliceSnapshot['actions'][number]; readonly index: number; readonly busy: boolean; readonly feedbackKind?: 'ACCEPTED' | 'REJECTED' | 'COMMITTED'; readonly controller: CombatViewController }) {
-  return <button type="button" className={`skill-button ${action.executable ? 'is-ready' : 'is-disabled'} ${feedbackKind ? `feedback-${feedbackKind.toLowerCase()}` : ''}`} disabled={busy} data-executable={action.executable} aria-label={`${action.label}, AP ${action.apCost}${action.executable ? ', 사용 가능' : `, ${action.failureMessage ?? '사용 불가'}`}`} onClick={() => controller.useAction(action.id as SliceActionId)} onMouseEnter={() => controller.setActionHover(action.id as SliceActionId)} onMouseLeave={() => controller.setActionHover()}><kbd>{index === 0 ? '1 / Q' : index === 1 ? '2 / E' : index === 2 ? '3 / R' : index + 1}</kbd><img src={`${BASE_URL}assets/ui/intent-${action.icon.toLowerCase()}.svg`} alt="" /><strong>{action.label}</strong><small>AP {action.apCost}</small><span className={`skill-state ${action.executable ? 'is-ready' : ''}`}>{action.executable ? '사용 가능' : action.failureMessage ?? '사용 불가'}</span><span className="skill-tooltip"><b>{action.label}</b>{action.description}{!action.executable && <em>{action.failureMessage ?? '현재 계획에서 실행할 수 없습니다.'}</em>}<small>{action.tags.join(' ')}</small></span></button>;
+function MovementControl({ snapshot, controller, caption = false }: { readonly snapshot: SliceSnapshot; readonly controller: CombatViewController; readonly caption?: boolean }) {
+  return <div className="movement-control">{caption && <span className="control-caption">이동 <small>AP 1</small></span>}<div className="wasd-grid"><button type="button" disabled={snapshot.isBusy} aria-label="위로 이동" onClick={() => controller.move('UP')}>W</button><button type="button" disabled={snapshot.isBusy} aria-label="왼쪽으로 이동" onClick={() => controller.move('LEFT')}>A</button><button type="button" disabled={snapshot.isBusy} aria-label="아래로 이동" onClick={() => controller.move('DOWN')}>S</button><button type="button" disabled={snapshot.isBusy} aria-label="오른쪽으로 이동" onClick={() => controller.move('RIGHT')}>D</button></div></div>;
 }
 
-function IntentStack({ snapshot }: { readonly snapshot: SliceSnapshot }) {
+function ActionButton({ action, index, busy, feedbackKind, controller }: { readonly action: SliceSnapshot['actions'][number]; readonly index: number; readonly busy: boolean; readonly feedbackKind?: 'ACCEPTED' | 'REJECTED' | 'COMMITTED'; readonly controller: CombatViewController }) {
+  const [tooltipVisible, setTooltipVisible] = useState(false);
+  const reveal = () => {
+    if (tooltipVisible) return;
+    setTooltipVisible(true);
+    controller.setActionHover(action.id as SliceActionId);
+  };
+  const conceal = () => {
+    setTooltipVisible(false);
+    controller.setActionHover();
+  };
+  return <button type="button" className={`skill-button ${action.executable ? 'is-ready' : 'is-disabled'} ${feedbackKind ? `feedback-${feedbackKind.toLowerCase()}` : ''} ${tooltipVisible ? 'is-tooltip-visible' : ''}`} disabled={busy} data-executable={action.executable} aria-label={`${action.label}, AP ${action.apCost}${action.executable ? ', 사용 가능' : `, ${action.failureMessage ?? '사용 불가'}`}`} onClick={() => controller.useAction(action.id as SliceActionId)} onPointerMove={reveal} onPointerLeave={conceal} onFocus={reveal} onBlur={conceal}><kbd>{index === 0 ? '1 / Q' : index === 1 ? '2 / E' : index === 2 ? '3 / R' : index + 1}</kbd><img src={`${BASE_URL}assets/ui/intent-${action.icon.toLowerCase()}.svg`} alt="" /><strong>{action.label}</strong><small>AP {action.apCost}</small><span className={`skill-state ${action.executable ? 'is-ready' : ''}`}>{action.executable ? '사용 가능' : action.failureMessage ?? '사용 불가'}</span><span className="skill-tooltip"><b>{action.label}</b>{action.description}{!action.executable && <em>{action.failureMessage ?? '현재 계획에서 실행할 수 없습니다.'}</em>}<small>{action.tags.join(' ')}</small></span></button>;
+}
+
+function IntentStack({ snapshot, focused = false }: { readonly snapshot: SliceSnapshot; readonly focused?: boolean }) {
   const hidden = new Set(snapshot.concealedIntentIds);
-  return <div className="intent-stack">{snapshot.previewState.intents.map((intent, index) => <EnemyIntentCard key={intent.id} intent={intent} owner={String.fromCharCode(65 + index)} unit={snapshot.previewState.units.find((unit) => unit.id === intent.sourceId)} concealed={hidden.has(intent.id)} />)}</div>;
+  return <div className={`intent-stack ${focused ? 'is-learning-focus' : ''}`}>{snapshot.previewState.intents.map((intent, index) => <EnemyIntentCard key={intent.id} intent={intent} owner={String.fromCharCode(65 + index)} unit={snapshot.previewState.units.find((unit) => unit.id === intent.sourceId)} concealed={hidden.has(intent.id)} />)}</div>;
 }
 
 function EnemyIntentCard({ intent, owner, unit, concealed }: { readonly intent: Intent; readonly owner: string; readonly unit?: Unit; readonly concealed: boolean }) {
@@ -382,7 +431,7 @@ function EnemyIntentCard({ intent, owner, unit, concealed }: { readonly intent: 
   if (concealed) {
     return <article className="enemy-intent-card is-concealed" tabIndex={0}><b className="intent-owner">{owner}</b><span className="concealed-glyph">?</span><div className="intent-name"><small>{unitName(unit)}</small><strong>{direction}을 노림</strong></div><span className="intent-anchor-rule">행동·범위 불명</span><span className="intent-card-tooltip" role="tooltip">{owner} 표식 적의 행동입니다. 어둠 때문에 행동 하나가 숨겨졌습니다.</span></article>;
   }
-  const movement = intent.plannedMovementPath.length;
+  const movement = intent.movementPath.length;
   const affected = intent.effectCells.length;
   return <article className={`enemy-intent-card ${intent.anchor === 'GROUND' ? 'is-ground' : ''}`} tabIndex={0} aria-label={`${owner} 적, ${intentName(intent.abilityId)}, ${movement ? `${movement}칸 이동 후 ` : ''}${affected}칸 공격`}>
     <b className="intent-owner">{owner}</b>

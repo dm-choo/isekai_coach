@@ -11,6 +11,7 @@ related:
   - sector-1-golden-run.md
   - acceptance-criteria.md
   - p9-first-experience-contract.md
+  - p10-solo-combat-interaction-contract.md
   - release-candidate.md
 ---
 
@@ -30,6 +31,8 @@ OpenAI Game Builders Seoul 제출용 Web Build가 전체 게임 설계에서 선
 - [Submission golden run](./sector-1-golden-run.md): 직접 탐사→위임→결계 확장→샘 활성화 제출 경로
 - [Acceptance criteria](./acceptance-criteria.md): 제출본 완료 판정
 - [P9 first experience contract](./p9-first-experience-contract.md): 단독 각성→첫 전투→동료 해방의 무설명 경험 계약
+- [P10 solo combat interaction contract](./p10-solo-combat-interaction-contract.md): 첫 전투의 위협→이동→예정 결과→실행 점진 공개 계약
+- [P10 retrospective](./p10-retrospective.md): 첫 단독 전투 산출물과 판단·재작업·검증 비용 회고
 - [Release candidate gate](./release-candidate.md): 재현 가능한 기술 검증, 배포·복구와 사람 gate
 
 ## Status summary

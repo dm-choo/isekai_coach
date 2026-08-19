@@ -301,7 +301,7 @@ button:disabled { cursor: not-allowed; }
 .skill-tooltip b { margin-bottom: 5px; color: #fff0bd; font-size: 13px; }
 .skill-tooltip em { display: block; margin-top: 7px; color: #ff967c; font-size: 10px; font-style: normal; }
 .skill-tooltip small { margin-top: 7px; color: #c79e58; font-size: 9px; }
-.skill-button:hover .skill-tooltip, .skill-button:focus-visible .skill-tooltip { display: block; }
+.skill-button.is-tooltip-visible .skill-tooltip { display: block; }
 
 .turn-control { display: flex; align-items: flex-end; justify-content: flex-end; gap: 12px; }
 .plan-actions { display: flex; align-items: stretch; gap: 7px; }
@@ -495,6 +495,46 @@ button:disabled { cursor: not-allowed; }
 .first-combat-cue strong,.first-combat-cue small { display: block; }.first-combat-cue strong { color: #ffe0d5; font-size: 11px; }.first-combat-cue small { margin-top: 3px; color: #c9a49a; font-size: 9px; }
 .first-combat-cue.is-planned { border-color: rgba(93,211,193,.68); background: rgba(5,30,27,.93); }.first-combat-cue.is-planned > i { background: #287b6f; }.first-combat-cue.is-planned strong { color: #d5fff8; }.first-combat-cue.is-planned small { color: #9bcac2; }
 
+/* P10 — the first solo turn exposes one relation at a time. */
+.intent-stack.is-learning-focus { top: 148px; right: 3.5%; width: 194px; }
+.intent-stack.is-learning-focus .enemy-intent-card { grid-template-columns: 24px 1fr; gap: 6px; padding: 7px 8px; border-width: 3px; background: rgba(43,12,8,.94); }
+.intent-stack.is-learning-focus .intent-main-icon,
+.intent-stack.is-learning-focus .intent-name,
+.intent-stack.is-learning-focus .intent-anchor-rule { display: none; }
+.intent-stack.is-learning-focus .intent-sequence { grid-row: 1; grid-column: 2; }
+.intent-stack.is-learning-focus .intent-sequence > span { min-width: 47px; justify-content: center; padding: 4px 5px; }
+.intent-stack.is-learning-focus .intent-sequence img { width: 24px; height: 24px; }
+.intent-stack.is-learning-focus .intent-sequence b { font-size: 8px; }
+
+.solo-combat-guide { position: absolute; z-index: 38; bottom: 122px; left: 50%; display: flex; height: 58px; min-width: 176px; align-items: center; justify-content: center; gap: 13px; transform: translateX(-50%); border: 1px solid rgba(213,192,137,.22); background: rgba(5,9,6,.88); box-shadow: 0 9px 25px #0009; pointer-events: none; }
+.solo-combat-guide > i { color: #7f887c; font-style: normal; }
+.solo-danger-cell { position: relative; display: grid; width: 44px; height: 34px; place-items: center; border: 2px solid #f16c59; background: repeating-linear-gradient(135deg,rgba(213,63,44,.54) 0 5px,rgba(75,14,10,.84) 5px 10px); box-shadow: 0 0 15px rgba(239,77,55,.25); }
+.solo-danger-cell b { display: grid; width: 18px; height: 18px; place-items: center; border-radius: 50%; background: #ff725e; color: #1d0906; font: 900 9px ui-monospace,monospace; }
+.solo-move-glyph { display: grid; width: 44px; height: 34px; place-items: center; border: 1px solid rgba(112,224,205,.46); background: rgba(12,43,37,.78); }
+.solo-move-glyph img { width: 28px; height: 28px; filter: hue-rotate(92deg) saturate(.8) brightness(1.35); }
+.solo-learning-controls { display: flex; min-height: 108px; align-items: center; justify-content: center; gap: 32px; padding: 11px 5vw 13px; border-top-color: rgba(169,219,199,.28); background: linear-gradient(180deg,rgba(12,20,15,.96),#030605 45%); }
+.solo-learning-actor { position: absolute; bottom: 8px; left: 5vw; width: 82px; height: 92px; pointer-events: none; }
+.solo-learning-actor img { position: absolute; right: 0; bottom: 7px; left: 0; width: 82px; height: 86px; object-fit: contain; object-position: center bottom; filter: drop-shadow(0 8px 5px #000c); }
+.solo-learning-actor > i { position: absolute; right: 8px; bottom: 0; left: 8px; height: 5px; overflow: hidden; border: 1px solid #558d80; background: #10221e; }
+.solo-learning-actor > i b { display: block; height: 100%; background: #62d4b6; }
+.solo-learning-controls .movement-control { display: block; }
+.solo-learning-controls .wasd-grid { grid-template-columns: repeat(3,40px); grid-template-rows: repeat(2,40px); gap: 5px; }
+.solo-learning-controls .wasd-grid button { border-color: #6ca596; background: linear-gradient(#203d34,#0c1713); color: #e7fff8; font-size: 13px; box-shadow: inset 0 -4px #050b09,0 5px 12px #0008; }
+.solo-learning-controls .wasd-grid button:hover { border-color: #a5f5df; background: linear-gradient(#2f6959,#10241d); }
+.solo-outcome-controls { display: flex; align-items: center; gap: 9px; }
+.solo-outcome-token { display: grid; width: 55px; height: 55px; place-items: center; border: 2px solid #77ddca; border-radius: 50%; background: rgba(18,74,64,.5); color: #d8fff7; font: 700 28px Georgia,serif; }
+.solo-outcome-controls.is-unsafe .solo-outcome-token { border-color: #ff725e; background: rgba(116,30,21,.72); color: #fff1ec; box-shadow: 0 0 18px rgba(242,82,61,.35); }
+.solo-undo-button,.solo-execute-button { display: grid; height: 57px; place-items: center; border-radius: 3px; }
+.solo-undo-button { width: 58px; border: 1px solid #46544d; background: #0e1411; color: #8da099; }
+.solo-undo-button.is-primary { width: 126px; grid-template-columns: 29px 1fr; border-color: #ff806a; background: linear-gradient(135deg,#74291f,#35110d); color: #fff0eb; box-shadow: 0 0 20px rgba(240,75,54,.22),inset 0 0 0 2px #1d0806; }
+.solo-execute-button { width: 126px; grid-template-columns: 29px 1fr; border: 1px solid #77ddca; background: linear-gradient(135deg,#1c6657,#0b3028); color: #e4fff9; box-shadow: 0 0 20px rgba(84,220,196,.2),inset 0 0 0 2px #061915; }
+.solo-undo-button span,.solo-execute-button span { font-size: 16px; }
+.solo-undo-button kbd,.solo-execute-button kbd { font: 900 9px ui-monospace,monospace; }
+.solo-undo-button:hover,.solo-execute-button:hover { transform: translateY(-2px); border-color: #c8fff2; filter: brightness(1.16); }
+.solo-input-feedback { position: absolute; right: 5vw; display: flex; max-width: 250px; align-items: center; gap: 8px; color: #bcebdc; font-size: 10px; font-weight: 700; }
+.solo-input-feedback > i { display: grid; width: 22px; height: 22px; flex: 0 0 22px; place-items: center; border-radius: 50%; background: #246b58; color: #e4fff8; font-style: normal; }
+.solo-input-feedback.is-rejected { color: #ffc0b3; }.solo-input-feedback.is-rejected > i { background: #76291f; }
+
 @media (max-aspect-ratio: 4 / 3) {
   .slice2-stage { width: 100vw; min-height: 100svh; aspect-ratio: auto; }
   .run-route span { min-width: 0; }.run-route span { font-size: 0; }.run-route i { font-size: 9px; }
@@ -502,6 +542,9 @@ button:disabled { cursor: not-allowed; }
   .slice2-combat-hud { grid-template-columns: 200px 1fr 200px; }.slice2-unit-bar { width: 190px; }
   .intent-stack { right: 10px; width: 230px; }
   .first-combat-cue { top: 205px; width: 42%; }
+  .intent-stack.is-learning-focus { right: 14px; width: 184px; }
+  .solo-learning-actor { left: 24px; }
+  .solo-input-feedback { right: 24px; max-width: 205px; }
 }
 
 /* Submission — persistent territory and barrier contour */

@@ -37,7 +37,16 @@ try {
     if (combat.mode === 'INTRO') await page.keyboard.press('Space');
     else if (combat.mode === 'PLAYER_TURN' && !combat.isBusy) {
       const administrator = combat.previewState.units.find((unit) => unit.id === 'administrator-slice2');
-      if (combat.plannedActions.length || administrator?.hp === 0) await page.keyboard.press('Space');
+      if (combat.state.turn === 1) {
+        if (combat.plannedActions.length === 0) {
+          await page.locator('.solo-learning-controls .wasd-grid button').filter({ hasText: 'W' }).click();
+        } else {
+          const execute = page.locator('[data-onboarding-primary="execute-plan"]');
+          if (!await execute.count()) throw new Error('Failure fixture cannot clear the authored first-turn learning gate');
+          await execute.click();
+        }
+      }
+      else if (combat.plannedActions.length || administrator?.hp === 0) await page.keyboard.press('Space');
       else {
         const move = approachMove(combat.previewState);
         if (!move) throw new Error(`Failure fixture cannot create a suicidal plan: ${JSON.stringify(combat.previewState.units)}`);

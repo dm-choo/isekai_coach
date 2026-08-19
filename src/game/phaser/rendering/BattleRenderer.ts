@@ -36,12 +36,14 @@ export class BattleRenderer {
     this.projector = new GridProjector(visualTheme === 'SUBMISSION' ? SUBMISSION_GRID_PROJECTION : undefined);
     const environment = visualTheme === 'SUBMISSION' ? SUBMISSION_ENVIRONMENT : SLICE_ENVIRONMENT;
     scene.cameras.main.setBackgroundColor('#071009');
+    scene.cameras.main.setBounds(0, 0, 1280, 720);
     const background = scene.add.image(640, 360, environment.textureKey)
       .setDisplaySize(1280, 720)
+      .setScrollFactor(0)
       .setDepth(-100);
     this.ambientObjects.push(background);
 
-    const shade = scene.add.graphics().setDepth(-90);
+    const shade = scene.add.graphics().setScrollFactor(0).setDepth(-90);
     shade.fillGradientStyle(0x020603, 0x020603, 0x07100a, 0x07100a, 0.35, 0.35, 0.04, 0.04);
     shade.fillRect(0, 0, 1280, 720);
     this.ambientObjects.push(shade);
@@ -105,8 +107,7 @@ export class BattleRenderer {
       if (!layer) continue;
       for (const cell of layer.cells) {
         const world = this.projector.gridToWorld(cell);
-        const zone = this.scene.add
-          .rectangle(world.x, world.y, this.projector.cellSize.width, this.projector.cellSize.height, 0x70e8d1, 0.1)
+        const zone = this.createCellZone(world, 0x70e8d1, 0.1)
           .setStrokeStyle(2, 0xb9fff1, 0.82)
           .setDepth(14);
         this.predictionObjects.push(zone);
@@ -114,8 +115,7 @@ export class BattleRenderer {
     }
     for (const destination of prediction.unitPositions ?? []) {
       const world = this.projector.gridToWorld(destination.position);
-      const zone = this.scene.add
-        .rectangle(world.x, world.y, this.projector.cellSize.width - 8, this.projector.cellSize.height - 8, 0x7fe7d2, 0.08)
+      const zone = this.createCellZone(world, 0x7fe7d2, 0.08)
         .setStrokeStyle(3, 0xc5fff3, 0.95)
         .setDepth(14);
       const marker = this.scene.add.text(world.x, world.y, '◇', {
@@ -139,8 +139,7 @@ export class BattleRenderer {
         }
         for (const cell of step.effectCells) {
           const world = this.projector.gridToWorld(cell);
-          const zone = this.scene.add
-            .rectangle(world.x, world.y, this.projector.cellSize.width - 6, this.projector.cellSize.height - 6, 0x278fbd, 0.2)
+          const zone = this.createCellZone(world, 0x278fbd, 0.2)
             .setStrokeStyle(3, 0x8eefff, 0.95)
             .setDepth(13);
           this.predictionObjects.push(zone);
@@ -530,36 +529,80 @@ export class BattleRenderer {
   private drawGroundCues(state: BattleState): void {
     const atlas = this.visualTheme === 'SUBMISSION' ? SUBMISSION_GROUND_ATLAS : SLICE_GROUND_ATLAS;
     const atlasExists = this.scene.textures.exists(atlas.textureKey);
+    const submissionCellTexture = this.visualTheme === 'SUBMISSION' ? this.ensureSubmissionGroundCellTexture() : undefined;
     const tileSize = this.projector.tileSize;
     if (this.visualTheme === 'SUBMISSION') {
-      const foundation = this.scene.add.polygon(640, 462, [-635,-65, 600,-65, 635,65, -600,65], 0x17140c, 0.72).setDepth(1);
+      const foundation = this.scene.add.polygon(640, 395, [-670,-92, 570,-92, 670,92, -570,92], 0x17140c, 0.84).setDepth(1);
       this.groundObjects.push(foundation);
     }
     for (let x = 0; x < state.map.width; x += 1) {
       for (let y = 0; y < state.map.height; y += 1) {
         const world = this.projector.gridToWorld({ x, y });
+        if (submissionCellTexture) {
+          const tileTints = [0xffffff, 0xe6dcc4, 0xf1e5cc, 0xd7cfba] as const;
+          const tile = this.scene.add.image(world.x, world.y, submissionCellTexture)
+            .setTint(tileTints[(x * 3 + y) % tileTints.length])
+            .setDepth(2);
+          this.groundObjects.push(tile);
+          continue;
+        }
         const tile = atlasExists
           ? this.scene.add.image(world.x, world.y, atlas.textureKey, (x * 3 + y) % 4)
           : this.scene.add.rectangle(world.x, world.y, tileSize.width, tileSize.height, 0x2b2415, 1);
         tile.setDisplaySize(tileSize.width + 1, tileSize.height + 1).setAlpha(1).setDepth(2);
-        const blockEdge = this.visualTheme === 'SUBMISSION'
-          ? this.scene.add.polygon(world.x, world.y, [
-              -tileSize.width / 2 + 8, -tileSize.height / 2,
-              tileSize.width / 2, -tileSize.height / 2,
-              tileSize.width / 2 - 8, tileSize.height / 2,
-              -tileSize.width / 2, tileSize.height / 2,
-            ], 0x000000, 0).setStrokeStyle(2, 0x171109, 0.72).setDepth(3)
-          : this.scene.add.rectangle(
-              world.x,
-              world.y,
-              tileSize.width - 1,
-              tileSize.height - 1,
-              0x000000,
-              0,
-            ).setStrokeStyle(2, 0x171109, 0.72).setDepth(3);
+        const blockEdge = this.scene.add.rectangle(
+          world.x,
+          world.y,
+          tileSize.width - 1,
+          tileSize.height - 1,
+          0x000000,
+          0,
+        ).setStrokeStyle(2, 0x171109, 0.72).setDepth(3);
         this.groundObjects.push(tile, blockEdge);
       }
     }
+  }
+
+  private ensureSubmissionGroundCellTexture(): string {
+    const key = 'submission_ground_cell_v4';
+    if (this.scene.textures.exists(key)) return key;
+    const texture = this.scene.textures.createCanvas(key, 104, 84);
+    if (!texture) return SUBMISSION_GROUND_ATLAS.textureKey;
+    const context = texture.context;
+    const source = this.scene.textures.get(SUBMISSION_GROUND_ATLAS.textureKey).getSourceImage() as CanvasImageSource;
+    context.save();
+    context.beginPath();
+    context.moveTo(52, 2);
+    context.lineTo(102, 42);
+    context.lineTo(52, 82);
+    context.lineTo(2, 42);
+    context.closePath();
+    context.clip();
+    context.drawImage(source, 0, 0, 104, 84);
+    const shade = context.createLinearGradient(0, 0, 0, 84);
+    shade.addColorStop(0, 'rgba(116, 102, 69, .08)');
+    shade.addColorStop(1, 'rgba(14, 20, 12, .34)');
+    context.fillStyle = shade;
+    context.fillRect(0, 0, 104, 84);
+    context.restore();
+    context.beginPath();
+    context.moveTo(52, 2);
+    context.lineTo(102, 42);
+    context.lineTo(52, 82);
+    context.lineTo(2, 42);
+    context.closePath();
+    context.strokeStyle = 'rgba(27, 20, 11, .92)';
+    context.lineWidth = 3;
+    context.stroke();
+    texture.refresh();
+    return key;
+  }
+
+  private createCellZone(world: Readonly<{ x: number; y: number }>, color: number, alpha: number): Phaser.GameObjects.Shape {
+    const polygon = this.projector.cellPolygon;
+    return polygon
+      ? this.scene.add.polygon(world.x, world.y, [...polygon], color, alpha)
+      : this.scene.add.rectangle(world.x, world.y, this.projector.cellSize.width, this.projector.cellSize.height, color, alpha);
   }
 
   private drawOccupancy(state: BattleState): void {
@@ -620,7 +663,7 @@ export class BattleRenderer {
         index % 3 === 0 ? 2 : 1.2,
         0xd9ef91,
         0.25 + (index % 4) * 0.08,
-      ).setDepth(-70);
+      ).setScrollFactor(0).setDepth(-70);
       this.scene.tweens.add({
         targets: firefly,
         x: firefly.x + 12 + (index % 5) * 4,

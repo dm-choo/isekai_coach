@@ -419,16 +419,26 @@ async function verifyFirstCombatInput(page) {
   const actor = combat.previewState.units.find((unit) => unit.id === 'administrator-slice2');
   const target = combat.previewState.units.find((unit) => unit.faction === 'ENEMY' && unit.hp > 0);
   if (!actor || !target) throw new Error('First combat input gate cannot find actor and target');
-  const move = bestMove(combat.previewState, actor.id, target.id);
-  if (!move) throw new Error('First combat input gate cannot find a valid movement');
-  if (await page.locator('.first-combat-cue').count() !== 1) throw new Error('First combat does not focus the player on one initial action');
-  await page.locator('.wasd-grid button').filter({ hasText: move }).click();
+  // The opening encounter is fixed: W is its authored safe learning move. A generic
+  // pre-move danger score cannot predict the enemy intent after it adapts to the move.
+  const move = 'W';
+  if (await page.locator('.solo-combat-guide.is-threat').count() !== 1) throw new Error('First combat does not focus the player on the threat-to-movement relation');
+  if (await page.locator('.solo-learning-controls .skill-button,.solo-learning-controls .plan-strip').count() !== 0) throw new Error('First combat exposes later vocabulary before the first movement');
+  const movementButton = page.locator('.wasd-grid button').filter({ hasText: move });
+  if (!await movementButton.isEnabled()) throw new Error('Authored safe first movement W is unavailable');
+  await movementButton.click();
   await page.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot.inputFeedback?.kind === 'ACCEPTED');
-  const feedback = await page.locator('.input-feedback.is-accepted').innerText();
-  const cue = await page.locator('.first-combat-cue.is-planned').innerText();
-  if (!feedback || !cue.includes('행동 후 위치') || !cue.includes('SPACE')) {
-    throw new Error(`First input lacks accepted feedback or next-step cue: ${JSON.stringify({ feedback, cue })}`);
+  const feedback = await page.locator('.solo-input-feedback.is-accepted').innerText();
+  const outcome = await page.locator('.solo-learning-controls.is-outcome .solo-outcome-token').count();
+  const execute = await page.locator('[data-onboarding-primary="execute-plan"]').count();
+  if (!feedback || outcome !== 1 || execute !== 1) {
+    throw new Error(`First input lacks accepted feedback or result-to-execute cue: ${JSON.stringify({ feedback, outcome, execute })}`);
   }
+  await page.locator('[data-onboarding-primary="execute-plan"]').click();
+  await page.waitForFunction(() => {
+    const snapshot = window.__ISEKAI_COACH_COMBAT__?.snapshot;
+    return snapshot?.mode === 'PLAYER_TURN' && !snapshot.isBusy && snapshot.state.turn >= 2;
+  });
   return { accepted: true, pointerAction: move, nextKey: 'SPACE', feedback };
 }
 

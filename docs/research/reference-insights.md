@@ -15,7 +15,7 @@ related:
 - 확인일: 2026-08-17
 - 우선순위: 원 논문, 개발자·개발사 공식 회고, 실무 가이드, 대규모 사용자 연구
 - 아래 `Application`은 출처가 직접 말한 결론이 아니라 이 프로젝트에 대한 **추론**이다.
-- 성공한 게임의 표면을 복제하지 않는다. 해당 사례가 해결한 문제와 trade-off만 가져온다.
+- reference가 해결한 문제뿐 아니라 화면 비율, 정보 배치, 입력 공개 순서처럼 검증 가능한 interaction pattern도 초기에는 충실히 재현한다. 먼저 읽히는 기준선을 만든 뒤 우리 mechanics에 맞지 않는 부분만 근거를 남기고 바꾼다.
 - 외부 근거는 canonical decision이 아니다. 채택 시 owner 문서나 ADR에서 다시 승인한다.
 
 ## Current combat-view references
@@ -25,7 +25,7 @@ related:
 - **Source:** Red Hook Games [official site](https://www.darkestdungeon.com/darkest-dungeon/) and [Steam store page](https://store.steampowered.com/app/262060/Darkest_Dungeon/). 비교용 캡처는 [`docs/images/reference_screenshot/darkest-dungeon-combat.jpg`](../images/reference_screenshot/darkest-dungeon-combat.jpg)에 둔다.
 - **External evidence:** 전투 공간과 캐릭터가 화면의 주된 시각 anchor이고, 하단 contextual control·icon·짧은 label이 행동을 받친다. 전투를 설명 패널의 모음으로 만들지 않는다.
 - **Application:** Slice 1은 scene-first 정글 보스방, 하단 중앙 `밀치기`·`내려찍` action bar, world-space Intent를 사용한다. 긴 policy dashboard와 cockpit형 텍스트를 public scene에서 제거한다.
-- **Caution:** Darkest Dungeon의 party composition·stress·art style을 가져오는 것이 아니다. 이 프로젝트가 채택하는 것은 장면/조작 hierarchy뿐이다.
+- **Caution:** party composition·stress처럼 현재 mechanics에 없는 기능은 추가하지 않는다. 다만 장면/조작 hierarchy, 하단 contextual control과 정보 밀도는 reference와 나란히 비교할 수 있을 정도로 구체적으로 따른다.
 
 ### Dungeon Fighter Online: side-view depth and impact
 
@@ -39,7 +39,7 @@ related:
 - **Source:** [One Step From Eden official Steam page](https://store.steampowered.com/app/960690/One_Step_From_Eden/). 비교용 캡처는 [`docs/images/reference_screenshot/one-step-from-eden-grid.jpg`](../images/reference_screenshot/one-step-from-eden-grid.jpg)에 둔다.
 - **External evidence:** 캐릭터와 장면이 유지되는 가운데 필요한 cell, 공격 영역과 상태가 짧은 고대비 signal로 빠르게 읽힌다.
 - **Application:** logical map `12 x 3`을 줄이지 않고 occupied/relevant area를 camera로 frame한다. 평소에는 이어진 흙바닥을 보이고, 적 Intent·이동 후보·광범위 공격 affected cells만 순간적으로 강조한다.
-- **Caution:** 카드·실시간 grid 전투·색 조합을 복제하지 않는다. 상시 바둑판을 피하고 signal timing을 참고한다.
+- **Caution:** 카드·실시간 전투처럼 현재 ruleset과 충돌하는 기능은 가져오지 않는다. grid signal의 대비, 지속 시간과 배경 대비는 reference를 구체적인 기준선으로 삼는다.
 
 세 reference에서 채택하는 공통 결론은 `장면 우선 + 큰 실루엣 + 필요한 순간의 명확한 signal`이다. 이것은 [Slice 1 canonical scope](../submission/vertical-slice.md)의 UI·UX 가설이며, 실제 사용성 통과 여부는 [validation agenda](./validation-agenda.md)에서 검증한다.
 

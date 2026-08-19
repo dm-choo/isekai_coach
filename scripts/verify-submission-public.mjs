@@ -37,6 +37,24 @@ try {
   }
   await page.screenshot({ path: new URL('01-public-restored.png', artifactDir).pathname });
 
+  for (let step = 0; step < 24 && await page.locator('.encounter-overlay.is-prologue').count() === 0; step += 1) {
+    await page.keyboard.press('d');
+  }
+  await page.locator('.encounter-overlay.is-prologue').waitFor();
+  await page.keyboard.press('Space');
+  await page.locator('.solo-learning-controls.is-threat').waitFor();
+  if (await page.locator('.solo-learning-controls .skill-button,.solo-learning-controls .plan-strip,[data-onboarding-primary]').count()) {
+    throw new Error('Public first combat exposes later vocabulary before movement');
+  }
+  await page.locator('.solo-learning-controls .wasd-grid button').filter({ hasText: 'A' }).click();
+  await page.locator('[data-onboarding-primary="revise-plan"]').waitFor();
+  await page.keyboard.press('Space');
+  if (await page.locator('[data-onboarding-primary="revise-plan"]').count() !== 1) throw new Error('Public unsafe preview accepted Space');
+  await page.locator('[data-onboarding-primary="revise-plan"]').click();
+  await page.locator('.solo-learning-controls .wasd-grid button').filter({ hasText: 'W' }).click();
+  await page.locator('[data-onboarding-primary="execute-plan"]').waitFor();
+  await page.screenshot({ path: new URL('02-public-solo-plan.png', artifactDir).pathname });
+
   const regression = {};
   for (const [path, expectedTitle] of [['slice1', 'Slice1'], ['slice2', 'Slice2']]) {
     const regressionPage = await context.newPage();
@@ -60,6 +78,7 @@ try {
     progressBeforeReload: checkpointBeforeReload.prologueProgress,
     progressAfterReload: checkpointAfterReload.prologueProgress,
     checkpointRestored: true,
+    soloCombat: { progressiveDisclosure: true, unsafePlanRevises: true, safePlanExecutes: true },
     regression,
     browserErrors: errors,
   };

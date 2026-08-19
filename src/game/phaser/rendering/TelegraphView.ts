@@ -66,8 +66,7 @@ export class TelegraphView {
       }).setOrigin(0.5).setDepth(19);
       result.push(arrow);
       if (index === intent.movementPath.length - 1) {
-        const destination = this.scene.add
-          .rectangle(world.x, world.y, this.projector.cellSize.width - 7, this.projector.cellSize.height - 7, 0xd84532, 0.13)
+        const destination = this.createCellZone(world, 0xd84532, 0.13)
           .setStrokeStyle(4, sourceColor, 0.96)
           .setDepth(8);
         result.push(destination);
@@ -78,12 +77,8 @@ export class TelegraphView {
     const ground = intent.abilityId === 'goblin-bomb';
     for (const cell of intent.effectCells) {
       const world = this.projector.gridToWorld(cell);
-      const zone = this.scene.add
-        .rectangle(
-          world.x,
-          world.y,
-          this.projector.cellSize.width,
-          this.projector.cellSize.height,
+      const zone = this.createCellZone(
+          world,
           ground ? 0xd18a25 : wide ? 0xc83d24 : 0xe04a2f,
           ground ? 0.24 : wide ? 0.18 : 0.3,
         )
@@ -119,6 +114,13 @@ export class TelegraphView {
       result.push(label);
     }
     return result;
+  }
+
+  private createCellZone(world: Readonly<{ x: number; y: number }>, color: number, alpha: number): Phaser.GameObjects.Shape {
+    const polygon = this.projector.cellPolygon;
+    return polygon
+      ? this.scene.add.polygon(world.x, world.y, [...polygon], color, alpha)
+      : this.scene.add.rectangle(world.x, world.y, this.projector.cellSize.width, this.projector.cellSize.height, color, alpha);
   }
 
   private remove(key: string): void {
