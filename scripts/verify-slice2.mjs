@@ -24,6 +24,9 @@ let bomberIntentCaptured = false;
 let inputFeedbackVerified = false;
 let intentSequenceVerified = false;
 let groundAnchorCopyVerified = false;
+let progressiveDisclosureVerified = false;
+let minimapRevealVerified = false;
+let firstCombatCueVerified = false;
 
 await mkdir(artifactDir, { recursive: true });
 
@@ -46,18 +49,10 @@ try {
 
   const resourceText = await page.locator('.run-stats').innerText();
   if (/[水食]/u.test(resourceText)) throw new Error(`Resource HUD still contains language-substitute glyphs: ${resourceText}`);
-  if (await page.locator('.mini-next-tile').count() !== 1) throw new Error('Local mini-map does not show the next world-tile direction');
-  await page.locator('.party-toggle').click();
-  const initialPolicy = (await runSnapshot(page)).policy;
-  await page.getByRole('button', { name: /사격.*위로/ }).click();
-  const reorderedPolicy = (await runSnapshot(page)).policy;
-  if (JSON.stringify(initialPolicy) === JSON.stringify(reorderedPolicy)) throw new Error('Party policy editor did not reorder policy outside combat');
-  await capture(page, '01a-party-policy');
-  await page.getByRole('button', { name: /사격.*아래로/ }).click();
-  const restoredPolicy = (await runSnapshot(page)).policy;
-  if (JSON.stringify(initialPolicy) !== JSON.stringify(restoredPolicy)) throw new Error('Party policy editor did not restore policy order');
-  await page.getByRole('button', { name: '닫기' }).click();
-  partyPolicyVerified = true;
+  if (await page.locator('.dungeon-minimap, .party-toggle, .run-route, .rest-button').count() !== 0) {
+    throw new Error('First room exposes systems before they become relevant');
+  }
+  progressiveDisclosureVerified = true;
 
   let combatCount = 0;
   let retries = 0;
@@ -89,6 +84,27 @@ try {
       continue;
     }
     if (run.mode === 'EXPLORE') {
+      if (run.elapsedBattleTurns > 0 && !partyPolicyVerified) {
+        if (await page.locator('.party-toggle').count() !== 1 || await page.locator('.run-route').count() !== 1) {
+          throw new Error('Run and party information did not appear after the first battle');
+        }
+        await page.locator('.party-toggle').click();
+        const initialPolicy = (await runSnapshot(page)).policy;
+        await page.getByRole('button', { name: /사격.*위로/ }).click();
+        const reorderedPolicy = (await runSnapshot(page)).policy;
+        if (JSON.stringify(initialPolicy) === JSON.stringify(reorderedPolicy)) throw new Error('Party policy editor did not reorder policy outside combat');
+        await capture(page, '01a-party-policy');
+        await page.getByRole('button', { name: /사격.*아래로/ }).click();
+        const restoredPolicy = (await runSnapshot(page)).policy;
+        if (JSON.stringify(initialPolicy) !== JSON.stringify(restoredPolicy)) throw new Error('Party policy editor did not restore policy order');
+        await page.getByRole('button', { name: '닫기' }).click();
+        partyPolicyVerified = true;
+        continue;
+      }
+      if (run.tile.corridorsScouted && !minimapRevealVerified) {
+        if (await page.locator('.mini-next-tile').count() !== 1) throw new Error('Scouting did not reveal the local map and next world-tile direction');
+        minimapRevealVerified = true;
+      }
       if (run.currentTileIndex >= 1 && !expeditionPolicyTuned) {
         await page.locator('.party-toggle').click();
         while ((await runSnapshot(page)).policy[0] !== 'SHOOT') {
@@ -141,6 +157,9 @@ try {
       await page.keyboard.press('Space');
       await page.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot.mode === 'PLAYER_TURN' && !window.__ISEKAI_COACH_COMBAT__?.snapshot.isBusy);
       const activeCombat = await combatSnapshot(page);
+      if (combatCount === 1 && !await page.locator('.first-combat-cue').getByText('붉은 공격 칸에서 벗어날 위치를 선택').isVisible()) {
+        throw new Error('First combat does not focus the player on the first relevant rule');
+      }
       const markers = await page.locator('.intent-owner').allTextContents();
       if (markers.length !== activeCombat.previewState.intents.length || markers.some((marker, index) => marker !== String.fromCharCode(65 + index))) {
         throw new Error(`Intent ownership markers do not match intent order: ${JSON.stringify(markers)}`);
@@ -228,6 +247,8 @@ try {
   if (!targetPickerHiddenVerified || !targetPickerShownVerified) throw new Error('Target picker did not exercise both hidden and actionable states');
   if (!inputFeedbackVerified) throw new Error('Rejected input feedback was not verified');
   if (!intentSequenceVerified || !groundAnchorCopyVerified) throw new Error('Player-readable BODY/GROUND intent grammar was not fully verified');
+  if (!progressiveDisclosureVerified || !minimapRevealVerified) throw new Error('Progressive onboarding disclosure was not fully verified');
+  if (!firstCombatCueVerified) throw new Error('First combat cue did not transition from input to plan confirmation');
   await capture(page, '03-complete');
   const night = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   night.on('console', (message) => { if (message.type() === 'error') errors.push(`night ${message.text()}`); });
@@ -294,6 +315,9 @@ try {
     inputFeedbackVerified,
     intentSequenceVerified,
     groundAnchorCopyVerified,
+    progressiveDisclosureVerified,
+    minimapRevealVerified,
+    firstCombatCueVerified,
   };
   await writeFile(new URL('report.json', artifactDir), `${JSON.stringify(report, null, 2)}\n`);
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
@@ -363,6 +387,10 @@ async function playPlayerTurn(page, snapshot) {
     await page.locator('.wasd-grid button').filter({ hasText: move }).click();
     await page.waitForTimeout(30);
     const afterMove = await combatSnapshot(page);
+    if (!firstCombatCueVerified && afterMove.state.turn === 1 && afterMove.plannedActions.length > 0) {
+      await page.locator('.first-combat-cue.is-planned').getByText('반투명 실루엣이 행동 후 위치입니다').waitFor();
+      firstCombatCueVerified = true;
+    }
     const warriorIntent = afterMove.previewState.intents.find((intent) => intent.sourceId === 'goblin-warrior');
     if (!blockedPreviewCaptured && warriorIntent && warriorIntent.movementPath.length < 4) {
       blockedPreviewCaptured = true;

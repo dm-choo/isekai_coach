@@ -28,8 +28,9 @@ M0 범위 고정
 - M0: accepted. [Scope](./scope.md)의 축소된 증명 범위를 사용한다.
 - M1: implemented, automated validation passed, public build deployed. 무설명 사람 검증은 다음 외부 테스트 시 누적한다.
 - M2: implemented and deployed. 적 이동→공격 순서, BODY/GROUND의 플레이어 언어, A/B/C 소유자 연결이 자동 검증을 통과했으며 무설명 사람 판독은 under-validation이다.
-- M3: next.
-- M4~M7: pending.
+- M3: implemented, automated validation passed. 시작 화면에서는 원정 시작만, 첫 방에서는 시간과 진행 방향만 노출하고 정찰·첫 전투 이후에 미니맵, 자원, 동료 정책을 순차 공개한다. 첫 전투는 모달 설명 대신 이동 프리뷰와 SPACE 확정을 직접 수행하게 한다. 무설명 사람 검증은 under-validation이다.
+- M4: next.
+- M5~M7: pending.
 
 ## Economical validation ladder
 

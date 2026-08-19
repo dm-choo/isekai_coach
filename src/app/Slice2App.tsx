@@ -88,8 +88,8 @@ export function Slice2App() {
         {snapshot.mode === 'COMBAT' && snapshot.combat
           ? <CombatStage snapshot={snapshot.combat} run={snapshot} controller={controller} encounter={snapshot.currentEncounter?.content} />
           : <ExplorationStage snapshot={snapshot} controller={controller} />}
-        {snapshot.mode !== 'COMBAT' && <ExpeditionPartyPanel snapshot={snapshot} controller={controller} />}
-        <RunHud snapshot={snapshot} />
+        {snapshot.mode !== 'INTRO' && snapshot.mode !== 'COMBAT' && snapshot.elapsedBattleTurns > 0 && <ExpeditionPartyPanel snapshot={snapshot} controller={controller} />}
+        {snapshot.mode !== 'INTRO' && <RunHud snapshot={snapshot} />}
       </section>
     </main>
   );
@@ -138,9 +138,9 @@ function ExplorationStage({ snapshot, controller }: {
       {snapshot.traversal
         ? <CorridorTraversalScene snapshot={snapshot} controller={controller} />
         : <RoomScene currentNodeId={snapshot.currentNodeId} doors={snapshot.availableDoorDirections} onEnter={controller.enterCorridor} />}
-      <DungeonMiniMap snapshot={snapshot} />
+      {snapshot.tile.corridorsScouted && <DungeonMiniMap snapshot={snapshot} />}
       {!snapshot.traversal && <div className="local-notice" role="status">{snapshot.notice}</div>}
-      {!snapshot.traversal && <button type="button" className="rest-button" disabled={!snapshot.canRest} onClick={controller.rest}>
+      {!snapshot.traversal && snapshot.canRest && <button type="button" className="rest-button" onClick={controller.rest}>
         휴식 20분 · 물 1 · 식량 1 · HP +3
       </button>}
       {snapshot.canAdvanceTile && (
@@ -277,6 +277,7 @@ function CombatStage({ snapshot, run, controller, encounter }: {
       {snapshot.mode !== 'INTRO' && <CombatTurnBanner snapshot={snapshot} />}
       {snapshot.mode !== 'INTRO' && snapshot.mode !== 'PLAYER_TURN' && <div className="combat-notice"><span />{snapshot.notice}</div>}
       {snapshot.mode === 'ALLY_TURN' && <PolicyReadout snapshot={snapshot} />}
+      {snapshot.mode === 'PLAYER_TURN' && run.elapsedBattleTurns === 0 && snapshot.state.turn === 1 && <FirstCombatCue snapshot={snapshot} />}
       {snapshot.mode === 'PLAYER_TURN' && <CombatControls snapshot={snapshot} controller={controller} />}
       {snapshot.mode === 'INTRO' && (
         <div className="encounter-overlay"><div className="encounter-rule" /><p>SCOUTED ENCOUNTER</p><h1>{encounterTitle(encounter)}</h1><span>Intent를 확인하고 진형을 결정하십시오.</span><button type="button" onClick={controller.startEncounter}>전투 시작 <kbd>SPACE</kbd></button></div>
@@ -289,6 +290,17 @@ function CombatStage({ snapshot, run, controller, encounter }: {
       )}
     </div>
   );
+}
+
+function FirstCombatCue({ snapshot }: { readonly snapshot: SliceSnapshot }) {
+  const planning = snapshot.plannedActions.length > 0;
+  return <aside className={`first-combat-cue ${planning ? 'is-planned' : ''}`} aria-live="polite">
+    <i aria-hidden="true">{planning ? '✓' : '1'}</i>
+    <div>{planning
+      ? <><strong>반투명 실루엣이 행동 후 위치입니다</strong><small>안전한지 확인한 뒤 SPACE로 실행</small></>
+      : <><strong>붉은 공격 칸에서 벗어날 위치를 선택</strong><small>W A S D · 누르면 예정 위치가 먼저 보입니다</small></>}
+    </div>
+  </aside>;
 }
 
 function CombatControls({ snapshot, controller }: { readonly snapshot: SliceSnapshot; readonly controller: Slice2RunController }) {
@@ -366,7 +378,11 @@ function CombatTurnBanner({ snapshot }: { readonly snapshot: SliceSnapshot }) {
 }
 
 function RunHud({ snapshot }: { readonly snapshot: ReturnType<Slice2RunController['getSnapshot']> }) {
-  return <aside className="run-hud"><div className="run-route">{snapshot.world.tiles.map((tile, index) => <span key={tile.id} className={`${index === snapshot.currentTileIndex ? 'is-current' : ''} ${tile.cleared ? 'is-cleared' : ''}`}><i>{index + 1}</i>{tile.name}</span>)}</div><div className="run-stats"><strong className={snapshot.isNight ? 'is-night' : ''}>{snapshot.worldTime}</strong><b aria-label={`물 ${snapshot.supplies.water}/2`}><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="" />{snapshot.supplies.water}/2</b><b aria-label={`식량 ${snapshot.supplies.food}/2`}><img src={`${BASE_URL}assets/ui/supply-ration.svg`} alt="" />{snapshot.supplies.food}/2</b><b aria-label={`조명 ${snapshot.supplies.light}`}><img src={`${BASE_URL}assets/ui/supply-light.svg`} alt="" />{snapshot.supplies.light}</b><small>이동 {snapshot.elapsedTravel} · 전투 {snapshot.elapsedBattleTurns}턴 · 사건 {snapshot.elapsedEventMinutes}분</small></div></aside>;
+  const learnedRun = snapshot.elapsedBattleTurns > 0 || snapshot.currentTileIndex > 0;
+  return <aside className={`run-hud ${learnedRun ? 'is-expanded' : 'is-focused'}`}>
+    {learnedRun && <div className="run-route">{snapshot.world.tiles.map((tile, index) => <span key={tile.id} className={`${index === snapshot.currentTileIndex ? 'is-current' : ''} ${tile.cleared ? 'is-cleared' : ''}`}><i>{index + 1}</i>{tile.name}</span>)}</div>}
+    <div className="run-stats"><strong className={snapshot.isNight ? 'is-night' : ''}>{snapshot.worldTime}</strong>{learnedRun && <><b aria-label={`물 ${snapshot.supplies.water}/2`}><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="" />{snapshot.supplies.water}/2</b><b aria-label={`식량 ${snapshot.supplies.food}/2`}><img src={`${BASE_URL}assets/ui/supply-ration.svg`} alt="" />{snapshot.supplies.food}/2</b><b aria-label={`조명 ${snapshot.supplies.light}`}><img src={`${BASE_URL}assets/ui/supply-light.svg`} alt="" />{snapshot.supplies.light}</b><small>이동 {snapshot.elapsedTravel} · 전투 {snapshot.elapsedBattleTurns}턴 · 사건 {snapshot.elapsedEventMinutes}분</small></>}</div>
+  </aside>;
 }
 
 function ExpeditionPartyPanel({ snapshot, controller }: {
