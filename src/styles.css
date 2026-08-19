@@ -590,7 +590,8 @@ button:disabled { cursor: not-allowed; }
 @keyframes spring-wave { from { scale: .6; opacity: 1; } to { scale: 1.4; opacity: 0; } }
 .expansion-causality { position: absolute; z-index: 13; right: 5.5%; bottom: 28px; display: flex; align-items: center; gap: 9px; padding: 9px 12px; border: 1px solid #6ccaa455; background: #071a13e8; }.expansion-causality span { display: grid; justify-items: center; gap: 3px; }.expansion-causality span b { display: grid; width: 25px; height: 25px; place-items: center; border-radius: 50%; background: #1b6549; color: #dcfff0; font-size: 10px; }.expansion-causality span img { width: 23px; height: 23px; }.expansion-causality span small { color: #8ca99b; font-size: 7px; }.expansion-causality > i { color: #65cba2; font-style: normal; }
 .next-coordinates { position: absolute; z-index: 10; bottom: 10%; left: 5.5%; width: 350px; padding: 12px 15px; border-left: 3px solid #70d6ac; background: linear-gradient(90deg,#092219df,transparent); }.next-coordinates small,.next-coordinates strong,.next-coordinates p { display: block; }.next-coordinates small { color: #65bd98; font: 800 8px ui-monospace,monospace; letter-spacing: .13em; }.next-coordinates strong { margin-top: 5px; font-size: 11px; }.next-coordinates p { margin: 5px 0 0; color: #7f9288; font-size: 8px; }
-.submission-expanded .submission-flow-primary { display: none; }
+.submission-expanded .expanded-restart { right: 5.5%; bottom: 24px; display: flex; width: 250px; height: 58px; }
+.submission-expanded .expansion-causality { bottom: 96px; }
 .submission-destination span { font-family: "Pretendard Variable",ui-monospace,monospace; }
 
 @media (max-aspect-ratio: 4 / 3) {
@@ -600,6 +601,7 @@ button:disabled { cursor: not-allowed; }
   .submission-travel-party { left: 20%; }.scout-map { left: 66%; scale: .82; }.scouted-copy { width: 38%; }.scouted-next { width: 38%; }
   .expanded-tile-field { left: 0; transform: scale(.78); transform-origin: 72% 50%; }
   .expanded-copy { width: 39%; }.expanded-copy p { width: 340px; }
+  .submission-expanded .expanded-restart { right: 3%; }
 }
 
 @media (max-width: 760px) {

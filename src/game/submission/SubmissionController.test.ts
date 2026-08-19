@@ -49,4 +49,13 @@ describe('SubmissionController direct exploration', () => {
     });
     controller.destroy();
   });
+
+  it('ignores unavailable primary actions instead of pretending the input was accepted', () => {
+    const controller = new SubmissionController();
+    expect(controller.performPrimaryAction()).toBe(true);
+    expect(controller.getSnapshot().mode).toBe('CORRIDOR');
+    expect(controller.performPrimaryAction()).toBe(false);
+    expect(controller.getSnapshot().mode).toBe('CORRIDOR');
+    controller.destroy();
+  });
 });

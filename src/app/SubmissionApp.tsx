@@ -33,20 +33,7 @@ export function SubmissionApp() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.repeat) return;
       if (event.key === ' ') {
-        if (snapshot.mode === 'INTRO') controller.startExpedition();
-        else if (snapshot.mode === 'CENTER_GATE') controller.enterCenter();
-        else if (snapshot.mode === 'SCOUTED') controller.beginPolicyReview();
-        else if (snapshot.mode === 'POLICY_REVIEW' && snapshot.policyChoice) controller.openDelegationPlan();
-        else if (snapshot.mode === 'DELEGATION_PLAN') controller.runDelegation();
-        else if (snapshot.mode === 'DELEGATION_RESULT' && snapshot.delegationResult?.outcome === 'SECURED') controller.beginAnchorApproach();
-        else if (snapshot.mode === 'DELEGATION_RESULT') controller.beginPolicyReview();
-        else if (snapshot.mode === 'ANCHOR_READY') controller.activateAnchor();
-        else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'INTRO') controller.startEncounter();
-        else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'PLAYER_TURN') controller.confirmPlan();
-        else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'VICTORY') controller.completeEncounter();
-        else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'DEFEAT') controller.retryEncounter();
-        else return;
-        event.preventDefault();
+        if (controller.performPrimaryAction()) event.preventDefault();
         return;
       }
       if (snapshot.mode !== 'COMBAT' || snapshot.combat?.mode !== 'PLAYER_TURN') return;
@@ -94,8 +81,8 @@ export function SubmissionApp() {
                     : snapshot.mode === 'ANCHOR_APPROACH' || snapshot.mode === 'ANCHOR_READY'
                       ? <AnchorApproachStage snapshot={snapshot} controller={controller} />
                       : snapshot.mode === 'EXPANDED'
-                        ? <ExpandedStage snapshot={snapshot} />
-                        : <TerritoryStage snapshot={snapshot} onStart={controller.startExpedition} />}
+                        ? <ExpandedStage snapshot={snapshot} controller={controller} />
+                        : <TerritoryStage snapshot={snapshot} onStart={controller.performPrimaryAction} />}
         {snapshot.mode !== 'COMBAT' && <SubmissionHud snapshot={snapshot} />}
       </section>
     </main>
@@ -121,7 +108,7 @@ function TerritoryStage({ snapshot, onStart }: { readonly snapshot: SubmissionSn
         <span>현재 위치</span>
       </div>
     </div>
-    <button type="button" className="primary-expedition" aria-label="동쪽 경계 조사 시작" onClick={onStart}>
+    <button type="button" className="primary-expedition" data-submission-primary="start-expedition" data-primary-key="SPACE" aria-label="동쪽 경계 조사 시작" onClick={onStart}>
       <span><small>다음 행동</small><strong>동쪽 경계 조사</strong></span><kbd>SPACE</kbd>
     </button>
     <footer className="submission-footer"><p><i /> 결계 안 · 안전</p><span>보이는 땅도 확보하기 전에는 내 영토가 아니다.</span></footer>
@@ -171,8 +158,8 @@ function CorridorStage({ snapshot, controller }: { readonly snapshot: Submission
     <div className="submission-destination"><i>◇</i><span>{atGate ? '중앙 방' : `${400 - snapshot.corridorProgress}m`}</span></div>
     <div className="submission-distance" aria-label={`${snapshot.corridorProgress}미터 이동`}><i style={{ width: `${progress * 100}%` }} />{[100, 200, 300].map((meter) => <b key={meter} style={{ left: `${meter / 4}%` }} />)}<span>{snapshot.corridorProgress} / 400m</span></div>
     {atGate
-      ? <button type="button" className="corridor-primary" onClick={controller.enterCenter}><span><small>발소리 2 · 출구 4</small><strong>중앙 방 진입</strong></span><kbd>SPACE</kbd></button>
-      : <button type="button" className="corridor-primary hold-control" onPointerDown={start} onPointerUp={stop} onPointerLeave={stop}><span><small>누르는 동안 이동</small><strong>동쪽으로 전진</strong></span><kbd>D</kbd></button>}
+      ? <button type="button" className="corridor-primary" data-submission-primary="enter-center" data-primary-key="SPACE" onClick={controller.performPrimaryAction}><span><small>발소리 2 · 출구 4</small><strong>중앙 방 진입</strong></span><kbd>SPACE</kbd></button>
+      : <button type="button" className="corridor-primary hold-control" data-submission-primary="advance-corridor" data-primary-key="D" onPointerDown={start} onPointerUp={stop} onPointerLeave={stop}><span><small>누르는 동안 이동</small><strong>동쪽으로 전진</strong></span><kbd>D</kbd></button>}
     <div className="submission-travel-notice" role="status"><i />{snapshot.notice}</div>
   </div>;
 }
@@ -189,7 +176,7 @@ function ScoutedStage({ snapshot, controller }: { readonly snapshot: SubmissionS
     </div>
     <div className="scout-causality"><span><b>1</b>중앙 방 확보</span><i>→</i><span><b>4</b>모든 통로 정찰</span></div>
     <aside className="scouted-next"><small>관찰된 문제</small><strong>동료는 적이 너무 가까워지면 사격하지 못했다.</strong><p>다음 단계에서 이 전투 기록으로 동료 정책을 한 번 수정합니다.</p></aside>
-    <button type="button" className="submission-flow-primary" onClick={controller.beginPolicyReview}><span><small>다음 행동</small><strong>전투 기록 확인</strong></span><kbd>SPACE</kbd></button>
+    <button type="button" className="submission-flow-primary" data-submission-primary="review-record" data-primary-key="SPACE" onClick={controller.performPrimaryAction}><span><small>다음 행동</small><strong>전투 기록 확인</strong></span><kbd>SPACE</kbd></button>
   </div>;
 }
 
@@ -214,7 +201,7 @@ function PolicyReviewStage({ snapshot, controller }: { readonly snapshot: Submis
       </button>)}</div>
       <div className="policy-order-preview"><small>현재 평가 순서</small>{snapshot.policy.map((policyId, index) => <span key={policyId} className={index === 0 ? 'is-first' : ''}><i>{index + 1}</i>{policyName(policyId)}</span>)}</div>
     </section>
-    <button type="button" className="submission-flow-primary" disabled={!snapshot.policyChoice} onClick={controller.openDelegationPlan}><span><small>{snapshot.policyChoice ? '변경은 다음 작전부터 적용' : '대응 하나를 선택'}</small><strong>위임 경로 확인</strong></span><kbd>SPACE</kbd></button>
+    <button type="button" className="submission-flow-primary" data-submission-primary="open-delegation" data-primary-key="SPACE" disabled={!snapshot.policyChoice} onClick={controller.performPrimaryAction}><span><small>{snapshot.policyChoice ? '변경은 다음 작전부터 적용' : '대응 하나를 선택'}</small><strong>위임 경로 확인</strong></span><kbd>SPACE</kbd></button>
   </div>;
 }
 
@@ -234,7 +221,7 @@ function DelegationPlanStage({ snapshot, controller }: { readonly snapshot: Subm
       <dl><div><dt>경로</dt><dd>정찰된 동쪽 통로 · 400m</dd></div><div><dt>전술 변경</dt><dd>{snapshot.policyChoice === 'PUSH_FIRST' ? '접근 시 밀치기 우선' : '최소 사거리 유지'}</dd></div><div><dt>후퇴</dt><dd>HP {snapshot.retreatAtHp} 이하</dd></div><div><dt>시간 한도</dt><dd>전투 12턴</dd></div><div><dt>미확인 규칙</dt><dd>즉시 Decision · 대기</dd></div></dl>
     </aside>
     <div className="concurrent-task"><span><b>주인공</b><small>중앙 방 · 확장 회로 준비</small><em>{snapshot.protagonistTaskMinutes ? `${snapshot.protagonistTaskMinutes}분` : '준비 완료'}</em></span><i>{snapshot.protagonistTaskMinutes ? '동시에' : '기완료'}</i><span><b>별동대</b><small>400m 이동 + 실제 전투 턴</small><em>8분 + ?</em></span></div>
-    <button type="button" className="submission-flow-primary" onClick={controller.runDelegation}><span><small>{snapshot.protagonistTaskMinutes ? '두 작전은 같은 세계 시간을 사용' : '주인공 준비는 이미 완료'}</small><strong>작전 시작</strong></span><kbd>SPACE</kbd></button>
+    <button type="button" className="submission-flow-primary" data-submission-primary="run-delegation" data-primary-key="SPACE" onClick={controller.performPrimaryAction}><span><small>{snapshot.protagonistTaskMinutes ? '두 작전은 같은 세계 시간을 사용' : '주인공 준비는 이미 완료'}</small><strong>작전 시작</strong></span><kbd>SPACE</kbd></button>
   </div>;
 }
 
@@ -254,7 +241,7 @@ function DelegationResultStage({ snapshot, controller }: { readonly snapshot: Su
     </section>
     <section className="operation-log"><header><span><small>ACTUAL POLICY LOG</small><strong>같은 좌표 규칙의 실제 행동</strong></span><b>{result.eventCount} events</b></header>{notableSteps.map((step, index) => <div key={`${step.turn}-${step.cycle}-${index}`}><i>T{step.turn}</i><img src={`${BASE_URL}assets/ui/intent-${step.selectedPolicyId === 'PUSH' ? 'push' : step.selectedPolicyId === 'SHOOT' ? 'shoot' : 'move'}.svg`} alt="" /><span><strong>{step.action?.label ?? policyName(step.selectedPolicyId ?? 'EMPTY')}</strong><small>{step.reason}</small></span>{step.action?.to && <em>{step.action.from.x},{step.action.from.y} → {step.action.to.x},{step.action.to.y}</em>}</div>)}</section>
     <aside className="shared-time-result"><small>SHARED WORLD TIME</small><div><span>주인공 준비 <b>{snapshot.protagonistTaskMinutes ? `${snapshot.protagonistTaskMinutes}분` : '기완료'}</b></span><span>별동대 작전 <b>{result.elapsedMinutes}분</b></span></div><p>합산하지 않고 더 오래 걸린 작전만큼 세계 시간이 흘렀다.</p></aside>
-    <button type="button" className="submission-flow-primary" onClick={secured ? controller.beginAnchorApproach : controller.beginPolicyReview}><span><small>{secured ? '주인공만 활성화할 수 있음' : '이전 결과는 기록에 남음'}</small><strong>{secured ? '경계 거점으로 이동' : '정책 다시 조정'}</strong></span><kbd>SPACE</kbd></button>
+    <button type="button" className="submission-flow-primary" data-submission-primary={secured ? 'approach-anchor' : 'review-policy'} data-primary-key="SPACE" onClick={controller.performPrimaryAction}><span><small>{secured ? '주인공만 활성화할 수 있음' : '이전 결과는 기록에 남음'}</small><strong>{secured ? '경계 거점으로 이동' : '정책 다시 조정'}</strong></span><kbd>SPACE</kbd></button>
   </div>;
 }
 
@@ -298,29 +285,29 @@ function AnchorApproachStage({ snapshot, controller }: { readonly snapshot: Subm
     <div className="safe-route-glow" /><div className="corridor-shade" />
     <div className="submission-travel-copy"><small>SECURED ROUTE · EAST</small><strong>{ready ? '확장 거점 도착' : '되찾은 길을 걷는다'}</strong><p>{ready ? '이 땅은 아직 결계 밖이다. 주인공이 마지막 연결을 수행한다.' : '위협은 제거됐지만, 직접 도착하기 전에는 내 영토가 아니다.'}</p></div>
     <div className="anchor-travel-party"><img src={`${BASE_URL}assets/slice1/administrator-v2.png`} alt="관리자" /><span>주인공</span></div>
-    <div className="submission-destination anchor-destination"><i>✦</i><span>{ready ? '확장 거점' : `${400 - snapshot.anchorProgress}m`}</span></div>
+    <div className="submission-destination anchor-destination"><i>✦</i><span data-korean-critical>{ready ? '확장 거점' : `${400 - snapshot.anchorProgress}m`}</span></div>
     <div className="submission-distance" aria-label={`${snapshot.anchorProgress}미터 이동`}><i style={{ width: `${progress * 100}%` }} />{[100, 200, 300].map((meter) => <b key={meter} style={{ left: `${meter / 4}%` }} />)}<span>{snapshot.anchorProgress} / 400m</span></div>
     {ready
-      ? <button type="button" className="corridor-primary anchor-activate" onClick={controller.activateAnchor}><span><small>조건 충족 · 주인공 현장 도착</small><strong>확장 거점 활성화</strong></span><kbd>SPACE</kbd></button>
-      : <button type="button" className="corridor-primary hold-control" onPointerDown={start} onPointerUp={stop} onPointerLeave={stop}><span><small>누르는 동안 이동</small><strong>경계 방으로 전진</strong></span><kbd>D</kbd></button>}
+      ? <button type="button" className="corridor-primary anchor-activate" data-submission-primary="activate-anchor" data-primary-key="SPACE" onClick={controller.performPrimaryAction}><span><small>조건 충족 · 주인공 현장 도착</small><strong>확장 거점 활성화</strong></span><kbd>SPACE</kbd></button>
+      : <button type="button" className="corridor-primary hold-control" data-submission-primary="approach-anchor" data-primary-key="D" onPointerDown={start} onPointerUp={stop} onPointerLeave={stop}><span><small>누르는 동안 이동</small><strong>경계 방으로 전진</strong></span><kbd>D</kbd></button>}
     <div className="submission-travel-notice" role="status"><i />{snapshot.notice}</div>
   </div>;
 }
 
-function ExpandedStage({ snapshot }: { readonly snapshot: SubmissionSnapshot }) {
+function ExpandedStage({ snapshot, controller }: { readonly snapshot: SubmissionSnapshot; readonly controller: SubmissionController }) {
   const contour = useMemo(() => computeBarrierContour(snapshot.world), [snapshot.world]);
   return <div className="submission-expanded">
     <div className="submission-sky" /><div className="submission-canopy" /><div className="expansion-radiance" />
-    <section className="expanded-copy"><small>TERRITORY INCORPORATED</small><h1>내 세계가<br />한 칸 커졌다.</h1><p>되찾은 길과 주인공의 거점 활성화가 결계를 동쪽으로 밀어냈다.</p></section>
-    <div className="expanded-tile-field">
+    <section className="expanded-copy" data-critical-fit><small>TERRITORY INCORPORATED</small><h1 data-korean-critical>내 세계가<br />한 칸 커졌다.</h1><p>되찾은 길과 주인공의 거점 활성화가 결계를 동쪽으로 밀어냈다.</p></section>
+    <div className="expanded-tile-field" data-critical-fit>
       {snapshot.world.tiles.map((tile) => <WorldTile key={tile.id} tile={tile} />)}
       {contour.map((segment) => <i key={segment.id} className={`barrier-edge is-${segment.edge.toLowerCase()}`} style={tilePosition(segment.x, segment.y)} />)}
       <div className="world-party is-expanded" style={tilePosition(1, 0)}><img src={`${BASE_URL}assets/slice1/administrator-v2.png`} alt="관리자" /><span>확장 거점</span></div>
       <div className="active-spring" style={tilePosition(1, 0)}><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="활성화된 샘" /><b>+1</b><small>샘 활성화</small></div>
     </div>
-    <div className="expansion-causality"><span><b>✓</b><small>안전 경로</small></span><i>→</i><span><b>✦</b><small>주인공 거점</small></span><i>→</i><span><b>◇</b><small>결계 확장</small></span><i>→</i><span><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="" /><small>샘 +1</small></span></div>
-    <aside className="next-coordinates"><small>NEXT COORDINATES</small><strong>새로운 세 방향이 드러났다.</strong><p>북쪽 성소 · 동쪽 수관림 · 남쪽 회랑</p></aside>
-    <button type="button" className="submission-flow-primary" disabled><span><small>FIRST EXPANSION COMPLETE</small><strong>제출본 핵심 순환 완료</strong></span></button>
+    <div className="expansion-causality" data-critical-fit><span><b>✓</b><small>안전 경로</small></span><i>→</i><span><b>✦</b><small>주인공 거점</small></span><i>→</i><span><b>◇</b><small>결계 확장</small></span><i>→</i><span><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="" /><small>샘 +1</small></span></div>
+    <aside className="next-coordinates" data-critical-fit><small>NEXT COORDINATES</small><strong data-korean-critical>새로운 세 방향이 드러났다.</strong><p>북쪽 성소 · 동쪽 수관림 · 남쪽 회랑</p></aside>
+    <button type="button" className="submission-flow-primary expanded-restart" data-submission-primary="restart-submission" data-primary-key="SPACE" data-critical-fit onClick={controller.performPrimaryAction}><span><small>FIRST EXPANSION COMPLETE</small><strong data-korean-critical>처음부터 다시 보기</strong></span><kbd>SPACE</kbd></button>
   </div>;
 }
 

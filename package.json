@@ -25,6 +25,7 @@
     "verify:submission:p2": "node scripts/verify-submission-p2.mjs",
     "verify:submission:p3": "SUBMISSION_VERIFY_STAGE=P3 node scripts/verify-submission-p2.mjs",
     "verify:submission:p4": "SUBMISSION_VERIFY_STAGE=P4 node scripts/verify-submission-p2.mjs",
+    "verify:submission:golden": "SUBMISSION_VERIFY_STAGE=P5 node scripts/verify-submission-golden.mjs",
     "verify:submission-rc": "node scripts/verify-submission-rc.mjs",
     "preview": "vite preview"
   },

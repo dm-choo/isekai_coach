@@ -3,13 +3,14 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import process from 'node:process';
 import { chromium } from 'playwright';
 
-const port = Number(process.env.SUBMISSION_P2_PORT ?? 4183);
-const suppliedUrl = process.env.SUBMISSION_P2_URL;
+const port = Number(process.env.SUBMISSION_VERIFY_PORT ?? process.env.SUBMISSION_P2_PORT ?? 4183);
+const suppliedUrl = process.env.SUBMISSION_VERIFY_URL ?? process.env.SUBMISSION_P2_URL;
 const baseUrl = suppliedUrl ?? `http://127.0.0.1:${port}/?verify=1`;
-const artifactDir = new URL('../artifacts/submission-p2/', import.meta.url);
+const artifactDir = new URL('../artifacts/submission-golden/', import.meta.url);
 const verificationStage = process.env.SUBMISSION_VERIFY_STAGE ?? 'P2';
-const verifyP3 = verificationStage === 'P3' || verificationStage === 'P4';
-const verifyP4 = verificationStage === 'P4';
+const verifyP3 = ['P3', 'P4', 'P5'].includes(verificationStage);
+const verifyP4 = ['P4', 'P5'].includes(verificationStage);
+const verifyP5 = verificationStage === 'P5';
 let server;
 let browser;
 
@@ -36,9 +37,11 @@ try {
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
   if (await page.title() !== '결계의 바깥') throw new Error(`Unexpected title: ${await page.title()}`);
   if (await page.locator('.primary-expedition').count() !== 1) throw new Error('Intro does not expose exactly one primary expedition action');
+  if (verifyP5) await assertPrimaryAction(page, 'start-expedition', 'SPACE');
   await capture(page, '00-intro');
   await page.keyboard.press('Space');
   await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'CORRIDOR');
+  if (verifyP5) await assertPrimaryAction(page, 'advance-corridor', 'D');
 
   const beforeTravel = await corridorPresentation(page);
   await page.keyboard.press('d');
@@ -56,6 +59,8 @@ try {
     throw new Error(`First spatial encounter did not stop at 200m: ${JSON.stringify(pickRunState(run))}`);
   }
   await capture(page, '02-first-encounter');
+  let firstInputFeedback;
+  if (verifyP5) firstInputFeedback = await verifyFirstCombatInput(page);
   const firstCombat = await completeCurrentCombat(page);
   run = await submissionSnapshot(page);
   if (run.mode !== 'CORRIDOR' || run.corridorProgress !== 200) throw new Error(`First combat did not resume the same corridor position: ${JSON.stringify(pickRunState(run))}`);
@@ -65,6 +70,7 @@ try {
   if (run.mode !== 'CENTER_GATE' || run.corridorProgress !== 400 || run.worldMinute !== 608 + firstCombat.turns) {
     throw new Error(`Central room gate was not reached at 400m: ${JSON.stringify(pickRunState(run))}`);
   }
+  if (verifyP5) await assertPrimaryAction(page, 'enter-center', 'SPACE');
   await capture(page, '03-center-gate');
   await page.keyboard.press('Space');
   await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'COMBAT');
@@ -85,6 +91,7 @@ try {
   if (!causality.includes('중앙 방 확보') || !causality.includes('모든 통로 정찰')) {
     throw new Error(`Scouting causality is missing: ${causality}`);
   }
+  if (verifyP5) await assertPrimaryAction(page, 'review-record', 'SPACE');
   await capture(page, '04-scouted');
 
   let delegationReport;
@@ -97,11 +104,13 @@ try {
     if (!evidenceText.includes('ACTUAL RECORD') || !evidenceText.includes('사격 판정') || !evidenceText.includes('유효 사거리')) {
       throw new Error(`Policy review is not grounded in the previous combat record: ${evidenceText}`);
     }
+    if (verifyP5) await assertPrimaryAction(page, 'open-delegation', 'SPACE', false);
     await page.locator('.policy-choice-list button').filter({ hasText: '사격 거리를 계속 지킨다' }).click();
     let policyRun = await submissionSnapshot(page);
     if (policyRun.policyChoice !== 'KEEP_RANGE' || policyRun.policyDirectives.keepRange !== true) {
       throw new Error('Keep-range choice did not change the spatial directive');
     }
+    if (verifyP5) await assertPrimaryAction(page, 'open-delegation', 'SPACE');
     await capture(page, '06-policy-review');
     await page.keyboard.press('Space');
     await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'DELEGATION_PLAN');
@@ -110,6 +119,7 @@ try {
       throw new Error(`Delegation plan omits route or stop conditions: ${planText}`);
     }
     if (await page.locator('.route-threat').count() !== 2) throw new Error('Known route does not expose both observed enemies');
+    if (verifyP5) await assertPrimaryAction(page, 'run-delegation', 'SPACE');
     await capture(page, '07-keep-range-plan');
     await page.keyboard.press('Space');
     await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'DELEGATION_RESULT');
@@ -126,6 +136,7 @@ try {
     if (pausedMinute !== scoutedMinute + Math.max(run.protagonistTaskMinutes, pausedResult.elapsedMinutes)) {
       throw new Error('First concurrent operation did not use the longer duration');
     }
+    if (verifyP5) await assertPrimaryAction(page, 'review-policy', 'SPACE');
     await capture(page, '08-time-limit-result');
     await page.keyboard.press('Space');
     await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'POLICY_REVIEW');
@@ -147,6 +158,7 @@ try {
     if (!result || result.outcome !== 'SECURED') {
       throw new Error(`Recommended one-place policy change did not secure the known route: ${JSON.stringify(result)}`);
     }
+    if (verifyP5) await assertPrimaryAction(page, 'approach-anchor', 'SPACE');
     const delegatedFrontier = run.world.tiles.find((tile) => tile.id === 'frontier-east');
     if (!delegatedFrontier?.routeSafe || delegatedFrontier.threat !== 'SECURED' || !delegatedFrontier.anchorPrepared || delegatedFrontier.territory !== 'OUTSIDE') {
       throw new Error(`Delegation changed the wrong territory axes: ${JSON.stringify(delegatedFrontier)}`);
@@ -182,6 +194,7 @@ try {
       const waterBefore = run.supplies.water;
       await page.keyboard.press('Space');
       await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'ANCHOR_APPROACH');
+      if (verifyP5) await assertPrimaryAction(page, 'approach-anchor', 'D');
       const beforeAnchorTravel = await anchorPresentation(page);
       await page.keyboard.press('d');
       await page.waitForTimeout(100);
@@ -200,6 +213,10 @@ try {
         throw new Error(`Protagonist arrival skipped or prematurely incorporated the tile: ${JSON.stringify({ mode: run.mode, progress: run.anchorProgress, readyFrontier })}`);
       }
       if (run.worldMinute !== beforeAnchorMinute + 8) throw new Error(`400m anchor travel did not cost 8 minutes: ${beforeAnchorMinute} → ${run.worldMinute}`);
+      if (verifyP5) {
+        await assertPrimaryAction(page, 'activate-anchor', 'SPACE');
+        await assertKoreanFonts(page);
+      }
       await capture(page, '13-anchor-ready');
       await page.keyboard.press('Space');
       await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'EXPANDED');
@@ -217,6 +234,10 @@ try {
       if (await page.locator('.expanded-tile-field .barrier-edge').count() !== 6) throw new Error('Expanded contour does not have the joined six-edge outline');
       if (await page.locator('.active-spring').count() !== 1 || await page.locator('.expansion-causality span').count() !== 4) {
         throw new Error('Final scene does not connect route, protagonist, contour, and spring');
+      }
+      if (verifyP5) {
+        await assertPrimaryAction(page, 'restart-submission', 'SPACE');
+        await assertKoreanFonts(page);
       }
       await capture(page, '14-expanded');
       expansionReport = {
@@ -238,6 +259,19 @@ try {
   const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   if (horizontalOverflow > 1) throw new Error(`4:3 scouted layout overflows horizontally by ${horizontalOverflow}px`);
   await capture(page, verifyP4 ? '15-expanded-4x3' : verifyP3 ? '11-delegation-result-4x3' : '05-scouted-4x3');
+  let interactionGate;
+  if (verifyP5) {
+    const criticalFit = await assertCriticalFit(page);
+    await assertPrimaryAction(page, 'restart-submission', 'SPACE');
+    await page.locator('[data-submission-primary="restart-submission"]').click();
+    await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'INTRO');
+    const restarted = await submissionSnapshot(page);
+    if (restarted.worldTime !== '10:00' || restarted.supplies.water !== 1 || restarted.corridorProgress !== 0) {
+      throw new Error(`Restart did not restore a clean submission state: ${JSON.stringify(restarted)}`);
+    }
+    await assertPrimaryAction(page, 'start-expedition', 'SPACE');
+    interactionGate = { singlePrimaryAction: true, keyboardRoute: true, pointerRestart: true, criticalFit };
+  }
   if (errors.length) throw new Error(`Browser errors:\n${errors.join('\n')}`);
 
   const report = {
@@ -260,6 +294,8 @@ try {
     ...(delegationReport ? { delegation: delegationReport } : {}),
     ...(expansionReport ? { expansion: expansionReport } : {}),
     horizontalOverflow4x3: horizontalOverflow,
+    ...(interactionGate ? { interactionGate } : {}),
+    ...(firstInputFeedback ? { firstInputFeedback } : {}),
     browserErrors: errors,
   };
   await writeFile(new URL('report.json', artifactDir), `${JSON.stringify(report, null, 2)}\n`);
@@ -320,6 +356,29 @@ async function completeCurrentCombat(page) {
     await playPlayerTurn(page, combat);
   }
   throw new Error('Combat did not finish within 500 state steps');
+}
+
+async function verifyFirstCombatInput(page) {
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => {
+    const snapshot = window.__ISEKAI_COACH_COMBAT__?.snapshot;
+    return snapshot?.mode === 'PLAYER_TURN' && !snapshot.isBusy;
+  });
+  const combat = await combatSnapshot(page);
+  const actor = combat.previewState.units.find((unit) => unit.id === 'administrator-slice2');
+  const target = combat.previewState.units.find((unit) => unit.faction === 'ENEMY' && unit.hp > 0);
+  if (!actor || !target) throw new Error('First combat input gate cannot find actor and target');
+  const move = bestMove(combat.previewState, actor.id, target.id);
+  if (!move) throw new Error('First combat input gate cannot find a valid movement');
+  if (await page.locator('.first-combat-cue').count() !== 1) throw new Error('First combat does not focus the player on one initial action');
+  await page.locator('.wasd-grid button').filter({ hasText: move }).click();
+  await page.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot.inputFeedback?.kind === 'ACCEPTED');
+  const feedback = await page.locator('.input-feedback.is-accepted').innerText();
+  const cue = await page.locator('.first-combat-cue.is-planned').innerText();
+  if (!feedback || !cue.includes('행동 후 위치') || !cue.includes('SPACE')) {
+    throw new Error(`First input lacks accepted feedback or next-step cue: ${JSON.stringify({ feedback, cue })}`);
+  }
+  return { accepted: true, pointerAction: move, nextKey: 'SPACE', feedback };
 }
 
 async function playPlayerTurn(page, snapshot) {
@@ -430,4 +489,37 @@ async function waitForServer(url, child) {
     await new Promise((resolve) => setTimeout(resolve, 120));
   }
   throw new Error(`Timed out waiting for ${url}`);
+}
+
+async function assertPrimaryAction(page, actionId, key, enabled = true) {
+  const actions = page.locator('[data-submission-primary]');
+  if (await actions.count() !== 1) throw new Error(`Expected one primary action for ${actionId}, found ${await actions.count()}`);
+  const action = actions.first();
+  const actualId = await action.getAttribute('data-submission-primary');
+  const actualKey = await action.getAttribute('data-primary-key');
+  if (actualId !== actionId || actualKey !== key) throw new Error(`Primary action mismatch: expected ${actionId}/${key}, got ${actualId}/${actualKey}`);
+  if (await action.isEnabled() !== enabled) throw new Error(`Primary action ${actionId} enabled=${await action.isEnabled()}, expected ${enabled}`);
+}
+
+async function assertKoreanFonts(page) {
+  const invalid = await page.locator('[data-korean-critical]').evaluateAll((elements) => elements.flatMap((element) => {
+    const family = getComputedStyle(element).fontFamily;
+    return family.includes('Pretendard') ? [] : [`${element.textContent?.trim()}: ${family}`];
+  }));
+  if (invalid.length) throw new Error(`Critical Korean copy lost its readable fallback: ${invalid.join(' | ')}`);
+}
+
+async function assertCriticalFit(page) {
+  const result = await page.locator('[data-critical-fit]').evaluateAll((elements) => elements.map((element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      label: element.getAttribute('data-submission-primary') ?? element.className,
+      left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom,
+      width: rect.width, height: rect.height,
+      viewportWidth: window.innerWidth, viewportHeight: window.innerHeight,
+    };
+  }));
+  const invalid = result.filter((rect) => rect.width <= 0 || rect.height <= 0 || rect.left < -1 || rect.top < -1 || rect.right > rect.viewportWidth + 1 || rect.bottom > rect.viewportHeight + 1);
+  if (invalid.length) throw new Error(`Critical content is outside the viewport: ${JSON.stringify(invalid)}`);
+  return result.map(({ label, width, height }) => ({ label, width: Math.round(width), height: Math.round(height) }));
 }

@@ -121,6 +121,24 @@ export class SubmissionController {
     return () => this.listeners.delete(listener);
   };
 
+  public performPrimaryAction = (): boolean => {
+    if (this.mode === 'INTRO') this.startExpedition();
+    else if (this.mode === 'CENTER_GATE') this.enterCenter();
+    else if (this.mode === 'SCOUTED') this.beginPolicyReview();
+    else if (this.mode === 'POLICY_REVIEW' && this.policyChoice) this.openDelegationPlan();
+    else if (this.mode === 'DELEGATION_PLAN') this.runDelegation();
+    else if (this.mode === 'DELEGATION_RESULT' && this.delegationResult?.outcome === 'SECURED') this.beginAnchorApproach();
+    else if (this.mode === 'DELEGATION_RESULT') this.beginPolicyReview();
+    else if (this.mode === 'ANCHOR_READY') this.activateAnchor();
+    else if (this.mode === 'EXPANDED') this.restartSubmission();
+    else if (this.mode === 'COMBAT' && this.combat?.getSnapshot().mode === 'INTRO') this.startEncounter();
+    else if (this.mode === 'COMBAT' && this.combat?.getSnapshot().mode === 'PLAYER_TURN') this.confirmPlan();
+    else if (this.mode === 'COMBAT' && this.combat?.getSnapshot().mode === 'VICTORY') this.completeEncounter();
+    else if (this.mode === 'COMBAT' && this.combat?.getSnapshot().mode === 'DEFEAT') this.retryEncounter();
+    else return false;
+    return true;
+  };
+
   public startExpedition = (): void => {
     if (this.mode !== 'INTRO') return;
     this.mode = 'CORRIDOR';
@@ -259,6 +277,33 @@ export class SubmissionController {
     this.supplies = { ...this.supplies, water: this.supplies.water + 1 };
     this.mode = 'EXPANDED';
     this.notice = '물안개 전초지가 결계 안으로 편입됐다. 샘이 깨어나고 다음 좌표가 드러났다.';
+    this.publish();
+  };
+
+  public restartSubmission = (): void => {
+    if (this.mode !== 'EXPANDED') return;
+    this.releaseCombat();
+    this.mode = 'INTRO';
+    this.world = createSubmissionWorld();
+    this.worldMinute = START_MINUTE;
+    this.corridorProgress = 0;
+    this.vitals = { administratorHp: 14, allyHp: 12 };
+    this.supplies = { water: 1, food: 1 };
+    this.policy = [...DEFAULT_SLICE_POLICY];
+    this.policyDirectives = {};
+    this.notice = '동쪽 경계 너머에서 오래 멈춘 물소리가 들린다.';
+    this.encounterId = undefined;
+    this.encounterContent = undefined;
+    this.firstEncounterResolved = false;
+    this.elapsedBattleTurns = 0;
+    this.lastCombatSummary = undefined;
+    this.policyChoice = undefined;
+    this.lastProtagonistTaskMinutes = 0;
+    this.delegationAttempt = 0;
+    this.delegationBaseline = undefined;
+    this.delegationResult = undefined;
+    this.anchorProgress = 0;
+    this.lastIncorporationBlocker = undefined;
     this.publish();
   };
 
