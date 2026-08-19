@@ -33,6 +33,11 @@ export type SubmissionMode =
   | 'ANCHOR_APPROACH' | 'ANCHOR_READY' | 'EXPANDED' | 'DEFEAT';
 export type SubmissionEncounterId = 'FIRST_WARRIOR' | 'CENTER_GUARD';
 export type SubmissionPolicyChoice = 'PUSH_FIRST' | 'KEEP_RANGE';
+export interface SubmissionDefeatCost {
+  readonly elapsedMinutes: number;
+  readonly waterSpent: number;
+  readonly foodSpent: number;
+}
 
 export interface SubmissionCombatSummary {
   readonly encounterId: SubmissionEncounterId;
@@ -66,6 +71,9 @@ export interface SubmissionSnapshot {
   readonly delegationResult?: DelegatedOperationResult;
   readonly anchorProgress: number;
   readonly incorporationBlocker?: IncorporationBlocker;
+  readonly defeatCount: number;
+  readonly lastDefeatCost?: SubmissionDefeatCost;
+  readonly defeatReturnsToTerritory: true;
   readonly isNight: false;
   readonly canUseLight: false;
   readonly isBossEncounter: false;
@@ -75,6 +83,7 @@ export interface SubmissionControllerOptions {
   readonly playbackSpeed?: number;
   readonly phaseDelayScale?: number;
   readonly saveData?: SubmissionSaveData;
+  readonly initialVitals?: ExpeditionVitals;
 }
 
 export interface SubmissionSaveData {
@@ -98,6 +107,8 @@ export interface SubmissionSaveData {
   readonly delegationResult?: DelegatedOperationResult;
   readonly anchorProgress: number;
   readonly incorporationBlocker?: IncorporationBlocker;
+  readonly defeatCount?: number;
+  readonly lastDefeatCost?: SubmissionDefeatCost;
 }
 
 type Listener = () => void;
@@ -132,10 +143,13 @@ export class SubmissionController {
   private delegationResult: DelegatedOperationResult | undefined;
   private anchorProgress = 0;
   private lastIncorporationBlocker: IncorporationBlocker | undefined;
+  private defeatCount = 0;
+  private lastDefeatCost: SubmissionDefeatCost | undefined;
   private snapshot: SubmissionSnapshot;
 
   public constructor(private readonly options: SubmissionControllerOptions = {}) {
     if (options.saveData) this.hydrate(options.saveData);
+    else if (options.initialVitals) this.vitals = options.initialVitals;
     this.snapshot = this.buildSnapshot();
   }
 
@@ -169,6 +183,8 @@ export class SubmissionController {
       delegationResult: this.delegationResult,
       anchorProgress: this.anchorProgress,
       incorporationBlocker: this.lastIncorporationBlocker,
+      defeatCount: this.defeatCount,
+      lastDefeatCost: this.lastDefeatCost,
     };
   };
 
@@ -355,6 +371,8 @@ export class SubmissionController {
     this.delegationResult = undefined;
     this.anchorProgress = 0;
     this.lastIncorporationBlocker = undefined;
+    this.defeatCount = 0;
+    this.lastDefeatCost = undefined;
     this.publish();
   };
 
@@ -423,9 +441,19 @@ export class SubmissionController {
     this.supplies = cost.supplies;
     this.elapsedBattleTurns += defeated.state.turn;
     this.worldMinute += cost.elapsedMinutes;
-    const encounterId = this.encounterId;
-    const encounterContent = this.encounterContent;
-    this.beginCombat(encounterId, encounterContent, `같은 조우 유지 · ${cost.elapsedMinutes}분 경과 · 물/식량 ${cost.usedCampSupplies ? '1씩 사용' : '없음'}`);
+    this.defeatCount += 1;
+    this.lastDefeatCost = {
+      elapsedMinutes: cost.elapsedMinutes,
+      waterSpent: cost.usedCampSupplies ? 1 : 0,
+      foodSpent: cost.usedCampSupplies ? 1 : 0,
+    };
+    this.releaseCombat();
+    this.encounterId = undefined;
+    this.encounterContent = undefined;
+    this.corridorProgress = 0;
+    this.mode = 'INTRO';
+    this.notice = `안전 영토로 후퇴 · ${cost.elapsedMinutes}분 경과 · 물/식량 ${cost.usedCampSupplies ? '1씩 사용' : '없음'} · 부상 유지`;
+    this.publish();
   };
 
   public destroy(): void {
@@ -483,6 +511,8 @@ export class SubmissionController {
     this.delegationResult = save.delegationResult;
     this.anchorProgress = save.anchorProgress;
     this.lastIncorporationBlocker = save.incorporationBlocker;
+    this.defeatCount = save.defeatCount ?? 0;
+    this.lastDefeatCost = save.lastDefeatCost;
   }
 
   private buildSnapshot(): SubmissionSnapshot {
@@ -512,6 +542,9 @@ export class SubmissionController {
       delegationResult: this.delegationResult,
       anchorProgress: this.anchorProgress,
       incorporationBlocker: this.lastIncorporationBlocker,
+      defeatCount: this.defeatCount,
+      lastDefeatCost: this.lastDefeatCost,
+      defeatReturnsToTerritory: true,
       isNight: false,
       canUseLight: false,
       isBossEncounter: false,

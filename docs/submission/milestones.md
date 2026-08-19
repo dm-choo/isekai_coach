@@ -5,6 +5,7 @@ last_updated: 2026-08-19
 related:
   - scope.md
   - acceptance-criteria.md
+  - acceptance-evidence-matrix.md
   - sector-1-golden-run.md
 ---
 
@@ -123,3 +124,16 @@ efficiency: 재사용·낭비·context switching은 무엇이었는가
 next rule: 다음 Goal이 그대로 실행할 규칙은 무엇인가
 next task: 부족하면 무엇을 닫을 것인가
 ```
+
+### Retrospective contract
+
+회고는 release note가 아니다. 다음 Goal의 판단 방식이 달라지지 않는 회고는 미완료다. 매 Goal은 아래 사고 과정까지 기록한다.
+
+1. **초기 모델** — 작업 전 무엇을 사실·가정·가설로 두었는가.
+2. **판단 로그** — 어떤 증거가 확신을 높이거나 뒤집었고, 그때 범위를 왜 유지·수정했는가.
+3. **인지 오류** — 테스트 통과, 화면의 완성감, 기존 구현량 등을 실제 coverage로 대체한 지점은 없었는가.
+4. **사용자와 위임 경계** — 사용자가 결정한 방향과 구현자가 자율 판단한 세부를 구분했는가.
+5. **개발 흐름** — 탐색·구현·검증·수정 중 병목, 재작업과 context switching은 어디서 생겼는가.
+6. **전이 가능한 규칙** — 다음 Goal에서 `언제/무엇을/어떤 증거로` 다르게 할지 실행문으로 남겼는가.
+
+`next rule`은 다짐이 아니라 다음 Goal의 plan·수용 기준·검증 순서에 실제로 복사한다. 이전 회고의 규칙을 다음 Goal 시작 시 확인하지 않았다면 그 Goal의 계획은 아직 시작 조건을 만족하지 않는다.

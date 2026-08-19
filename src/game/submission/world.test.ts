@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   computeBarrierContour,
   createSubmissionWorld,
+  destabilizeTile,
   incorporateTile,
   incorporationBlocker,
   updateSubmissionTile,
@@ -64,5 +65,26 @@ describe('submission territory state', () => {
     expect(contour).toHaveLength(6);
     expect(contour.some((segment) => segment.tileId === 'initial-barrier' && segment.edge === 'EAST')).toBe(false);
     expect(contour.some((segment) => segment.tileId === 'frontier-east' && segment.edge === 'WEST')).toBe(false);
+  });
+
+  it('keeps ownership and the spring while instability impairs route, scouting, and utility', () => {
+    let world = createSubmissionWorld();
+    world = updateSubmissionTile(world, 'frontier-east', {
+      knowledge: 'SCOUTED', corridorsScouted: true, threat: 'SECURED', routeSafe: true,
+      anchorPrepared: true, protagonistAtAnchor: true,
+    });
+    world = incorporateTile(world, 'frontier-east').world;
+    const contourBefore = computeBarrierContour(world);
+    const unstable = destabilizeTile(world, 'frontier-east');
+    expect(unstable.tiles.find((tile) => tile.id === 'frontier-east')).toMatchObject({
+      territory: 'INCORPORATED',
+      utilityKind: 'SPRING',
+      utility: 'IMPAIRED',
+      stabilized: false,
+      routeSafe: false,
+      corridorsScouted: false,
+      knowledge: 'SCOUTED',
+    });
+    expect(computeBarrierContour(unstable)).toEqual(contourBefore);
   });
 });

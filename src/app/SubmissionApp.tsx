@@ -14,11 +14,13 @@ const BASE_URL = import.meta.env.BASE_URL;
 const SUBMISSION_SAVE_KEY = 'isekai-coach:submission:v1';
 
 export function SubmissionApp() {
-  const verification = import.meta.env.DEV && new URLSearchParams(window.location.search).has('verify');
+  const query = new URLSearchParams(window.location.search);
+  const verification = import.meta.env.DEV && query.has('verify');
+  const failureFixture = verification && query.has('failure');
   const [controller] = useState(() => {
     const saveData = verification ? undefined : parseSubmissionSave(window.localStorage.getItem(SUBMISSION_SAVE_KEY));
     return new SubmissionController(verification
-      ? { playbackSpeed: 12, phaseDelayScale: 0.03 }
+      ? { playbackSpeed: 12, phaseDelayScale: 0.03, ...(failureFixture ? { initialVitals: { administratorHp: 1, allyHp: 1 } } : {}) }
       : saveData ? { saveData } : {});
   });
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
@@ -101,13 +103,14 @@ export function SubmissionApp() {
 
 function TerritoryStage({ snapshot, onStart }: { readonly snapshot: SubmissionSnapshot; readonly onStart: () => void }) {
   const contour = useMemo(() => computeBarrierContour(snapshot.world), [snapshot.world]);
+  const retreated = snapshot.defeatCount > 0 && snapshot.lastDefeatCost;
   return <div className="territory-stage is-intro">
     <div className="submission-sky" />
     <div className="submission-canopy" />
     <div className="world-copy">
-      <small>THE FIRST BOUNDARY</small>
-      <h1>이 선 안이<br />지금의 세계다.</h1>
-      <p>동쪽에서 오래 멈춘 물소리가 들린다.</p>
+      <small>{retreated ? 'SAFE TERRITORY · RETREAT' : 'THE FIRST BOUNDARY'}</small>
+      <h1>{retreated ? <>상처를 안고<br />돌아왔다.</> : <>이 선 안이<br />지금의 세계다.</>}</h1>
+      <p>{retreated ? '같은 위협은 같은 위치에 남아 있다.' : '동쪽에서 오래 멈춘 물소리가 들린다.'}</p>
     </div>
     <div className="tile-field">
       {snapshot.world.tiles.map((tile) => <WorldTile key={tile.id} tile={tile} />)}
@@ -118,10 +121,10 @@ function TerritoryStage({ snapshot, onStart }: { readonly snapshot: SubmissionSn
         <span>현재 위치</span>
       </div>
     </div>
-    <button type="button" className="primary-expedition" data-submission-primary="start-expedition" data-primary-key="SPACE" aria-label="동쪽 경계 조사 시작" onClick={onStart}>
-      <span><small>다음 행동</small><strong>동쪽 경계 조사</strong></span><kbd>SPACE</kbd>
+    <button type="button" className="primary-expedition" data-submission-primary="start-expedition" data-primary-key="SPACE" aria-label={retreated ? '동쪽 경계 재진입' : '동쪽 경계 조사 시작'} onClick={onStart}>
+      <span><small>{retreated ? '같은 경로 · 위협 재추첨 없음' : '다음 행동'}</small><strong>{retreated ? '동쪽 경계 재진입' : '동쪽 경계 조사'}</strong></span><kbd>SPACE</kbd>
     </button>
-    <footer className="submission-footer"><p><i /> 결계 안 · 안전</p><span>보이는 땅도 확보하기 전에는 내 영토가 아니다.</span></footer>
+    <footer className="submission-footer"><p><i /> 결계 안 · 안전</p><span>{retreated ? `${snapshot.lastDefeatCost?.elapsedMinutes}분 · 물 ${snapshot.lastDefeatCost?.waterSpent} · 식량 ${snapshot.lastDefeatCost?.foodSpent} · 부상 유지` : '보이는 땅도 확보하기 전에는 내 영토가 아니다.'}</span></footer>
   </div>;
 }
 
@@ -228,7 +231,7 @@ function DelegationPlanStage({ snapshot, controller }: { readonly snapshot: Subm
     </section>
     <aside className="delegation-orders">
       <header><span><img src={`${BASE_URL}assets/slice1/archer-v2.png`} alt="" /><b>원거리 동료</b></span><strong>HP {snapshot.vitals.allyHp}/12</strong></header>
-      <dl><div><dt>경로</dt><dd>정찰된 동쪽 통로 · 400m</dd></div><div><dt>전술 변경</dt><dd>{snapshot.policyChoice === 'PUSH_FIRST' ? '접근 시 밀치기 우선' : '최소 사거리 유지'}</dd></div><div><dt>후퇴</dt><dd>HP {snapshot.retreatAtHp} 이하</dd></div><div><dt>시간 한도</dt><dd>전투 12턴</dd></div><div><dt>미확인 규칙</dt><dd>즉시 Decision · 대기</dd></div></dl>
+      <dl><div><dt>경로</dt><dd>정찰된 동쪽 통로 · 400m</dd></div><div><dt>전술 변경</dt><dd>{snapshot.policyChoice === 'PUSH_FIRST' ? '접근 시 밀치기 우선' : '최소 사거리 유지'}</dd></div><div className="delegation-supply"><dt>보급</dt><dd><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="물" />{snapshot.supplies.water}<img src={`${BASE_URL}assets/ui/supply-ration.svg`} alt="식량" />{snapshot.supplies.food}<em>이번 위임 사용 안 함</em></dd></div><div><dt>후퇴</dt><dd>HP {snapshot.retreatAtHp} 이하</dd></div><div><dt>시간 한도</dt><dd>전투 12턴</dd></div><div><dt>미확인 규칙</dt><dd>즉시 Decision · 대기</dd></div></dl>
     </aside>
     <div className="concurrent-task"><span><b>주인공</b><small>중앙 방 · 확장 회로 준비</small><em>{snapshot.protagonistTaskMinutes ? `${snapshot.protagonistTaskMinutes}분` : '준비 완료'}</em></span><i>{snapshot.protagonistTaskMinutes ? '동시에' : '기완료'}</i><span><b>별동대</b><small>400m 이동 + 실제 전투 턴</small><em>8분 + ?</em></span></div>
     <button type="button" className="submission-flow-primary" data-submission-primary="run-delegation" data-primary-key="SPACE" onClick={controller.performPrimaryAction}><span><small>{snapshot.protagonistTaskMinutes ? '두 작전은 같은 세계 시간을 사용' : '주인공 준비는 이미 완료'}</small><strong>작전 시작</strong></span><kbd>SPACE</kbd></button>
@@ -315,8 +318,9 @@ function ExpandedStage({ snapshot, controller }: { readonly snapshot: Submission
       <div className="world-party is-expanded" style={tilePosition(1, 0)}><img src={`${BASE_URL}assets/slice1/administrator-v2.png`} alt="관리자" /><span>확장 거점</span></div>
       <div className="active-spring" style={tilePosition(1, 0)}><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="활성화된 샘" /><b>+1</b><small>샘 활성화</small></div>
     </div>
-    <div className="expansion-causality" data-critical-fit><span><b>✓</b><small>안전 경로</small></span><i>→</i><span><b>✦</b><small>주인공 거점</small></span><i>→</i><span><b>◇</b><small>결계 확장</small></span><i>→</i><span><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="" /><small>샘 +1</small></span></div>
-    <aside className="next-coordinates" data-critical-fit><small>NEXT COORDINATES</small><strong data-korean-critical>새로운 세 방향이 드러났다.</strong><p>북쪽 성소 · 동쪽 수관림 · 남쪽 회랑</p></aside>
+    <div className="expansion-causality" data-critical-fit><span><b>✓</b><small>안전 경로</small></span><i>→</i><span><b>✦</b><small>주인공 거점</small></span><i>→</i><span><b>◇</b><small>결계 확장</small></span><i>→</i><span><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="" /><small>다음 원정 +1</small></span></div>
+    <section className="expansion-state-ledger" data-critical-fit aria-label="편입된 타일의 독립 상태"><span><small>소속</small><strong>결계 안</strong></span><i /><span><small>안정</small><strong>거점 안정화</strong></span><i /><span><small>효용</small><strong>샘 가동</strong></span></section>
+    <aside className="next-coordinates" data-critical-fit><small>NEXT EXPEDITION · WATER +1</small><strong data-korean-critical>다음 원정 한 번이 열렸다.</strong><p>북쪽 성소 · 동쪽 수관림 · 남쪽 회랑</p></aside>
     <button type="button" className="submission-flow-primary expanded-restart" data-submission-primary="restart-submission" data-primary-key="SPACE" data-critical-fit onClick={controller.performPrimaryAction}><span><small>FIRST EXPANSION COMPLETE</small><strong data-korean-critical>처음부터 다시 보기</strong></span><kbd>SPACE</kbd></button>
   </div>;
 }

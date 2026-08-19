@@ -116,7 +116,7 @@ try {
     await page.keyboard.press('Space');
     await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'DELEGATION_PLAN');
     const planText = await page.locator('.delegation-orders').innerText();
-    if (!planText.includes('400m') || !planText.includes('HP 2 이하') || !planText.includes('전투 12턴') || !planText.includes('즉시 Decision')) {
+    if (!planText.includes('400m') || !planText.includes('HP 2 이하') || !planText.includes('전투 12턴') || !planText.includes('즉시 Decision') || !planText.includes('보급') || !planText.includes('사용 안 함')) {
       throw new Error(`Delegation plan omits route or stop conditions: ${planText}`);
     }
     if (await page.locator('.route-threat').count() !== 2) throw new Error('Known route does not expose both observed enemies');
@@ -235,6 +235,14 @@ try {
       if (await page.locator('.expanded-tile-field .barrier-edge').count() !== 6) throw new Error('Expanded contour does not have the joined six-edge outline');
       if (await page.locator('.active-spring').count() !== 1 || await page.locator('.expansion-causality span').count() !== 4) {
         throw new Error('Final scene does not connect route, protagonist, contour, and spring');
+      }
+      const stateLedger = await page.locator('.expansion-state-ledger').innerText();
+      const nextExpedition = await page.locator('.next-coordinates').innerText();
+      if (await page.locator('.expansion-state-ledger span').count() !== 3 || !stateLedger.includes('소속') || !stateLedger.includes('안정') || !stateLedger.includes('효용')) {
+        throw new Error(`Final scene does not separate territory, stability, and utility: ${stateLedger}`);
+      }
+      if (!nextExpedition.includes('WATER +1') || !nextExpedition.includes('다음 원정 한 번')) {
+        throw new Error(`Spring reward is not connected to next expedition capacity: ${nextExpedition}`);
       }
       if (verifyP5) {
         await assertPrimaryAction(page, 'restart-submission', 'SPACE');

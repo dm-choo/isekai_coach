@@ -30,6 +30,11 @@ export interface DelegatedPolicyStep {
   readonly blockedBeforeSelection: readonly { readonly policyId: SlicePolicyId; readonly reason: string }[];
 }
 
+export interface DelegatedActionTrace {
+  readonly turn: number;
+  readonly action: CombatAction;
+}
+
 export interface DelegatedOperationResult {
   readonly scenarioId: string;
   readonly outcome: DelegationOutcome;
@@ -42,6 +47,7 @@ export interface DelegatedOperationResult {
   readonly selectedCounts: Readonly<Partial<Record<SlicePolicyId, number>>>;
   readonly route: readonly GridPosition[];
   readonly policySteps: readonly DelegatedPolicyStep[];
+  readonly actionTrace: readonly DelegatedActionTrace[];
   readonly eventCount: number;
   readonly finalState: BattleState;
 }
@@ -88,6 +94,7 @@ export function simulateDelegatedOperation(input: DelegatedOperationInput = {}):
   const policy = input.policy ?? DEFAULT_SLICE_POLICY;
   const directives = input.directives ?? {};
   const policySteps: DelegatedPolicyStep[] = [];
+  const actionTrace: DelegatedActionTrace[] = [];
   const selectedCounts: Partial<Record<SlicePolicyId, number>> = {};
   const route: GridPosition[] = [{ x: 1, y: 1 }];
   let outcome: DelegationOutcome = 'TIME_LIMIT';
@@ -107,6 +114,7 @@ export function simulateDelegatedOperation(input: DelegatedOperationInput = {}):
       if (!selected?.action) break;
       const result = engine.performStudentAction(selected.action);
       if (!result.executable) break;
+      actionTrace.push({ turn: state.turn, action: selected.action });
       if (selected.action.type === 'MOVE') route.push({ ...selected.action.to });
     }
     engine.resolveEnemyIntents();
@@ -131,6 +139,7 @@ export function simulateDelegatedOperation(input: DelegatedOperationInput = {}):
     selectedCounts,
     route,
     policySteps,
+    actionTrace,
     eventCount: engine.getEvents().length,
     finalState,
   };

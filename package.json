@@ -23,6 +23,7 @@
     "verify:slice2": "node scripts/verify-slice2.mjs",
     "verify:slice2:public": "node scripts/verify-slice2-public.mjs",
     "verify:submission:interaction": "node scripts/verify-submission-interaction.mjs",
+    "verify:submission:failure": "node scripts/verify-submission-failure.mjs",
     "verify:submission:public": "node scripts/verify-submission-public.mjs",
     "verify:submission:p2": "node scripts/submission-golden-driver.mjs",
     "verify:submission:p3": "SUBMISSION_VERIFY_STAGE=P3 node scripts/submission-golden-driver.mjs",

@@ -4,6 +4,7 @@ status: accepted
 last_updated: 2026-08-19
 related:
   - scope.md
+  - acceptance-evidence-matrix.md
   - first-15-minutes.md
   - sector-1-golden-run.md
   - ../gameplay/world/barrier-territory.md

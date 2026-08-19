@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { simulateDelegatedOperation } from './delegation';
+import { BattleEngine } from '../combat';
+import { createSubmissionDelegationScenario, simulateDelegatedOperation } from './delegation';
 
 describe('same-rule delegated operation', () => {
   it('is exactly deterministic for the same known fixture and policy', () => {
@@ -18,6 +19,23 @@ describe('same-rule delegated operation', () => {
     expect(result.policySteps.every((step) => step.turn > 0 && step.reason.length > 0)).toBe(true);
     expect(result.policySteps.some((step) => step.action?.type === 'MOVE' && step.action.to)).toBe(true);
     expect(Object.values(result.selectedCounts).reduce((sum, count) => sum + count, 0)).toBeGreaterThan(0);
+  });
+
+  it('replays the delegated action trace through the watched combat engine without divergence', () => {
+    const delegated = simulateDelegatedOperation({
+      policy: ['PUSH', 'EVADE', 'POSITION', 'SHOOT', 'EMPTY'],
+      retreatAtHp: 2,
+    });
+    const watched = new BattleEngine(createSubmissionDelegationScenario());
+    for (let turn = 1; turn <= delegated.turns; turn += 1) {
+      watched.beginTurn();
+      for (const trace of delegated.actionTrace.filter((entry) => entry.turn === turn)) {
+        expect(watched.performStudentAction(trace.action).executable).toBe(true);
+      }
+      watched.resolveEnemyIntents();
+    }
+    expect(watched.getState()).toEqual(delegated.finalState);
+    expect(watched.getEvents()).toHaveLength(delegated.eventCount);
   });
 
   it('creates a real safety versus completion trade-off between two one-place changes', () => {

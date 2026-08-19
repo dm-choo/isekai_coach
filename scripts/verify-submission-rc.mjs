@@ -10,6 +10,7 @@ const steps = [
   ['unit', ['test', '--', '--run']],
   ['submission-build', ['run', 'build:submission']],
   ['submission-interaction', ['run', 'verify:submission:interaction']],
+  ['submission-failure-recovery', ['run', 'verify:submission:failure']],
   ['submission-golden-path', ['run', 'verify:submission:golden']],
   ['slice1-build', ['run', 'build:slice']],
   ['slice1-browser', ['run', 'verify:combat-ux']],
@@ -36,9 +37,11 @@ for (const [name, args] of steps) {
 
 const submission = JSON.parse(await readFile(new URL('../artifacts/submission-golden/report.json', import.meta.url), 'utf8'));
 const interaction = JSON.parse(await readFile(new URL('../artifacts/submission-interaction/report.json', import.meta.url), 'utf8'));
+const failureRecovery = JSON.parse(await readFile(new URL('../artifacts/submission-failure/report.json', import.meta.url), 'utf8'));
 const slice1 = JSON.parse(await readFile(new URL('../artifacts/combat-ux/report.json', import.meta.url), 'utf8'));
 const slice2 = JSON.parse(await readFile(new URL('../artifacts/slice2/report.json', import.meta.url), 'utf8'));
 if (submission.browserErrors.length || interaction.browserErrors.length || slice1.browserErrors.length || slice2.browserErrors.length) throw new Error('Browser errors remain in an RC flow');
+if (failureRecovery.browserErrors.length || failureRecovery.status !== 'FAILURE_RECOVERY_PASS') throw new Error('Submission failure recovery gate did not pass');
 if (submission.finalMode !== 'EXPANDED' || !submission.interactionGate?.singlePrimaryAction) throw new Error('Submission product golden-path gate did not pass');
 if (slice2.goldenPath?.status !== 'AUTOMATED_PASS') throw new Error('Slice2 golden-path gate did not pass');
 const report = await writeReport({
@@ -54,6 +57,7 @@ const report = await writeReport({
     browserErrors: submission.browserErrors,
   },
   interaction,
+  failureRecovery,
   submissionBundle,
   slice1: {
     mode: slice1.mode,

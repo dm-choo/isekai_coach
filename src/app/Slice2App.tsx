@@ -280,6 +280,7 @@ export interface CombatRunView {
   readonly canUseLight: boolean;
   readonly elapsedBattleTurns: number;
   readonly isBossEncounter: boolean;
+  readonly defeatReturnsToTerritory?: boolean;
 }
 
 export function CombatStage({ snapshot, run, controller, encounter }: {
@@ -323,7 +324,7 @@ export function CombatStage({ snapshot, run, controller, encounter }: {
         <div className="result-overlay"><p>SEAL RELEASED</p><h2>결계문이 열렸다</h2><span>네 개 월드 타일의 선택과 전투 결과가 여기까지 이어졌습니다.</span><button type="button" onClick={controller.completeEncounter}>데모 완료 <kbd>SPACE</kbd></button></div>
       )}
       {snapshot.mode === 'DEFEAT' && (
-        <div className="result-overlay"><p>EXPEDITION BROKEN</p><h2>전투 불능</h2><span>같은 조우를 다시 추첨하지 않고 재정비합니다.</span><button type="button" onClick={controller.retryEncounter}>같은 인카운터 재시도 <kbd>SPACE</kbd></button></div>
+        <div className="result-overlay"><p>EXPEDITION BROKEN</p><h2>전투 불능</h2><span>{run.defeatReturnsToTerritory ? '시간·보급·부상을 남기고 결계 안으로 후퇴합니다.' : '같은 조우를 다시 추첨하지 않고 재정비합니다.'}</span><button type="button" onClick={controller.retryEncounter}>{run.defeatReturnsToTerritory ? '안전 영토로 후퇴' : '같은 인카운터 재시도'} <kbd>SPACE</kbd></button></div>
       )}
     </div>
   );

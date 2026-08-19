@@ -201,6 +201,20 @@ export function incorporateTile(
   };
 }
 
+export function destabilizeTile(
+  world: SubmissionWorldState,
+  tileId: string,
+): SubmissionWorldState {
+  const tile = world.tiles.find((candidate) => candidate.id === tileId);
+  if (!tile || tile.territory !== 'INCORPORATED') return world;
+  return updateSubmissionTile(world, tileId, {
+    stabilized: false,
+    routeSafe: false,
+    corridorsScouted: false,
+    utility: tile.utilityKind ? 'IMPAIRED' : tile.utility,
+  });
+}
+
 export function computeBarrierContour(world: SubmissionWorldState): readonly BarrierContourSegment[] {
   const incorporated = world.tiles.filter((tile) => tile.territory === 'INCORPORATED');
   const ownedCoordinates = new Set(incorporated.map((tile) => coordinateKey(tile.coordinate)));
