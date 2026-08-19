@@ -350,6 +350,19 @@ try {
   }
   await page.screenshot({ path: new URL('13-public-anchor-ready.png', artifactDir).pathname });
 
+  const beforePublicExpansion = publicAnchorSave;
+  await page.keyboard.press('Space');
+  await page.locator('.submission-expanded.is-spatial').waitFor();
+  await page.waitForTimeout(1300);
+  let publicExpandedSave = await savedSubmission(page);
+  await assertPublicExpansionSpatial(page, publicExpandedSave, beforePublicExpansion);
+  await page.screenshot({ path: new URL('14-public-expanded.png', artifactDir).pathname });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.locator('.submission-expanded.is-spatial').waitFor();
+  publicExpandedSave = await savedSubmission(page);
+  await assertPublicExpansionSpatial(page, publicExpandedSave, beforePublicExpansion);
+  await page.screenshot({ path: new URL('14a-public-expanded-restored.png', artifactDir).pathname });
+
   const regression = {};
   for (const [path, expectedTitle] of [['slice1', 'Slice1'], ['slice2', 'Slice2']]) {
     const regressionPage = await context.newPage();
@@ -382,6 +395,7 @@ try {
     delegationPlan: { policy: publicDelegationSave.policyChoice, routeMeters: 400, travelMinutes: 8, knownThreats: 2, retreatAtHp: 2, turnLimit: 12, unknownRule: 'PAUSE', suppliesUsed: 0, parallelRule: 'MAX_NOT_SUM', protagonistMinutes: 5 },
     delegationResult: { outcome: publicOperation.outcome, routeSafe: false, turns: publicOperation.turns, damageTaken: publicOperation.damageTaken, elapsedMinutes: publicOperation.elapsedMinutes, finalHp: publicOperation.finalHp, livingEnemies: publicLivingEnemies, routeTraceLength: publicOperation.route.length, sharedMinutes: Math.max(5, publicOperation.elapsedMinutes) },
     anchorHandoff: { checkpointBranch: 'PUSH_FIRST', routeSafe: publicReadyFrontier.routeSafe, progress: publicAnchorSave.anchorProgress, travelMinutes: publicAnchorSave.worldMinute - beforePublicAnchorMinute, protagonistAtAnchor: publicReadyFrontier.protagonistAtAnchor, territoryBeforeActivation: publicReadyFrontier.territory, suppliesUnchanged: true, pointerAndKeyboard: true, worldScrolled: true },
+    expansion: { mode: publicExpandedSave.mode, worldRevision: publicExpandedSave.world.revision, incorporated: publicExpandedSave.world.tiles.filter((tile) => tile.territory === 'INCORPORATED').map((tile) => tile.id), contourEdges: 6, utility: publicExpandedSave.world.tiles.find((tile) => tile.id === 'frontier-east').utility, waterGain: publicExpandedSave.supplies.water - beforePublicExpansion.supplies.water, revealedOutside: publicExpandedSave.world.tiles.filter((tile) => tile.territory === 'OUTSIDE' && tile.knowledge === 'REVEALED').map((tile) => tile.id), reloadPreserved: true },
     regression,
     browserErrors: errors,
   };
@@ -444,6 +458,54 @@ async function assertPublicAnchorSpatial(page, save, ready) {
   if (layout.bounds.some((box) => box.left < -1 || box.top < -1 || box.right > layout.viewport.width + 1 || box.bottom > layout.viewport.height + 1)
     || layout.overflow > 1) {
     throw new Error(`Public anchor presentation does not fit 4:3: ${JSON.stringify(layout)}`);
+  }
+}
+
+async function assertPublicExpansionSpatial(page, save, before) {
+  const scene = page.locator('.submission-expanded.is-spatial');
+  const frontier = save?.world?.tiles?.find((tile) => tile.id === 'frontier-east');
+  const incorporated = save?.world?.tiles?.filter((tile) => tile.territory === 'INCORPORATED').map((tile) => tile.id) ?? [];
+  const revealedOutside = save?.world?.tiles?.filter((tile) => tile.territory === 'OUTSIDE' && tile.knowledge === 'REVEALED').map((tile) => tile.id) ?? [];
+  if (save?.mode !== 'EXPANDED' || save.world.revision !== before.world.revision + 1
+    || incorporated.join(',') !== 'initial-barrier,frontier-east'
+    || revealedOutside.join(',') !== 'next-east,frontier-north,frontier-south'
+    || frontier?.utility !== 'ACTIVE' || !frontier.stabilized || !frontier.routeSafe || !frontier.protagonistAtAnchor
+    || save.supplies.water !== before.supplies.water + 1 || save.supplies.food !== before.supplies.food
+    || save.worldMinute !== before.worldMinute || JSON.stringify(save.vitals) !== JSON.stringify(before.vitals)) {
+    throw new Error(`Public expansion state is invalid: ${JSON.stringify({ mode: save?.mode, revision: save?.world?.revision, incorporated, revealedOutside, frontier, before, save })}`);
+  }
+  if (Number(await scene.getAttribute('data-world-revision')) !== save.world.revision
+    || await scene.getAttribute('data-incorporated-tiles') !== incorporated.join(',')
+    || await scene.getAttribute('data-revealed-outside') !== revealedOutside.join(',')
+    || Number(await scene.getAttribute('data-contour-count')) !== 6
+    || await scene.getAttribute('data-frontier-utility') !== 'ACTIVE'
+    || Number(await scene.getAttribute('data-water')) !== save.supplies.water
+    || await page.locator('[data-world-tile][data-territory="INCORPORATED"]').count() !== 2
+    || await page.locator('[data-world-tile][data-knowledge="REVEALED"][data-territory="OUTSIDE"]').count() !== 3
+    || await page.locator('.expanded-tile-field.is-spatial .barrier-edge').count() !== 6
+    || await page.locator('.expansion-owned-bridge').count() !== 1
+    || await page.locator('[data-contour-tile="initial-barrier"][data-contour-edge="EAST"],[data-contour-tile="frontier-east"][data-contour-edge="WEST"]').count()
+    || await page.locator('.expansion-anchor-node,.world-party.is-expanded img[alt="주인공"],.active-spring.is-spatial[data-water-gain="1"]').count() !== 3
+    || await page.locator('.expansion-next-links > i').count() !== 3
+    || await page.locator('[data-submission-primary="restart-submission"][data-primary-key="SPACE"]').count() !== 1) {
+    throw new Error('Public expansion presentation diverges from its saved spatial state');
+  }
+  const oldSeamOpacity = Number(await page.locator('.expansion-old-seam').evaluate((element) => getComputedStyle(element, '::before').opacity));
+  if (!Number.isFinite(oldSeamOpacity) || oldSeamOpacity > 0.05) throw new Error(`Public expanded internal seam is still visible: opacity ${oldSeamOpacity}`);
+  if (await page.locator('.expanded-copy,.expansion-causality,.expansion-state-ledger,.next-coordinates,.submission-expanded h1,.submission-expanded p,.anchor-seal-glyph').count()) {
+    throw new Error('Public expansion restored explanatory dashboard copy or a closed anchor');
+  }
+  const layout = await page.locator('.expanded-tile-field.is-spatial [data-world-tile],.expansion-anchor-node,.world-party.is-expanded,.active-spring.is-spatial,.expanded-restart.is-spatial').evaluateAll((elements) => ({
+    viewport: { width: innerWidth, height: innerHeight },
+    overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    bounds: elements.map((element) => {
+      const box = element.getBoundingClientRect();
+      return { left: box.left, top: box.top, right: box.right, bottom: box.bottom };
+    }),
+  }));
+  if (layout.bounds.some((box) => box.left < -1 || box.top < -1 || box.right > layout.viewport.width + 1 || box.bottom > layout.viewport.height + 1)
+    || layout.overflow > 1) {
+    throw new Error(`Public expansion does not fit 4:3: ${JSON.stringify(layout)}`);
   }
 }
 

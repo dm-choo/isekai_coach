@@ -30,6 +30,8 @@ related:
   - p18-retrospective.md
   - p19-anchor-handoff-contract.md
   - p19-retrospective.md
+  - p20-expansion-spatial-result-contract.md
+  - p20-retrospective.md
   - release-candidate.md
 ---
 
@@ -69,6 +71,8 @@ OpenAI Game Builders Seoul 제출용 Web Build가 전체 게임 설계에서 선
 - [P18 retrospective](./p18-retrospective.md): 위임 actual grid·world/combat route 분리·두 정책 손익 검증 회고
 - [P19 anchor handoff contract](./p19-anchor-handoff-contract.md): 동료의 안전 경로→주인공 400m 이동→비활성 거점 연결의 역할 계약
 - [P19 retrospective](./p19-retrospective.md): 확보 주체·이동 주체·편입 주체를 한 공간 축으로 분리한 판단·검증 회고
+- [P20 expansion spatial result contract](./p20-expansion-spatial-result-contract.md): 거점 활성화→contour 이동→샘 효용→다음 좌표 공개의 공간 결과 계약
+- [P20 retrospective](./p20-retrospective.md): 설명 결과를 영구 좌표·외곽 contour·효용·다음 frontier로 되돌린 판단·검증 회고
 - [Release candidate gate](./release-candidate.md): 재현 가능한 기술 검증, 배포·복구와 사람 gate
 
 ## Status summary

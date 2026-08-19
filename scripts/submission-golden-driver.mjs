@@ -310,9 +310,10 @@ try {
       await assertAnchorSpatialPresentation(page, run, true);
       await capture(page, '13-anchor-ready-4x3');
       await page.setViewportSize({ width: 1280, height: 720 });
+      const revisionBeforeExpansion = run.world.revision;
       await page.keyboard.press('Space');
       await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'EXPANDED');
-      await page.waitForTimeout(1100);
+      await page.waitForTimeout(1300);
       run = await submissionSnapshot(page);
       const expandedFrontier = run.world.tiles.find((tile) => tile.id === 'frontier-east');
       const revealed = run.world.tiles.filter((tile) => ['next-east', 'frontier-north', 'frontier-south'].includes(tile.id));
@@ -323,23 +324,15 @@ try {
         throw new Error(`Anchor activation did not reveal all next coordinates: ${JSON.stringify(revealed)}`);
       }
       if (run.supplies.water !== waterBefore + 1) throw new Error(`Active spring did not add exactly one water: ${waterBefore} → ${run.supplies.water}`);
-      if (await page.locator('.expanded-tile-field .barrier-edge').count() !== 6) throw new Error('Expanded contour does not have the joined six-edge outline');
-      if (await page.locator('.active-spring').count() !== 1 || await page.locator('.expansion-causality span').count() !== 4) {
-        throw new Error('Final scene does not connect route, protagonist, contour, and spring');
-      }
-      const stateLedger = await page.locator('.expansion-state-ledger').innerText();
-      const nextExpedition = await page.locator('.next-coordinates').innerText();
-      if (await page.locator('.expansion-state-ledger span').count() !== 3 || !stateLedger.includes('소속') || !stateLedger.includes('안정') || !stateLedger.includes('효용')) {
-        throw new Error(`Final scene does not separate territory, stability, and utility: ${stateLedger}`);
-      }
-      if (!nextExpedition.includes('WATER +1') || !nextExpedition.includes('다음 원정 한 번')) {
-        throw new Error(`Spring reward is not connected to next expedition capacity: ${nextExpedition}`);
-      }
+      await assertExpansionSpatialPresentation(page, run, waterBefore, revisionBeforeExpansion);
       if (verifyP5) {
         await assertPrimaryAction(page, 'restart-submission', 'SPACE');
         await assertKoreanFonts(page);
       }
       await capture(page, '14-expanded');
+      const expandedTextOff = await page.addStyleTag({ content: '.submission-expanded strong,.submission-expanded small,.submission-expanded kbd,.submission-topbar strong,.submission-topbar small{visibility:hidden!important}' });
+      await capture(page, '14-expanded-text-off');
+      await expandedTextOff.evaluate((element) => element.remove());
       expansionReport = {
         mode: run.mode,
         anchorTravelMinutes: run.worldMinute - beforeAnchorMinute,
@@ -349,6 +342,8 @@ try {
         stabilized: expandedFrontier.stabilized,
         waterBefore,
         waterAfter: run.supplies.water,
+        revisionBefore: revisionBeforeExpansion,
+        worldRevision: run.world.revision,
         revealedCoordinates: revealed.map((tile) => tile.id),
       };
     }
@@ -358,6 +353,7 @@ try {
   await page.waitForTimeout(100);
   const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   if (horizontalOverflow > 1) throw new Error(`4:3 scouted layout overflows horizontally by ${horizontalOverflow}px`);
+  if (verifyP4) await assertExpansionSpatialPresentation(page, run, expansionReport.waterBefore, expansionReport.revisionBefore);
   if (verifyP3 && !verifyP4) await assertOperationResultPresentation(page, run, 'SECURED');
   await capture(page, verifyP4 ? '15-expanded-4x3' : verifyP3 ? '11-delegation-result-4x3' : '05-scouted-4x3');
   let interactionGate;
@@ -675,6 +671,57 @@ async function assertAnchorSpatialPresentation(page, run, ready) {
   if (layout.bounds.some((box) => box.left < -1 || box.top < -1 || box.right > layout.viewport.width + 1 || box.bottom > layout.viewport.height + 1)
     || layout.overflow > 1) {
     throw new Error(`Anchor handoff does not fit viewport: ${JSON.stringify(layout)}`);
+  }
+}
+async function assertExpansionSpatialPresentation(page, run, waterBefore, revisionBefore) {
+  const scene = page.locator('.submission-expanded.is-spatial');
+  const frontier = run.world.tiles.find((tile) => tile.id === 'frontier-east');
+  const incorporated = run.world.tiles.filter((tile) => tile.territory === 'INCORPORATED').map((tile) => tile.id);
+  const revealedOutside = run.world.tiles.filter((tile) => tile.territory === 'OUTSIDE' && tile.knowledge === 'REVEALED').map((tile) => tile.id);
+  if (run.mode !== 'EXPANDED' || run.world.revision !== revisionBefore + 1
+    || incorporated.join(',') !== 'initial-barrier,frontier-east'
+    || revealedOutside.join(',') !== 'next-east,frontier-north,frontier-south'
+    || frontier?.utility !== 'ACTIVE' || !frontier.stabilized || !frontier.routeSafe || !frontier.protagonistAtAnchor
+    || run.supplies.water !== waterBefore + 1) {
+    throw new Error(`Expanded spatial state is invalid: ${JSON.stringify({ mode: run.mode, revision: run.world.revision, incorporated, revealedOutside, frontier, waterBefore, water: run.supplies.water })}`);
+  }
+  if (Number(await scene.getAttribute('data-world-revision')) !== run.world.revision
+    || await scene.getAttribute('data-incorporated-tiles') !== incorporated.join(',')
+    || await scene.getAttribute('data-revealed-outside') !== revealedOutside.join(',')
+    || Number(await scene.getAttribute('data-contour-count')) !== 6
+    || await scene.getAttribute('data-frontier-utility') !== 'ACTIVE'
+    || Number(await scene.getAttribute('data-water')) !== run.supplies.water) {
+    throw new Error('Expanded spatial presentation diverges from world state');
+  }
+  if (await page.locator('.expanded-tile-field.is-spatial [data-world-tile][data-territory="INCORPORATED"]').count() !== 2
+    || await page.locator('.expanded-tile-field.is-spatial [data-world-tile][data-knowledge="REVEALED"][data-territory="OUTSIDE"]').count() !== 3
+    || await page.locator('.expanded-tile-field.is-spatial .barrier-edge').count() !== 6
+    || await page.locator('[data-contour-tile="initial-barrier"][data-contour-edge="EAST"],[data-contour-tile="frontier-east"][data-contour-edge="WEST"]').count()
+    || await page.locator('.expansion-anchor-node').count() !== 1
+    || await page.locator('.expansion-owned-bridge').count() !== 1
+    || await page.locator('.world-party.is-expanded img[alt="주인공"]').count() !== 1
+    || await page.locator('.active-spring.is-spatial[data-water-gain="1"]').count() !== 1
+    || await page.locator('.active-spring.is-spatial b').innerText() !== '+1'
+    || await page.locator('.expansion-next-links > i').count() !== 3
+    || await page.locator('[data-submission-primary="restart-submission"][data-primary-key="SPACE"]').count() !== 1) {
+    throw new Error('Expanded spatial scene lost its two-tile contour, anchor, spring, next coordinates, or action');
+  }
+  const oldSeamOpacity = Number(await page.locator('.expansion-old-seam').evaluate((element) => getComputedStyle(element, '::before').opacity));
+  if (!Number.isFinite(oldSeamOpacity) || oldSeamOpacity > 0.05) throw new Error(`Expanded internal seam is still visible: opacity ${oldSeamOpacity}`);
+  if (await page.locator('.expanded-copy,.expansion-causality,.expansion-state-ledger,.next-coordinates,.submission-expanded h1,.submission-expanded p,.anchor-seal-glyph').count()) {
+    throw new Error('Expanded spatial scene restored explanatory dashboard copy or a closed anchor');
+  }
+  const layout = await page.locator('.expanded-tile-field.is-spatial [data-world-tile],.expansion-anchor-node,.world-party.is-expanded,.active-spring.is-spatial,.expanded-restart.is-spatial').evaluateAll((elements) => ({
+    viewport: { width: innerWidth, height: innerHeight },
+    overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    bounds: elements.map((element) => {
+      const box = element.getBoundingClientRect();
+      return { left: box.left, top: box.top, right: box.right, bottom: box.bottom };
+    }),
+  }));
+  if (layout.bounds.some((box) => box.left < -1 || box.top < -1 || box.right > layout.viewport.width + 1 || box.bottom > layout.viewport.height + 1)
+    || layout.overflow > 1) {
+    throw new Error(`Expanded spatial scene does not fit viewport: ${JSON.stringify(layout)}`);
   }
 }
 async function submissionSnapshot(page) { return page.evaluate(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot); }

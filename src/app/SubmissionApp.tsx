@@ -490,19 +490,22 @@ function AnchorApproachStage({ snapshot, controller }: { readonly snapshot: Subm
 
 function ExpandedStage({ snapshot, controller }: { readonly snapshot: SubmissionSnapshot; readonly controller: SubmissionController }) {
   const contour = useMemo(() => computeBarrierContour(snapshot.world), [snapshot.world]);
-  return <div className="submission-expanded">
+  const incorporated = snapshot.world.tiles.filter((tile) => tile.territory === 'INCORPORATED');
+  const revealedOutside = snapshot.world.tiles.filter((tile) => tile.territory === 'OUTSIDE' && tile.knowledge === 'REVEALED');
+  const frontier = snapshot.world.tiles.find((tile) => tile.id === 'frontier-east');
+  return <div className="submission-expanded is-spatial" data-world-revision={snapshot.world.revision} data-incorporated-tiles={incorporated.map((tile) => tile.id).join(',')} data-revealed-outside={revealedOutside.map((tile) => tile.id).join(',')} data-contour-count={contour.length} data-frontier-utility={frontier?.utility} data-water={snapshot.supplies.water}>
     <div className="submission-sky" /><div className="submission-canopy" /><div className="expansion-radiance" />
-    <section className="expanded-copy" data-critical-fit><small>TERRITORY INCORPORATED</small><h1 data-korean-critical>내 세계가<br />한 칸 커졌다.</h1><p>되찾은 길과 주인공의 거점 활성화가 결계를 동쪽으로 밀어냈다.</p></section>
-    <div className="expanded-tile-field" data-critical-fit>
+    <div className="expanded-tile-field is-spatial" data-expanded-map data-critical-fit>
+      <div className="expansion-next-links" style={tilePosition(1, 0)} aria-hidden="true"><i className="is-east" /><i className="is-north" /><i className="is-south" /></div>
+      <i className="expansion-owned-bridge" style={tilePosition(0.5, 0)} aria-hidden="true" />
       {snapshot.world.tiles.map((tile) => <WorldTile key={tile.id} tile={tile} />)}
-      {contour.map((segment) => <i key={segment.id} className={`barrier-edge is-${segment.edge.toLowerCase()}`} style={tilePosition(segment.x, segment.y)} />)}
-      <div className="world-party is-expanded" style={tilePosition(1, 0)}><img src={`${BASE_URL}assets/submission/administrator-v1.png`} alt="관리자" /><span>확장 거점</span></div>
-      <div className="active-spring" style={tilePosition(1, 0)}><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="활성화된 샘" /><b>+1</b><small>샘 활성화</small></div>
+      {contour.map((segment) => <i key={segment.id} className={`barrier-edge is-${segment.edge.toLowerCase()}`} data-contour-tile={segment.tileId} data-contour-edge={segment.edge} style={tilePosition(segment.x, segment.y)} />)}
+      <i className="expansion-old-seam" style={tilePosition(0, 0)} aria-hidden="true" />
+      <div className="expansion-anchor-node" style={tilePosition(1, 0)} aria-label="주인공이 활성화한 편입 거점"><i><b /></i></div>
+      <div className="world-party is-expanded" style={tilePosition(1, 0)}><img src={`${BASE_URL}assets/submission/administrator-v1.png`} alt="주인공" /></div>
+      <div className="active-spring is-spatial" style={tilePosition(1, 0)} data-water-gain="1"><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="활성화된 샘" /><b>+1</b></div>
     </div>
-    <div className="expansion-causality" data-critical-fit><span><b>✓</b><small>안전 경로</small></span><i>→</i><span><b>✦</b><small>주인공 거점</small></span><i>→</i><span><b>◇</b><small>결계 확장</small></span><i>→</i><span><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="" /><small>다음 원정 +1</small></span></div>
-    <section className="expansion-state-ledger" data-critical-fit aria-label="편입된 타일의 독립 상태"><span><small>소속</small><strong>결계 안</strong></span><i /><span><small>안정</small><strong>거점 안정화</strong></span><i /><span><small>효용</small><strong>샘 가동</strong></span></section>
-    <aside className="next-coordinates" data-critical-fit><small>NEXT EXPEDITION · WATER +1</small><strong data-korean-critical>다음 원정 한 번이 열렸다.</strong><p>북쪽 성소 · 동쪽 수관림 · 남쪽 회랑</p></aside>
-    <button type="button" className="submission-flow-primary expanded-restart" data-submission-primary="restart-submission" data-primary-key="SPACE" data-critical-fit onClick={controller.performPrimaryAction}><span><small>FIRST EXPANSION COMPLETE</small><strong data-korean-critical>처음부터 다시 보기</strong></span><kbd>SPACE</kbd></button>
+    <button type="button" className="submission-flow-primary is-icon-first expanded-restart is-spatial" data-submission-primary="restart-submission" data-primary-key="SPACE" data-critical-fit aria-label="첫 영역 확장 결과를 확인하고 처음부터 다시 시작" onClick={controller.performPrimaryAction}><span className="expanded-owned-glyph"><i /><i /></span><i className="expanded-restart-glyph" aria-hidden="true" /><kbd>SPACE</kbd></button>
   </div>;
 }
 
@@ -516,7 +519,7 @@ function SubmissionHud({ snapshot }: { readonly snapshot: SubmissionSnapshot }) 
 
 function WorldTile({ tile }: { readonly tile: SubmissionTileState }) {
   const state = tile.knowledge === 'UNSEEN' ? 'unseen' : tile.territory === 'INCORPORATED' ? 'owned' : 'frontier';
-  return <article className={`submission-tile is-${state}`} style={tilePosition(tile.coordinate.x, tile.coordinate.y)} aria-label={`${tile.name}: ${tile.knowledge}, ${tile.territory}`}>
+  return <article className={`submission-tile is-${state}`} data-world-tile={tile.id} data-knowledge={tile.knowledge} data-territory={tile.territory} data-utility={tile.utility} style={tilePosition(tile.coordinate.x, tile.coordinate.y)} aria-label={`${tile.name}: ${tile.knowledge}, ${tile.territory}`}>
     <div className="tile-terrain" />
     {state === 'owned' && <span className="tile-heart">✦</span>}
     {state === 'frontier' && <span className="tile-question">?</span>}
