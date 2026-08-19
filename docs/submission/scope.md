@@ -61,5 +61,5 @@ related:
 ## Under validation
 
 - 제출 골든 패스는 약 20~30분을 목표로 하되 플레이테스트로 확정한다.
-- Slice 1 public 행동 이름은 `회피`, `포지셔닝`, `사격`, `밀치기`, `내려찍기`로 고정한다. 관리자·동료 HP 10, 보스 HP 15, 사격(피해1/AP2), 밀치기(피해1/AP2), 내려찍기(피해1/AP1), 보스 3-step pattern은 최신 accepted contract다.
+- public 행동 이름은 `회피`, `포지셔닝`, `사격`, `밀치기`, `내려찍기`, `가로막기`로 고정한다. Slice 1 관리자·동료 HP 10과 Slice 2 최대 HP 14/12를 구분하며, 보스 HP 15, 이동(AP1), 사격(피해1/AP2), 밀치기(피해1/AP2), 내려찍기(피해2/AP2), 보스 3-step pattern은 최신 accepted contract다.
 - 실제 resource·cargo·combat 수치는 각 canonical owner의 provisional 데이터로 조정한다.

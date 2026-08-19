@@ -372,6 +372,15 @@ try {
     bossReached,
     sealReleased,
     demoComplete: final.demoComplete,
+    goldenPath: {
+      status: 'AUTOMATED_PASS',
+      firstInput: progressiveDisclosureVerified && firstCombatCueVerified && inputFeedbackVerified,
+      scouting: minimapRevealVerified,
+      policyRevision: expeditionPolicyTuned && policyEvidenceVerified && policyComparisonVerified,
+      transfer: multiIntentCaptured && groundAnchorCopyVerified,
+      persistentFinale: bossReached && sealReleased && final.demoComplete,
+      humanValidation: 'REQUIRED',
+    },
   };
   await writeFile(new URL('report.json', artifactDir), `${JSON.stringify(report, null, 2)}\n`);
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);

@@ -1,94 +1,90 @@
 ---
-title: Sector 1 Golden Run
-status: deferred
+title: Submission Golden Run
+status: accepted
 last_updated: 2026-08-19
 related:
   - scope.md
   - first-15-minutes.md
   - acceptance-criteria.md
-  - ../gameplay/world/index.md
-  - ../gameplay/economy/index.md
+  - milestones.md
+  - vertical-slice-2-four-world-tiles.md
 ---
 
-# Sector 1 golden run
+# Submission golden run
 
-이 문서는 초기의 전체 섹터 후보를 보존한다. M0 범위 축소에 따라 현재 제출 계약에서는 **deferred**이며, 철광산·대장간·별동대·상세 경제를 제출 완료 조건으로 사용하지 않는다. M6에서 [축소된 scope](./scope.md)에 맞는 20~30분 골든 패스로 다시 저작한다.
+제출본의 골든 런은 `/slice2/` 하나에서 시작해 결계 해제와 데모 완료까지 이어지는 축소된 20~30분 경로다. 철광산, 대장간, 장비 제작, 별동대와 분석 모드는 이 경로에 포함하지 않는다.
 
-## Awakening
+## Player path
 
-1. 맵뷰에서 유적을 클릭한다.
-2. 로컬 영역에서 자유 이동한다.
-3. 첫 빈 지점을 지난다.
-4. 의문의 혼령과 전투한다.
-5. 특수 회로를 찾는다.
-6. 관리자 권한으로 회로를 작동시킨다.
-7. 유적을 탈출한다.
+| 구간 | 플레이어가 하는 일 | 획득해야 하는 멘탈모델 | 자동 증거 |
+|---|---|---|---|
+| 시작 | SPACE로 원정 시작, 동쪽 문 진입 | 지금 가능한 입력 하나 | progressive disclosure |
+| 타일 1 통로 | D 이동, 전사 조우, WASD 프리뷰와 SPACE 확정 | 이동→공격, 입력→예정→결과 | first combat cue, input feedback |
+| 타일 1 중앙 | 복합 조우 해결, 정찰, 필요 시 휴식 | 중앙 방→통로 공개, HP↔자원+20분 | minimap reveal, persistent state |
+| 타일 2 | 궁수·전사 조합 대응 | 사격선과 돌진 경로의 충돌 | intent ownership, BODY sequence |
+| 정책 수정 | 캐릭터 창에서 사격 우선순위 상승 | 첫 실행 가능 정책과 안전↔피해 trade-off | before/after action counts |
+| 타일 3 | 전사·투척병 조합 대응 | BODY는 적과 함께, GROUND는 땅에 고정 | ground anchor evidence |
+| 타일 4 | 세 적의 새 조합을 추가 설명 없이 해결 | 배운 규칙의 전이 | multi-intent transfer |
+| 결계문 | 누적 HP와 정책으로 결계 수호자 격파 | RUN 선택이 최종 전투까지 지속 | boss-entry vitals equality |
+| 종료 | 관리자가 봉인을 해제하고 데모 완료 | 전투 승리와 관리자 권한의 구분 | seal released, demo complete |
 
-배경과 권한은 [Premise](../narrative/premise.md)와 [Administrator system](../narrative/administrator-system.md), 이동 경험은 [Local area](../gameplay/world/local-area-and-scouting.md)가 소유한다. 첫 근접 행동의 정확한 이름과 수치는 **under-validation**이며 별도 `Jab` 정책은 사용하지 않는다.
+## Authoritative run contracts
 
-## Beacon trail
+- 선형 월드 타일 4개, 각 타일은 중앙 방·경계 방 4개·방향별 400m 통로를 가진다.
+- 기본 경로는 서쪽 방 → 중앙 방 → 동쪽 방이며 북·남 통로는 같은 타일 안의 선택적 우회다.
+- 출발 10:00, 100m 이동 2분, 전투 한 턴 1분, 사건 5분, 휴식 20분이다.
+- 관리자 최대 HP 14, 원거리 동료 최대 HP 12가 조우 사이와 결계 수호자전에 유지된다.
+- 이동 AP 1, 사격 AP 2/피해 1, 밀치기 AP 2/피해 1, 내려찍기 AP 2/피해 2다.
+- 기본 정책은 `회피 → 포지셔닝 → 사격 → 밀치기 → 빈 슬롯`이며 비전투 중 순서를 바꿀 수 있다.
+- 결계 수호자는 기존 `제압 → 외침 → 하수인 소환` 계약과 HP 15를 재사용한다.
+- 보스 격파 뒤 별도 `봉인 해제`를 실행해야만 데모 완료 상태가 된다.
 
-1. 유적 주변 8칸이 밝음으로 보인다.
-2. 북쪽 흐린 경로와 비콘 silhouette를 발견한다.
-3. 첫 타일에서 쇠파이프를 얻는다.
-4. 다음 타일에서 단검 고블린을 만난다.
-5. 고블린의 접근과 비껴 찌르기를 관찰한다.
-6. 낡은 단검을 획득한다.
-7. 비콘에 도달한다.
+## Automated golden path evidence
 
-타일의 의미는 [Tile states](../gameplay/world/tile-states.md)가 소유한다.
+`npm run verify:slice2`는 다음 경로를 결정론적으로 실행한다.
 
-## Beacon activation
+```text
+원정 시작
+→ 첫 통로 전투와 잘못된 입력 피드백
+→ 중앙 방 정찰과 휴식
+→ 정책 결과 확인 및 사격 우선 변경
+→ 4타일 / 고블린 6전투
+→ 누적 HP 그대로 결계 수호자 진입
+→ 보스 격파
+→ 봉인 해제
+→ 데모 완료
+```
 
-1. 관리자 권한으로 비콘을 재가동한다.
-2. 반지름 3칸을 흐림으로 공개한다.
-3. 주요 시설 silhouette를 확인한다.
-4. 동료 2명을 해방한다.
-5. 작전 채널이 활성화된다.
-6. 동료 A가 철광산 후보 조사를 제안한다.
-7. 동료 B는 주인공과 동행한다.
+2026-08-19 `5515391` 직전 로컬 증거는 7전투, 재시도 0회, 이동 32구간, 전투 52턴, 사건 10분, 휴식 1회, 12:26 도착, 최종 관리자 HP 1·동료 HP 8이다. 이 숫자는 회귀 기준이지 최종 밸런스 판정이 아니다.
 
-비콘의 공개·복원 규칙은 [Beacon and magic torch](../gameplay/world/beacon-and-magic-torch.md)가 소유한다.
+## Lightweight human gates
 
-## Split operations
+### 디렉터 확인 — 각 Goal 배포 뒤 3~5분
 
-- 동료 A와 단검은 철광산 방향 별동대를 구성한다.
-- 주인공과 원거리 동료 B는 대장간 방향 본대를 구성한다.
-- 첫 합동 전투에서 주인공은 접근한 적을 밀쳐 원거리 동료의 예상 행동을 후퇴에서 사격으로 바꾼다.
-- 본대 전투 중 별동대는 고블린 자동전투를 진행한다.
+- 새로 바뀐 한 장면만 본다.
+- `무엇을 눌러야 하는가`, `눌린 것이 보이는가`, `왜 그 결과가 났는가`만 답한다.
+- 방향이 틀렸을 때만 Goal을 다시 연다.
 
-부대와 시간 처리는 [Parties](../gameplay/operations/parties.md)와 [Shared world time](../gameplay/operations/world-time.md), 전투 연쇄는 [Turn and Intent](../gameplay/combat/turn-and-intent.md)가 소유한다.
+### 새로운 사람 1명 — 3~5개 Goal 누적 뒤
 
-## Policy revision (post-Slice 1, under validation)
+설명 없이 시작하게 하고 15분 또는 중단 시점까지 관찰한다. 질문에 대신 답하지 않는다.
 
-이 단계는 Slice 1 public boss room의 범위가 아니다. 후속 build에서만 검증한다.
+- 처음 막힌 시각과 화면
+- 스스로 발견한 조작
+- 중앙 방과 정찰의 인과
+- 정책 변경에서 기대한 결과
+- 실제로 포기했다고 느낀 것
 
-1. 별동대 작전 채널에서 전투를 관전한다.
-2. 분석 모드로 전환한다.
-3. 비껴 찌르기 정책을 회피 위로 옮긴다.
-4. 다음 실제 자동전투를 진행한다.
-5. 이전보다 줄어든 턴, 시간과 피해를 객관적으로 비교한다.
+### 큰 milestone — 새로운 사람 2~3명
 
-정책 규칙은 [Action policy](../gameplay/combat/policy/action-policy.md), 비교 경험은 [Replay and analysis](../ux/flows/replay-and-analysis.md)가 소유한다. 정책 변경은 과거 기록을 다시 계산하지 않는다.
+- 2명 이상이 외부 설명 없이 첫 전투를 시작하고 계획을 확정한다.
+- 2명 이상이 중앙 방을 정찰 원인으로 지목한다.
+- 최소 두 종류의 정책 또는 경로 선택이 나온다.
+- 2명 이상이 BODY/GROUND와 정책 변경 결과를 자기 말로 설명한다.
+- 보스·봉인 해제까지 도달 가능한 사람이 최소 1명 있다.
 
-## Sector completion
+이 기준을 통과하기 전에는 20~30분, 재미, 직관성 또는 선택 충돌을 validated로 올리지 않는다.
 
-1. 철광산을 확보한다.
-2. 채집·적재·운송을 수행한다.
-3. 대장간을 복구한다.
-4. 장비를 제작한다.
-5. 횃불로 경로를 안정화한다.
-6. 최종 던전에 진입한다.
-7. 결계 수호자와 싸운다.
-8. 관리자 권한으로 결계를 해제한다.
-9. `Thanks for Playing Demo`를 표시한다.
-10. 완료 뒤에도 첫 섹터를 자유 플레이할 수 있다.
+## M7 handoff
 
-경제 흐름은 [Economy](../gameplay/economy/index.md), 진행 고정은 [Beacon and magic torch](../gameplay/world/beacon-and-magic-torch.md), 완료 뒤 저장은 [Failure, save, and recovery](../gameplay/operations/failure-save-and-recovery.md)가 소유한다.
-
-## Under validation
-
-- 첫 섹터 총 플레이 시간은 약 25~40분 예상이다.
-- 결계 수호자는 주인공과 동료 1명으로 클리어 가능해야 한다.
-- 현재 후보는 빠른 접근 뒤 짧고 치명적인 BODY 공격, 그리고 중단 가능한 강공격과 낮은 HP 종속 몬스터를 조합한 2단계다.
-- 정확한 pattern, 수치와 종속 몬스터 구성은 플레이테스트 전에는 확정하지 않는다.
+M7은 새 콘텐츠 milestone이 아니다. 정확한 SHA에서 테스트·build·공개 배포·복구 경로·브라우저 증거·사람 gate 결과를 묶고, P0/P1 결함을 닫은 Release Candidate를 고정한다.
