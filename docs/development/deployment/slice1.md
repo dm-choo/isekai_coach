@@ -28,6 +28,14 @@ related:
 
 Node.js 20.19 이상에서 다음 순서로 실행한다.
 
+최초 한 번 `npm run deploy:setup`으로 제한된 root 배포기를 설치한 뒤에는 다음 명령이 build와 검증을 포함한다.
+
+```bash
+npm run deploy:slice1
+```
+
+수동 복구 절차는 다음과 같다.
+
 ```bash
 npm test
 npm run typecheck

@@ -27,6 +27,22 @@ related:
 
 ## Build and release
 
+최초 한 번만 제한된 root 배포 명령을 설치한다.
+
+```bash
+npm run deploy:setup
+```
+
+이후 일반 Slice 2 release는 비밀번호 없이 build, 원자 배포, endpoint와 공개 브라우저 smoke를 연속 실행한다.
+
+```bash
+npm run deploy:slice2
+```
+
+root 배포기 또는 Caddy fragment 자체가 변경된 경우에만 `npm run deploy:setup`을 다시 실행한다. sudoers는 root 소유 `/usr/local/sbin/isekai-coach-deploy`의 정확한 `slice1`·`slice2` 인수만 허용하며 저장소의 수정 가능한 shell script나 임의 경로에는 권한을 주지 않는다.
+
+수동 복구 절차는 다음과 같다.
+
 ```bash
 npm test
 npm run typecheck
