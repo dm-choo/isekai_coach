@@ -22,9 +22,12 @@ SPACE 뒤 별도 설명 화면 대신 중앙점에서 북·동·남·서 네 선
 - `npm run verify:submission:encounter-transition`: `ENCOUNTER_TRANSITION_PASS`; 중앙 전투 8턴, world time +8, 확인 전 미정찰, 확인 후 route/room 각 4·위험 2, 양 화면비 overflow 0, browser error 0
 - `npm run verify:submission:p2`: `SCOUTED`, 400m, 10:26, 중앙 전투 8턴, `corridorsScouted=true`, 4:3 overflow 0, browser error 0
 - production build를 정상 재생 속도로 구동한 public-style 경로: 중앙 전투 6턴과 실제 world time +6, 확인 전후 정찰 경계와 새 두 화면까지 통과했다. 단일 root preview가 별도 `/slice1/` build를 제공하지 않아 마지막 route-title 회귀에서만 예상 중단했다.
+- exact-SHA `cdab90618fa83170989f9ac09650530c36ddcc08` 누적 RC: `TECHNICAL_PASS`, worktree clean, 제출본 10개 단계와 Slice1·Slice2 회귀 전부 통과
+- 공개 release `/srv/ooh/releases/20260819T133424Z-cdab906-submission`: root와 Slice1/2 health pass
+- `npm run verify:submission:public`: `PUBLIC_BROWSER_PASS`; 첫 합동전 +11분/200m 복귀, 중앙 전투 +6분, 확인 전 false/후 네 통로, `/slice1/`·`/slice2/` title, browser error 0
 - 직접 비교: `07-center-secured`, `08-center-secured-4x3`, `09-four-corridors-scouted`, `10-four-corridors-text-off`, `11-four-corridors-scouted-4x3` 및 public-style `07`, `08`
 
-이 증거는 현재 working tree의 focused·golden·local production 경로다. exact-SHA 누적 RC와 실제 공개 다중 경로는 커밋·배포 뒤 별도로 판정한다. 아이콘만 본 신규 사용자의 의미 이해는 자동 통과가 아니다.
+기술·배포 증거는 닫혔지만 아이콘만 본 신규 사용자의 의미 이해는 자동 통과가 아니다. P15는 technical candidate이며 human gate는 REQUIRED다.
 
 ## Initial model
 

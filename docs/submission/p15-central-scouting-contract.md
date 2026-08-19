@@ -1,6 +1,6 @@
 ---
 title: P15 Central Scouting Causality Contract
-status: under-validation
+status: accepted
 last_updated: 2026-08-19
 related:
   - first-15-minutes.md
