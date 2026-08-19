@@ -25,6 +25,10 @@
 html, body, #root { width: 100%; min-width: 320px; min-height: 100%; margin: 0; }
 body { min-height: 100vh; overflow: hidden; background: #020402; }
 button { color: inherit; font: inherit; cursor: pointer; }
+.boot-loading,.phaser-loading { display: grid; min-height: 100vh; place-content: center; justify-items: center; gap: 12px; background: #020806; color: #85bda6; font-size: 11px; letter-spacing: .08em; }
+.boot-loading i,.phaser-loading i { width: 28px; height: 28px; animation: loading-boundary 1.2s linear infinite; border: 1px solid #68d8aa; box-shadow: 0 0 18px #56d5a155; transform: rotate(45deg); }
+.phaser-loading { position: absolute; inset: 0; min-height: 0; }
+@keyframes loading-boundary { to { transform: rotate(405deg); } }
 button:disabled { cursor: not-allowed; }
 
 .game-shell {

@@ -1,21 +1,27 @@
-import { StrictMode } from 'react';
+import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
-import { App } from './app/App';
-import { Slice2App } from './app/Slice2App';
-import { SubmissionApp } from './app/SubmissionApp';
 import './styles.css';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing #root element');
 
-const SliceApp = import.meta.env.VITE_SLICE === '1'
-  ? App
-  : import.meta.env.VITE_SLICE === 'submission'
-    ? SubmissionApp
-    : Slice2App;
+const SliceApp = lazy(async () => {
+  if (import.meta.env.VITE_SLICE === '1') {
+    const module = await import('./app/App');
+    return { default: module.App };
+  }
+  if (import.meta.env.VITE_SLICE === 'submission') {
+    const module = await import('./app/SubmissionApp');
+    return { default: module.SubmissionApp };
+  }
+  const module = await import('./app/Slice2App');
+  return { default: module.Slice2App };
+});
 
 createRoot(root).render(
   <StrictMode>
-    <SliceApp />
+    <Suspense fallback={<main className="boot-loading" aria-label="게임 불러오는 중"><i /><span>경계를 불러오는 중</span></main>}>
+      <SliceApp />
+    </Suspense>
   </StrictMode>,
 );

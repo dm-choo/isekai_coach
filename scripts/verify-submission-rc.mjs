@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import process from 'node:process';
 
 const root = new URL('../', import.meta.url);
@@ -8,12 +8,16 @@ const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const steps = [
   ['typecheck', ['run', 'typecheck']],
   ['unit', ['test', '--', '--run']],
+  ['submission-build', ['run', 'build:submission']],
+  ['submission-interaction', ['run', 'verify:submission:interaction']],
+  ['submission-golden-path', ['run', 'verify:submission:golden']],
   ['slice1-build', ['run', 'build:slice']],
   ['slice1-browser', ['run', 'verify:combat-ux']],
   ['slice2-build', ['run', 'build:slice2']],
   ['slice2-golden-path', ['run', 'verify:slice2']],
 ];
 const results = [];
+let submissionBundle;
 
 await mkdir(artifactDir, { recursive: true });
 for (const [name, args] of steps) {
@@ -27,15 +31,30 @@ for (const [name, args] of steps) {
     await writeReport({ status: 'FAILED', results });
     process.exit(result.status ?? 1);
   }
+  if (name === 'submission-build') submissionBundle = await readSubmissionBundle();
 }
 
+const submission = JSON.parse(await readFile(new URL('../artifacts/submission-golden/report.json', import.meta.url), 'utf8'));
+const interaction = JSON.parse(await readFile(new URL('../artifacts/submission-interaction/report.json', import.meta.url), 'utf8'));
 const slice1 = JSON.parse(await readFile(new URL('../artifacts/combat-ux/report.json', import.meta.url), 'utf8'));
 const slice2 = JSON.parse(await readFile(new URL('../artifacts/slice2/report.json', import.meta.url), 'utf8'));
-if (slice1.browserErrors.length || slice2.browserErrors.length) throw new Error('Browser errors remain in an RC flow');
+if (submission.browserErrors.length || interaction.browserErrors.length || slice1.browserErrors.length || slice2.browserErrors.length) throw new Error('Browser errors remain in an RC flow');
+if (submission.finalMode !== 'EXPANDED' || !submission.interactionGate?.singlePrimaryAction) throw new Error('Submission product golden-path gate did not pass');
 if (slice2.goldenPath?.status !== 'AUTOMATED_PASS') throw new Error('Slice2 golden-path gate did not pass');
 const report = await writeReport({
   status: 'TECHNICAL_PASS',
   results,
+  submission: {
+    finalMode: submission.finalMode,
+    worldTime: submission.worldTime,
+    vitals: submission.vitals,
+    expansion: submission.expansion,
+    interactionGate: submission.interactionGate,
+    firstInputFeedback: submission.firstInputFeedback,
+    browserErrors: submission.browserErrors,
+  },
+  interaction,
+  submissionBundle,
   slice1: {
     mode: slice1.mode,
     turn: slice1.turn,
@@ -69,6 +88,18 @@ async function writeReport(details) {
   };
   await writeFile(new URL('report.json', artifactDir), `${JSON.stringify(report, null, 2)}\n`);
   return report;
+}
+
+async function readSubmissionBundle() {
+  const assetsDir = new URL('../dist/assets/', import.meta.url);
+  const files = (await readdir(assetsDir)).filter((file) => file.endsWith('.js') || file.endsWith('.css')).sort();
+  const entries = await Promise.all(files.map(async (file) => ({ file, bytes: (await stat(new URL(file, assetsDir))).size })));
+  return {
+    assets: entries,
+    initialEntryBytes: entries.find((entry) => /^index-.*\.js$/.test(entry.file))?.bytes,
+    submissionAppBytes: entries.find((entry) => entry.file.startsWith('SubmissionApp-'))?.bytes,
+    deferredCombatBytes: entries.find((entry) => entry.file.startsWith('PhaserCanvas-'))?.bytes,
+  };
 }
 
 function command(binary, args) {

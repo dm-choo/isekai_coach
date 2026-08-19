@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { Intent, Unit } from '../game/combat';
 import { POLICY_COPY, type SliceActionId, type SliceSnapshot } from '../game/slice';
 import {
@@ -10,9 +10,12 @@ import {
   type EncounterContent,
   type WorldDirection,
 } from '../game/slice2';
-import { PhaserCanvas } from './PhaserCanvas';
 
 const BASE_URL = import.meta.env.BASE_URL;
+const PhaserCanvas = lazy(async () => {
+  const module = await import('./PhaserCanvas');
+  return { default: module.PhaserCanvas };
+});
 
 export function Slice2App() {
   const [controller] = useState(() => {
@@ -290,7 +293,9 @@ export function CombatStage({ snapshot, run, controller, encounter }: {
   const enemies = state.units.filter((unit) => unit.faction === 'ENEMY' && unit.hp > 0);
   return (
     <div className={`slice2-combat ${run.isNight ? 'is-night' : ''}`}>
-      <PhaserCanvas controller={controller} />
+      <Suspense fallback={<div className="phaser-host phaser-loading" aria-label="전장 불러오는 중"><i /><span>전장 불러오는 중</span></div>}>
+        <PhaserCanvas controller={controller} />
+      </Suspense>
       <div className="stage-vignette" />
       <header className="slice2-combat-hud">
         <div className="slice2-party-bars">{party.map((unit) => <UnitBar key={unit.id} unit={unit} />)}</div>
