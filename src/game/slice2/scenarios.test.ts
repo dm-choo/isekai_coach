@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BattleEngine, moveAction, slamAction } from '../combat';
 import { DEFAULT_SLICE_POLICY, evaluatePolicy, type SlicePolicyId } from '../slice';
-import { createEncounterSpec, createSlice2EncounterScenario } from './scenarios';
+import { createEncounterSpec, createSlice2BossScenario, createSlice2EncounterScenario } from './scenarios';
 
 describe('Slice 2 goblin encounters', () => {
   it('keeps evade-first and shoot-first as a real safety-versus-damage tradeoff', () => {
@@ -132,6 +132,14 @@ describe('Slice 2 goblin encounters', () => {
 
     expect(scenario.units.find((unit) => unit.id === 'administrator-slice2')).toMatchObject({ maxAp: 3 });
     expect(scenario.units.find((unit) => unit.id === 'goblin-warrior')).toMatchObject({ hp: 3, maxHp: 3 });
+  });
+
+  it('carries expedition vitals into the existing barrier-guardian finale', () => {
+    const scenario = createSlice2BossScenario({ administratorHp: 4, allyHp: 7 });
+    expect(scenario).toMatchObject({ id: 'slice2:barrier-guardian-finale', name: '고블린 봉쇄선 / 결계 수호자' });
+    expect(scenario.units.find((unit) => unit.id === 'administrator-slice2')).toMatchObject({ hp: 4, maxHp: 14, maxAp: 3 });
+    expect(scenario.units.find((unit) => unit.id === 'archer-companion-slice2')).toMatchObject({ hp: 7, maxHp: 12, maxAp: 3 });
+    expect(scenario.units.find((unit) => unit.id === 'barrier-guardian-01')).toMatchObject({ hp: 15, rank: 'BOSS' });
   });
 
   it('authors distinct three-enemy formations and adds a patrol only to small late encounters', () => {

@@ -1,4 +1,5 @@
 import { ABILITY_IDS, type BattleScenario, type UnitDefinition } from '../combat';
+import { ADMINISTRATOR_ID, ARCHER_ID, createSliceScenario } from '../slice/scenario';
 import type { EncounterContent } from './world';
 
 export const SLICE2_ADMINISTRATOR_ID = 'administrator-slice2';
@@ -61,6 +62,24 @@ export function createSlice2EncounterScenario(
       },
       ...enemyDefinitions,
     ],
+  };
+}
+
+export function createSlice2BossScenario(vitals: ExpeditionVitals): BattleScenario {
+  const base = createSliceScenario();
+  return {
+    ...base,
+    id: 'slice2:barrier-guardian-finale',
+    name: '고블린 봉쇄선 / 결계 수호자',
+    units: base.units.map((unit) => {
+      if (unit.id === ADMINISTRATOR_ID) {
+        return { ...unit, id: SLICE2_ADMINISTRATOR_ID, hp: vitals.administratorHp, maxHp: 14 };
+      }
+      if (unit.id === ARCHER_ID) {
+        return { ...unit, id: SLICE2_ALLY_ID, hp: vitals.allyHp, maxHp: 12 };
+      }
+      return unit;
+    }),
   };
 }
 

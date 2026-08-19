@@ -46,13 +46,19 @@ export function Slice2App() {
         if (snapshot.mode === 'INTRO') controller.startRun();
         else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'INTRO') controller.startEncounter();
         else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'PLAYER_TURN') controller.confirmPlan();
-        else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'VICTORY') controller.completeEncounter();
+        else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'VICTORY') snapshot.isBossEncounter ? controller.unlockSeal() : controller.completeEncounter();
+        else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'SEAL_UNLOCKED') controller.completeEncounter();
         else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'DEFEAT') controller.retryEncounter();
         else if (snapshot.mode === 'EXPLORE' && snapshot.canAdvanceTile) controller.advanceTile();
         else if (snapshot.mode === 'DEFEAT') controller.retryEncounter();
         else if (snapshot.mode === 'VICTORY') controller.restartRun();
         else return;
         event.preventDefault();
+        return;
+      }
+      if (snapshot.mode === 'COMBAT' && snapshot.isBossEncounter && snapshot.combat?.mode === 'VICTORY' && event.key.toLowerCase() === 'e') {
+        event.preventDefault();
+        controller.unlockSeal();
         return;
       }
       if (snapshot.mode !== 'COMBAT' || !snapshot.combat || snapshot.combat.mode !== 'PLAYER_TURN') return;
@@ -118,7 +124,7 @@ function ExplorationStage({ snapshot, controller }: {
     return (
       <div className={`slice2-result ${snapshot.mode === 'DEFEAT' ? 'is-defeat' : ''}`}>
         <p>{snapshot.mode === 'VICTORY' ? 'EXPEDITION COMPLETE' : 'EXPEDITION BROKEN'}</p>
-        <h2>{snapshot.mode === 'VICTORY' ? '네 개의 안전 경로 확보' : '원정대 전투 불능'}</h2>
+        <h2>{snapshot.mode === 'VICTORY' ? (snapshot.demoComplete ? '결계문 해제 · 데모 완료' : '네 개의 안전 경로 확보') : '원정대 전투 불능'}</h2>
         <span>도착 {snapshot.worldTime} · 이동 {snapshot.elapsedTravel} · 전투 {snapshot.elapsedBattleTurns}턴 · 사건 {snapshot.elapsedEventMinutes}분 · 휴식 {snapshot.restCount}회 · 관리자 HP {snapshot.vitals.administratorHp} · 동료 HP {snapshot.vitals.allyHp}</span>
         <button type="button" onClick={snapshot.mode === 'DEFEAT' ? controller.retryEncounter : controller.restartRun}>
           {snapshot.mode === 'DEFEAT' ? '같은 인카운터 재시도' : '다시 원정'}
@@ -145,7 +151,7 @@ function ExplorationStage({ snapshot, controller }: {
       </button>}
       {snapshot.canAdvanceTile && (
         <button type="button" className="advance-world-button" onClick={controller.advanceTile}>
-          {snapshot.currentTileIndex === 3 ? '원정 완료' : `월드 타일 ${snapshot.currentTileIndex + 2}로 이동`} →
+          {snapshot.currentTileIndex === 3 ? '결계문으로 이동' : `월드 타일 ${snapshot.currentTileIndex + 2}로 이동`} →
         </button>
       )}
     </div>
@@ -275,15 +281,19 @@ function CombatStage({ snapshot, run, controller, encounter }: {
       {snapshot.mode === 'PLAYER_TURN' && <AllyIntentPanel snapshot={snapshot} />}
       {run.canUseLight && <button type="button" className="light-button" onClick={controller.useLight}>휴대용 조명 사용 · Intent 공개</button>}
       {snapshot.mode !== 'INTRO' && <CombatTurnBanner snapshot={snapshot} />}
-      {snapshot.mode !== 'INTRO' && snapshot.mode !== 'PLAYER_TURN' && <div className="combat-notice"><span />{snapshot.notice}</div>}
+      {snapshot.mode !== 'INTRO' && snapshot.mode !== 'PLAYER_TURN' && snapshot.mode !== 'SEAL_UNLOCKED' && <div className="combat-notice"><span />{snapshot.notice}</div>}
       {snapshot.mode === 'ALLY_TURN' && <PolicyReadout snapshot={snapshot} />}
       {snapshot.mode === 'PLAYER_TURN' && run.elapsedBattleTurns === 0 && snapshot.state.turn === 1 && <FirstCombatCue snapshot={snapshot} />}
       {snapshot.mode === 'PLAYER_TURN' && <CombatControls snapshot={snapshot} controller={controller} />}
       {snapshot.mode === 'INTRO' && (
         <div className="encounter-overlay"><div className="encounter-rule" /><p>SCOUTED ENCOUNTER</p><h1>{encounterTitle(encounter)}</h1><span>Intent를 확인하고 진형을 결정하십시오.</span><button type="button" onClick={controller.startEncounter}>전투 시작 <kbd>SPACE</kbd></button></div>
       )}
-      {snapshot.mode === 'VICTORY' && (
-        <div className="result-overlay"><p>PATH SECURED</p><h2>인카운터 해결</h2><span>현재 HP와 소요 턴이 원정에 유지됩니다.</span><button type="button" onClick={controller.completeEncounter}>통로로 복귀 <kbd>SPACE</kbd></button></div>
+      {snapshot.mode === 'VICTORY' && (run.isBossEncounter
+        ? <div className="result-overlay"><p>BARRIER GUARDIAN DEFEATED</p><h2>봉인이 드러났다</h2><span>관리자만 이 오브젝트의 봉인을 해제할 수 있습니다.</span><button type="button" onClick={controller.unlockSeal}>봉인 해제 <kbd>E</kbd></button></div>
+        : <div className="result-overlay"><p>PATH SECURED</p><h2>인카운터 해결</h2><span>현재 HP와 소요 턴이 원정에 유지됩니다.</span><button type="button" onClick={controller.completeEncounter}>통로로 복귀 <kbd>SPACE</kbd></button></div>
+      )}
+      {snapshot.mode === 'SEAL_UNLOCKED' && run.isBossEncounter && (
+        <div className="result-overlay"><p>SEAL RELEASED</p><h2>결계문이 열렸다</h2><span>네 개 월드 타일의 선택과 전투 결과가 여기까지 이어졌습니다.</span><button type="button" onClick={controller.completeEncounter}>데모 완료 <kbd>SPACE</kbd></button></div>
       )}
       {snapshot.mode === 'DEFEAT' && (
         <div className="result-overlay"><p>EXPEDITION BROKEN</p><h2>전투 불능</h2><span>인카운터 진입 직전 상태로 복원합니다.</span><button type="button" onClick={controller.retryEncounter}>같은 인카운터 재시도 <kbd>SPACE</kbd></button></div>
@@ -452,7 +462,7 @@ function nodeGlyph(nodeId: string, content: EncounterContent | undefined, visibl
 }
 
 function encounterTitle(content?: EncounterContent): string {
-  const copy: Partial<Record<EncounterContent, string>> = { GOBLIN_ARCHER: '고블린 궁수', GOBLIN_WARRIOR: '고블린 전사', GOBLIN_BOMBER: '고블린 투척병', GOBLIN_ARCHER_WARRIOR: '궁수와 단검 전사', GOBLIN_ARCHER_BOMBER: '궁수와 투척병', GOBLIN_TRIO: '고블린 봉쇄조', GOBLIN_RUSH_SQUAD: '쌍단검 돌격대', GOBLIN_BOMBARDMENT: '포자 포격 호위대', GOBLIN_FIRELINE: '이중 사격 봉쇄선' };
+  const copy: Partial<Record<EncounterContent, string>> = { GOBLIN_ARCHER: '고블린 궁수', GOBLIN_WARRIOR: '고블린 전사', GOBLIN_BOMBER: '고블린 투척병', GOBLIN_ARCHER_WARRIOR: '궁수와 단검 전사', GOBLIN_ARCHER_BOMBER: '궁수와 투척병', GOBLIN_TRIO: '고블린 봉쇄조', GOBLIN_RUSH_SQUAD: '쌍단검 돌격대', GOBLIN_BOMBARDMENT: '포자 포격 호위대', GOBLIN_FIRELINE: '이중 사격 봉쇄선', BARRIER_GUARDIAN: '결계 수호자' };
   return content ? copy[content] ?? '통로 조우' : '통로 조우';
 }
 
@@ -464,6 +474,8 @@ function unitName(unit?: Unit): string {
   if (unit.id.includes('archer')) return `고블린 궁수${unit.id.endsWith('-1') ? ' A' : unit.id.endsWith('-2') ? ' B' : ''}`;
   if (unit.id.includes('warrior')) return `고블린 전사${unit.id.endsWith('-1') ? ' A' : unit.id.endsWith('-2') ? ' B' : ''}`;
   if (unit.id.includes('bomber')) return `고블린 투척병${unit.id.endsWith('-1') ? ' A' : unit.id.endsWith('-2') ? ' B' : ''}`;
+  if (unit.id.includes('barrier-guardian')) return '결계 수호자';
+  if (unit.id.includes('guardian-hound')) return '추적 하수인';
   return unit.faction === 'ENEMY' ? '적' : '아군';
 }
 
@@ -471,6 +483,10 @@ function intentName(id?: string): string {
   if (id === 'goblin-long-shot') return '장거리 사격';
   if (id === 'goblin-rush') return '단검 쇄도';
   if (id === 'goblin-bomb') return '포자 폭탄';
+  if (id === 'guardian-crush') return '제압';
+  if (id === 'guardian-rupture') return '외침';
+  if (id === 'guardian-summon') return '하수인 소환';
+  if (id === 'minion-charge') return '돌진';
   return '공격';
 }
 
@@ -478,6 +494,10 @@ function intentDetail(id?: string): string {
   if (id === 'goblin-long-shot') return '최소 사거리 밖의 첫 노출 대상에게 피해 1';
   if (id === 'goblin-rush') return '표시 경로로 접근한 뒤 전방을 공격';
   if (id === 'goblin-bomb') return '표시된 지면을 다음 적 턴에 폭격';
+  if (id === 'guardian-crush') return '2칸 이동 뒤 전방 한 칸에 피해 6';
+  if (id === 'guardian-rupture') return '전방 5칸과 세 행을 덮으며 근거리 공격으로 중단 가능';
+  if (id === 'guardian-summon') return '원거리 동료를 추적하는 하수인 소환';
+  if (id === 'minion-charge') return '원거리 동료를 향해 3칸 돌진';
   return '표시된 범위에 공격';
 }
 

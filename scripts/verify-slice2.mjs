@@ -29,6 +29,9 @@ let minimapRevealVerified = false;
 let firstCombatCueVerified = false;
 let policyEvidenceVerified = false;
 let policyComparisonVerified = false;
+let bossReached = false;
+let sealReleased = false;
+let finalApproachVitals;
 
 await mkdir(artifactDir, { recursive: true });
 
@@ -159,6 +162,7 @@ try {
         continue;
       }
       if (run.canAdvanceTile) {
+        if (run.currentTileIndex === 3) finalApproachVitals = { ...run.vitals };
         await page.locator('.advance-world-button').click();
         continue;
       }
@@ -172,6 +176,15 @@ try {
     if (run.mode !== 'COMBAT') throw new Error(`Unexpected run mode ${run.mode}`);
     if (combat.mode === 'INTRO') {
       combatCount += 1;
+      if (run.isBossEncounter) {
+        bossReached = true;
+        const administrator = combat.state.units.find((unit) => unit.id === 'administrator-slice2');
+        const ally = combat.state.units.find((unit) => unit.id === 'archer-companion-slice2');
+        if (!finalApproachVitals || administrator?.hp !== finalApproachVitals.administratorHp || ally?.hp !== finalApproachVitals.allyHp) {
+          throw new Error(`Final boss did not preserve expedition vitals: ${JSON.stringify({ finalApproachVitals, administrator, ally })}`);
+        }
+        await capture(page, '07-boss-intro');
+      }
       if (combatCount === 1) await capture(page, '02-first-encounter');
       await page.keyboard.press('Space');
       await page.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot.mode === 'PLAYER_TURN' && !window.__ISEKAI_COACH_COMBAT__?.snapshot.isBusy);
@@ -226,6 +239,21 @@ try {
       continue;
     }
     if (combat.mode === 'VICTORY') {
+      if (run.isBossEncounter) {
+        await page.getByRole('button', { name: /봉인 해제/ }).click();
+        await page.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot.mode === 'SEAL_UNLOCKED');
+        sealReleased = true;
+        await capture(page, '08-seal-unlocked');
+        await page.getByRole('button', { name: /데모 완료/ }).click();
+      } else {
+        await page.keyboard.press('Space');
+      }
+      continue;
+    }
+    if (combat.mode === 'SEAL_UNLOCKED') {
+      if (!run.isBossEncounter) throw new Error('Seal unlocked outside the final boss');
+      sealReleased = true;
+      await capture(page, '08-seal-unlocked');
       await page.keyboard.press('Space');
       continue;
     }
@@ -269,6 +297,7 @@ try {
   if (!progressiveDisclosureVerified || !minimapRevealVerified) throw new Error('Progressive onboarding disclosure was not fully verified');
   if (!firstCombatCueVerified) throw new Error('First combat cue did not transition from input to plan confirmation');
   if (!policyEvidenceVerified || !policyComparisonVerified) throw new Error('Policy outcome evidence was not preserved and compared');
+  if (!bossReached || !sealReleased || !final.demoComplete) throw new Error(`Integrated boss, seal release, and demo ending were not completed: ${JSON.stringify({ bossReached, sealReleased, demoComplete: final.demoComplete })}`);
   await capture(page, '03-complete');
   const night = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   night.on('console', (message) => { if (message.type() === 'error') errors.push(`night ${message.text()}`); });
@@ -340,6 +369,9 @@ try {
     firstCombatCueVerified,
     policyEvidenceVerified,
     policyComparisonVerified,
+    bossReached,
+    sealReleased,
+    demoComplete: final.demoComplete,
   };
   await writeFile(new URL('report.json', artifactDir), `${JSON.stringify(report, null, 2)}\n`);
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
@@ -472,7 +504,7 @@ function moveScore(state, position, target) {
 }
 
 function distance(left, right) { return Math.abs(left.position.x - right.position.x) + Math.abs(left.position.y - right.position.y); }
-function unitName(unit) { if (unit.id.includes('archer')) return '고블린 궁수'; if (unit.id.includes('warrior')) return '고블린 전사'; return '고블린 투척병'; }
+function unitName(unit) { if (unit.id.includes('barrier-guardian')) return '결계 수호자'; if (unit.id.includes('guardian-hound')) return '추적 하수인'; if (unit.id.includes('archer')) return '고블린 궁수'; if (unit.id.includes('warrior')) return '고블린 전사'; return '고블린 투척병'; }
 async function runSnapshot(page) { return page.evaluate(() => window.__ISEKAI_COACH_SLICE2__?.snapshot); }
 async function combatSnapshot(page) { return page.evaluate(() => window.__ISEKAI_COACH_COMBAT__?.snapshot); }
 async function corridorPresentation(page) {

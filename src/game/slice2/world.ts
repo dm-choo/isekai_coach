@@ -11,6 +11,7 @@ export type EncounterContent =
   | 'GOBLIN_RUSH_SQUAD'
   | 'GOBLIN_BOMBARDMENT'
   | 'GOBLIN_FIRELINE'
+  | 'BARRIER_GUARDIAN'
   | 'RECOVERY_CACHE'
   | 'WATER_CACHE'
   | 'RATION_CACHE'

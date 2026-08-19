@@ -11,6 +11,7 @@ import {
 import {
   SLICE2_ADMINISTRATOR_ID,
   SLICE2_ALLY_ID,
+  createSlice2BossScenario,
   createSlice2EncounterScenario,
   encounterName,
   type ExpeditionVitals,
@@ -88,6 +89,8 @@ export interface Slice2RunSnapshot {
   readonly canUseLight: boolean;
   readonly restCount: number;
   readonly traversal?: CorridorTraversal;
+  readonly isBossEncounter: boolean;
+  readonly demoComplete: boolean;
 }
 
 export interface CorridorTraversal {
@@ -111,6 +114,14 @@ export const EVENT_MINUTES = 5;
 export const REST_MINUTES = 20;
 export const REST_HEALING = 3;
 export const MAX_CARRIED_SUPPLY = 2;
+
+const BARRIER_GUARDIAN_ENCOUNTER: WorldEncounter = {
+  id: 'slice2:barrier-guardian-finale',
+  kind: 'BATTLE',
+  content: 'BARRIER_GUARDIAN',
+  resolved: false,
+  oneTime: false,
+};
 
 export function rootSnareHpAfter(hp: number): number {
   return hp > 1 ? hp - 1 : Math.max(0, hp);
@@ -148,6 +159,8 @@ export class Slice2RunController {
   private policyRevisionBaseline: PolicyCombatSummary | undefined;
   private policyComparison: PolicyCombatComparison | undefined;
   private traversal: CorridorTraversal | undefined;
+  private isBossEncounter = false;
+  private demoComplete = false;
   private snapshot: Slice2RunSnapshot;
 
   public constructor(private readonly timing: Slice2RunOptions = {}) {
@@ -252,9 +265,7 @@ export class Slice2RunController {
   public advanceTile = (): void => {
     if (this.mode !== 'EXPLORE' || !this.canAdvanceTile()) return;
     if (this.currentTileIndex === this.world.tiles.length - 1) {
-      this.mode = 'VICTORY';
-      this.notice = '네 개의 월드 타일에 안전 경로를 확보했다.';
-      this.publish();
+      this.beginBossCombat();
       return;
     }
     this.enterNextTile();
@@ -307,14 +318,15 @@ export class Slice2RunController {
       this.publish();
       return;
     }
-    if (combat.mode !== 'VICTORY') return;
+    if (this.isBossEncounter && combat.mode === 'VICTORY') return;
+    if (combat.mode !== 'VICTORY' && combat.mode !== 'SEAL_UNLOCKED') return;
     const administrator = combat.state.units.find((unit) => unit.id === SLICE2_ADMINISTRATOR_ID);
     const ally = combat.state.units.find((unit) => unit.id === SLICE2_ALLY_ID);
     const vitalsAfter = {
       administratorHp: administrator?.hp ?? this.vitals.administratorHp,
       allyHp: ally?.hp ?? this.vitals.allyHp,
     };
-    const encounter = encounterAt(this.currentTile(), this.currentNodeId);
+    const encounter = this.isBossEncounter ? BARRIER_GUARDIAN_ENCOUNTER : encounterAt(this.currentTile(), this.currentNodeId);
     const summary = summarizePolicyCombat(
       encounter?.id ?? combat.scenarioId,
       this.currentTileIndex,
@@ -333,6 +345,15 @@ export class Slice2RunController {
       this.policyComparison = { before: this.policyRevisionBaseline, after: summary };
       this.policyRevisionBaseline = undefined;
     }
+    if (this.isBossEncounter) {
+      this.releaseCombat();
+      this.isBossEncounter = false;
+      this.demoComplete = true;
+      this.mode = 'VICTORY';
+      this.notice = '결계문을 해제했다. 원정 데모 완료.';
+      this.publish();
+      return;
+    }
     const centerCleared = this.currentNodeId === 'room-center';
     this.replaceCurrentTile(resolveNodeEncounter(this.currentTile(), this.currentNodeId));
     this.releaseCombat();
@@ -350,13 +371,14 @@ export class Slice2RunController {
   public retryEncounter = (): void => {
     const combatDefeat = this.mode === 'COMBAT' && this.combat?.getSnapshot().mode === 'DEFEAT';
     if ((!combatDefeat && this.mode !== 'DEFEAT') || !this.encounterCheckpoint) return;
-    const encounter = encounterAt(this.currentTile(), this.currentNodeId);
+    const encounter = this.isBossEncounter ? BARRIER_GUARDIAN_ENCOUNTER : encounterAt(this.currentTile(), this.currentNodeId);
     if (!encounter || encounter.kind !== 'BATTLE') return;
     this.vitals = { ...this.encounterCheckpoint.vitals };
     this.supplies = { ...this.encounterCheckpoint.supplies };
     this.worldMinute = this.encounterCheckpoint.worldMinute;
     this.elapsedBattleTurns = this.encounterCheckpoint.elapsedBattleTurns;
-    this.beginCombat(encounter);
+    if (this.isBossEncounter) this.beginBossCombat();
+    else this.beginCombat(encounter);
   };
 
   public restartRun = (): void => {
@@ -377,6 +399,8 @@ export class Slice2RunController {
     this.lastPolicySummary = undefined;
     this.policyRevisionBaseline = undefined;
     this.policyComparison = undefined;
+    this.isBossEncounter = false;
+    this.demoComplete = false;
     this.notice = '네 개의 월드 타일을 지나 고블린 봉쇄선을 돌파한다.';
     this.encounterCheckpoint = null;
     this.traversal = undefined;
@@ -395,6 +419,7 @@ export class Slice2RunController {
   public setActionHover = (actionId?: SliceActionId): void => this.combat?.setActionHover(actionId);
   public undoLastAction = (): void => this.combat?.undoLastAction();
   public confirmPlan = (): void => this.combat?.confirmPlan();
+  public unlockSeal = (): void => this.combat?.unlockSeal();
 
   public destroy(): void {
     this.releaseCombat();
@@ -424,6 +449,32 @@ export class Slice2RunController {
     this.combatUnsubscribe = this.combat.subscribe(() => this.publish());
     this.mode = 'COMBAT';
     this.notice = encounterName(encounter.content);
+    this.publish();
+  }
+
+  private beginBossCombat(): void {
+    this.releaseCombat();
+    this.isBossEncounter = true;
+    this.encounterCheckpoint = {
+      vitals: { ...this.vitals },
+      supplies: { ...this.supplies },
+      worldMinute: this.worldMinute,
+      elapsedBattleTurns: this.elapsedBattleTurns,
+    };
+    const scenario = createSlice2BossScenario(this.vitals);
+    this.combat = new SliceController({
+      scenarioFactory: () => scenario,
+      administratorId: SLICE2_ADMINISTRATOR_ID,
+      allyId: SLICE2_ALLY_ID,
+      policy: this.policy,
+      introNotice: '결계 수호자가 봉쇄선의 마지막 문을 지키고 있다.',
+      playbackSpeed: this.timing.playbackSpeed,
+      phaseDelayScale: this.timing.phaseDelayScale,
+      concealOneEnemyIntent: isNightMinute(this.worldMinute),
+    });
+    this.combatUnsubscribe = this.combat.subscribe(() => this.publish());
+    this.mode = 'COMBAT';
+    this.notice = '결계 수호자';
     this.publish();
   }
 
@@ -529,7 +580,7 @@ export class Slice2RunController {
       policy: this.policy,
       notice: this.notice,
       combat: this.combat?.getSnapshot(),
-      currentEncounter: encounterAt(tile, this.currentNodeId),
+      currentEncounter: this.isBossEncounter ? BARRIER_GUARDIAN_ENCOUNTER : encounterAt(tile, this.currentNodeId),
       canAdvanceTile: this.mode === 'EXPLORE' && this.canAdvanceTile(),
       attempt: this.attempt,
       lastPolicyTrace: this.lastPolicyTrace,
@@ -543,6 +594,8 @@ export class Slice2RunController {
       canUseLight: this.canUseLight(),
       restCount: this.restCount,
       traversal: this.traversal ? { ...this.traversal } : undefined,
+      isBossEncounter: this.isBossEncounter,
+      demoComplete: this.demoComplete,
     };
   }
 
