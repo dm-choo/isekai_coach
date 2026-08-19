@@ -46,7 +46,7 @@ related:
 - 첫 검증은 단독 전투 turn 2 진입만 기다리고 `isBusy=false`를 기다리지 않은 채 내려찍기를 입력했다. turn 값과 입력 가능 상태를 같은 것으로 가정한 오류였다. 이후 모든 phase 입력은 `mode + turn + !busy`를 함께 gate하도록 고쳤다.
 - 첫 `MutationObserver`는 동료 행동 중 포착한 `POSITION`을 phase 종료 때의 `EMPTY` DOM으로 다시 덮었다. 순간 사건의 history와 현재 DOM snapshot을 혼동했다. 첫 non-empty policy ID를 불변으로 저장하도록 바꾸고 forecast와 비교했다.
 - 자동 인과 assertion이 통과한 뒤 캡처를 보니 compact execution 위에 큰 `동료 턴` banner와 동일 notice가 겹쳤다. 값의 일치만 검증하고 정보의 중복을 놓친 것이다. 제출 동료 턴에서는 compact execution을 단일 phase/result owner로 두고 중복 요소가 0개인지 assertion을 추가했다.
-- 첫 공개 검증은 turn 2 action dock이 나타난 것만 보고 내려찍기를 찾았다. 캡처상 전장은 turn 2였지만 controller는 아직 busy여서 기술이 비활성 상태였다. 다시 한 번 `보이는 phase = 입력 가능한 상태`로 취급한 오류였고, 공개 gate도 `mode + turn + !busy`를 기다리도록 통일했다. 또한 한국어 기술명을 selector로 쓰지 않고 안정적인 `data-action-id`를 노출해 검증이 번역 문구에 의존하지 않게 했다.
+- 첫 공개 검증은 turn 2 action dock이 나타난 것만 보고 내려찍기를 찾았다. 캡처상 전장은 turn 2였지만 controller는 아직 busy여서 기술이 비활성 상태였다. 다시 한 번 `보이는 phase = 입력 가능한 상태`로 취급한 오류였다. 첫 수정은 개발 build에만 노출되는 controller bridge를 기다려 production에서 timeout됐다. 공개 gate는 내부 bridge가 아니라 `.is-busy`가 사라지고 실제 control이 활성화되는 사용자 관찰 가능 조건을 기다리도록 고쳤다. 또한 한국어 기술명을 selector로 쓰지 않고 안정적인 `data-action-id`를 노출해 검증이 번역 문구에 의존하지 않게 했다.
 - 펼친 상세 card는 4:3에서 전장을 일부 덮는다. 기본 closed이고 의도적으로 요구한 순간에만 열리며 actor와 조작 dock을 가리지 않아 이번 범위에서는 허용했다. 다중 적 장면에서 source detail을 연 채 비교하는 사용 패턴은 사람 관찰 전까지 확정하지 않는다.
 
 ## User boundary and delegated judgment
