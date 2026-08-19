@@ -300,14 +300,14 @@ export function CombatStage({ snapshot, run, controller, encounter, visualTheme,
   const soloLearningTurn = prologueEncounter && firstLearningTurn;
   const soloLearningPhase = soloLearningTurn && snapshot.plannedActions.length > 0 ? 'outcome' : 'threat';
   return (
-    <div className={`slice2-combat ${run.isNight ? 'is-night' : ''} ${soloLearningTurn ? `is-solo-learning is-${soloLearningPhase}` : ''}`}>
+    <div className={`slice2-combat ${run.isNight ? 'is-night' : ''} ${submissionPresentation && snapshot.mode === 'INTRO' && !prologueEncounter ? 'is-encounter-reveal' : ''} ${soloLearningTurn ? `is-solo-learning is-${soloLearningPhase}` : ''}`}>
       <Suspense fallback={<div className="phaser-host phaser-loading" aria-label="전장 불러오는 중"><i /><span>전장 불러오는 중</span></div>}>
         <PhaserCanvas controller={controller} visualTheme={visualTheme} />
       </Suspense>
       <div className="stage-vignette" />
       <header className="slice2-combat-hud">
         <div className="slice2-party-bars">{party.map((unit) => <UnitBar key={unit.id} unit={unit} />)}</div>
-        {snapshot.mode === 'INTRO'
+        {snapshot.mode === 'INTRO' && !submissionPresentation
           ? <div className="encounter-title"><small>통로 인카운터</small><strong>{encounterTitle(encounter)}{enemies.some((enemy) => enemy.id.includes('patrol')) ? ' · 순찰 증원' : ''}</strong></div>
           : <div aria-hidden="true" />}
         <div className="enemy-bars">{enemies.map((unit) => <UnitBar key={unit.id} unit={unit} enemy />)}</div>
@@ -322,7 +322,12 @@ export function CombatStage({ snapshot, run, controller, encounter, visualTheme,
       {snapshot.mode === 'PLAYER_TURN' && <CombatControls snapshot={snapshot} controller={controller} onboarding={soloLearningTurn} compact={submissionPresentation && !soloLearningTurn} />}
       {snapshot.mode === 'INTRO' && (prologueEncounter
         ? <div className="encounter-overlay is-prologue"><button type="button" aria-label="첫 전투 시작" onClick={controller.startEncounter}><img src={`${BASE_URL}assets/ui/intent-attack.svg`} alt="" /><kbd>SPACE</kbd></button></div>
-        : <div className="encounter-overlay"><div className="encounter-rule" /><p>SCOUTED ENCOUNTER</p><h1>{encounterTitle(encounter)}</h1><span>{snapshot.notice}</span><button type="button" onClick={controller.startEncounter}>전투 시작 <kbd>SPACE</kbd></button></div>
+        : submissionPresentation
+          ? <div className="encounter-overlay is-seamless" data-encounter-transition="THREAT_REVEALED">
+              <span className="encounter-threat-pulse" aria-hidden="true"><i>!</i><img src={`${BASE_URL}assets/ui/intent-attack.svg`} alt="" /></span>
+              <button type="button" data-combat-primary="start-encounter" aria-label="드러난 위협과 전투 시작" onClick={controller.startEncounter}><img src={`${BASE_URL}assets/ui/intent-attack.svg`} alt="" /><i aria-hidden="true">→</i><kbd>SPACE</kbd></button>
+            </div>
+          : <div className="encounter-overlay"><div className="encounter-rule" /><p>SCOUTED ENCOUNTER</p><h1>{encounterTitle(encounter)}</h1><span>{snapshot.notice}</span><button type="button" onClick={controller.startEncounter}>전투 시작 <kbd>SPACE</kbd></button></div>
       )}
       {snapshot.mode === 'VICTORY' && (run.isBossEncounter
         ? <div className="result-overlay"><p>BARRIER GUARDIAN DEFEATED</p><h2>봉인이 드러났다</h2><span>관리자만 이 오브젝트의 봉인을 해제할 수 있습니다.</span><button type="button" onClick={controller.unlockSeal}>봉인 해제 <kbd>E</kbd></button></div>

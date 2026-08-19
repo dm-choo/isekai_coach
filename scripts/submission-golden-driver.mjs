@@ -89,6 +89,11 @@ try {
     throw new Error(`First spatial encounter did not stop at 200m: ${JSON.stringify(pickRunState(run))}`);
   }
   if (run.combat.state.units.filter((unit) => unit.faction === 'STUDENT').length !== 2) throw new Error('First joint encounter does not contain the joined companion');
+  if (verifyP5) {
+    if (await page.locator('.encounter-overlay.is-seamless[data-encounter-transition="THREAT_REVEALED"]').count() !== 1) throw new Error('First joint encounter does not remain a scene-first reveal');
+    if (await page.locator('.encounter-title,.encounter-overlay.is-seamless h1,.encounter-overlay.is-seamless p').count()) throw new Error('First joint encounter is blocked by a title card');
+    if (await page.locator('[data-combat-primary="start-encounter"]').count() !== 1) throw new Error('First joint encounter does not expose one combat start action');
+  }
   await capture(page, '02-first-encounter');
   await page.keyboard.press('Space');
   await page.waitForFunction(() => window.__ISEKAI_COACH_COMBAT__?.snapshot?.mode === 'PLAYER_TURN');

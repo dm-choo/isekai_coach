@@ -74,7 +74,14 @@ try {
   for (let step = 0; step < 100 && await page.locator('.encounter-overlay:not(.is-prologue)').count() === 0; step += 1) {
     await page.keyboard.press('d');
   }
-  await page.locator('.encounter-overlay:not(.is-prologue)').waitFor();
+  const publicEncounterGate = page.locator('.encounter-overlay.is-seamless[data-encounter-transition="THREAT_REVEALED"]');
+  await publicEncounterGate.waitFor();
+  if (await page.locator('.encounter-title,.encounter-overlay.is-seamless h1,.encounter-overlay.is-seamless p').count()) {
+    throw new Error('Public first joint encounter restored its blocking title card');
+  }
+  if (await publicEncounterGate.locator('[data-combat-primary="start-encounter"] img,kbd').count() !== 2) {
+    throw new Error('Public encounter gate lacks its icon and SPACE action');
+  }
   await page.keyboard.press('Space');
   const publicAllyForecast = page.locator('.ally-intent-panel.is-policy-linked[data-forecast-basis="CURRENT"]');
   await publicAllyForecast.waitFor({ timeout: 30_000 });

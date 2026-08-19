@@ -16,6 +16,8 @@ related:
   - p11-retrospective.md
   - p12-ally-policy-causality-contract.md
   - p12-retrospective.md
+  - p13-seamless-encounter-contract.md
+  - p13-retrospective.md
   - release-candidate.md
 ---
 
@@ -41,6 +43,8 @@ OpenAI Game Builders Seoul 제출용 Web Build가 전체 게임 설계에서 선
 - [P11 retrospective](./p11-retrospective.md): 정상 전투 action dock의 산출물·오류·검증 비용 회고
 - [P12 ally policy causality contract](./p12-ally-policy-causality-contract.md): 동료 forecast→정책 source→실제 실행 인과 계약
 - [P12 retrospective](./p12-retrospective.md): 정책 forecast·실행 연결의 산출물·관찰 오류·검증 비용 회고
+- [P13 seamless encounter contract](./p13-seamless-encounter-contract.md): 복도 정지→적 reveal→같은 전장 입력의 연속 조우 계약
+- [P13 retrospective](./p13-retrospective.md): 연속 조우 전환의 장면 판단·검증 오류·남은 경계 회고
 - [Release candidate gate](./release-candidate.md): 재현 가능한 기술 검증, 배포·복구와 사람 gate
 
 ## Status summary
