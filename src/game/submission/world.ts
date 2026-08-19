@@ -190,7 +190,7 @@ export function incorporateTile(
       revision: world.revision + 1,
       tiles: world.tiles.map((tile) => {
         if (tile.id === tileId) {
-          return { ...tile, territory: 'INCORPORATED', utility: 'ACTIVE' };
+          return { ...tile, territory: 'INCORPORATED', utility: 'ACTIVE', stabilized: true };
         }
         if (reveals.has(tile.id) && tile.knowledge === 'UNSEEN') {
           return { ...tile, knowledge: 'REVEALED' };

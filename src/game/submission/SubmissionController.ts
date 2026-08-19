@@ -18,12 +18,19 @@ import {
   type EncounterContent,
   type ExpeditionVitals,
 } from '../slice2';
-import { createSubmissionWorld, updateSubmissionTile, type SubmissionWorldState } from './world';
+import {
+  createSubmissionWorld,
+  incorporateTile,
+  updateSubmissionTile,
+  type IncorporationBlocker,
+  type SubmissionWorldState,
+} from './world';
 import { simulateDelegatedOperation, type DelegatedOperationResult } from './delegation';
 
 export type SubmissionMode =
   | 'INTRO' | 'CORRIDOR' | 'CENTER_GATE' | 'COMBAT' | 'SCOUTED'
-  | 'POLICY_REVIEW' | 'DELEGATION_PLAN' | 'DELEGATION_RESULT' | 'DEFEAT';
+  | 'POLICY_REVIEW' | 'DELEGATION_PLAN' | 'DELEGATION_RESULT'
+  | 'ANCHOR_APPROACH' | 'ANCHOR_READY' | 'EXPANDED' | 'DEFEAT';
 export type SubmissionEncounterId = 'FIRST_WARRIOR' | 'CENTER_GUARD';
 export type SubmissionPolicyChoice = 'PUSH_FIRST' | 'KEEP_RANGE';
 
@@ -57,6 +64,8 @@ export interface SubmissionSnapshot {
   readonly delegationAttempt: number;
   readonly delegationBaseline?: DelegatedOperationResult;
   readonly delegationResult?: DelegatedOperationResult;
+  readonly anchorProgress: number;
+  readonly incorporationBlocker?: IncorporationBlocker;
   readonly isNight: false;
   readonly canUseLight: false;
   readonly isBossEncounter: false;
@@ -97,6 +106,8 @@ export class SubmissionController {
   private delegationAttempt = 0;
   private delegationBaseline: DelegatedOperationResult | undefined;
   private delegationResult: DelegatedOperationResult | undefined;
+  private anchorProgress = 0;
+  private lastIncorporationBlocker: IncorporationBlocker | undefined;
   private snapshot: SubmissionSnapshot;
 
   public constructor(private readonly options: SubmissionControllerOptions = {}) {
@@ -207,6 +218,47 @@ export class SubmissionController {
         : result.outcome === 'RETREATED'
           ? '후퇴 조건 발동. 동료는 돌아왔지만 통로 위협이 남았다.'
           : '별동대 전투 불능. 이 작전은 경로를 확보하지 못했다.';
+    this.publish();
+  };
+
+  public beginAnchorApproach = (): void => {
+    if (this.mode !== 'DELEGATION_RESULT' || this.delegationResult?.outcome !== 'SECURED') return;
+    const frontier = this.world.tiles.find((tile) => tile.id === 'frontier-east');
+    if (!frontier?.routeSafe) return;
+    this.anchorProgress = 0;
+    this.mode = 'ANCHOR_APPROACH';
+    this.notice = '동료가 확보한 길이다. D를 누르는 동안 동쪽 경계 거점으로 이동한다.';
+    this.publish();
+  };
+
+  public advanceAnchorApproach = (): void => {
+    if (this.mode !== 'ANCHOR_APPROACH') return;
+    const previous = this.anchorProgress;
+    this.anchorProgress = Math.min(400, previous + 5);
+    if (Math.floor(previous / 100) < Math.floor(this.anchorProgress / 100)) this.worldMinute += TRAVEL_MINUTES_PER_100M;
+    if (this.anchorProgress >= 400) {
+      this.world = updateSubmissionTile(this.world, 'frontier-east', { protagonistAtAnchor: true });
+      this.mode = 'ANCHOR_READY';
+      this.notice = '확장 거점 도착. 준비된 회로를 결계에 연결할 수 있다.';
+    } else {
+      this.notice = `${this.anchorProgress}m · 확보된 길을 이동 중`;
+    }
+    this.publish();
+  };
+
+  public activateAnchor = (): void => {
+    const result = incorporateTile(this.world, 'frontier-east');
+    if (!result.incorporated) {
+      this.lastIncorporationBlocker = result.blocker;
+      this.notice = incorporationBlockerCopy(result.blocker);
+      this.publish();
+      return;
+    }
+    this.lastIncorporationBlocker = undefined;
+    this.world = result.world;
+    this.supplies = { ...this.supplies, water: this.supplies.water + 1 };
+    this.mode = 'EXPANDED';
+    this.notice = '물안개 전초지가 결계 안으로 편입됐다. 샘이 깨어나고 다음 좌표가 드러났다.';
     this.publish();
   };
 
@@ -323,6 +375,8 @@ export class SubmissionController {
       delegationAttempt: this.delegationAttempt,
       delegationBaseline: this.delegationBaseline,
       delegationResult: this.delegationResult,
+      anchorProgress: this.anchorProgress,
+      incorporationBlocker: this.lastIncorporationBlocker,
       isNight: false,
       canUseLight: false,
       isBossEncounter: false,
@@ -370,4 +424,17 @@ function blockedReasonPriority(reason: string): number {
 
 export function submissionPolicyName(policyId: SlicePolicyId): string {
   return POLICY_COPY[policyId].name;
+}
+
+function incorporationBlockerCopy(blocker?: IncorporationBlocker): string {
+  const copy: Readonly<Record<IncorporationBlocker, string>> = {
+    ALREADY_INCORPORATED: '이미 결계 안에 편입된 땅이다.',
+    NOT_ADJACENT: '현재 결계와 맞닿은 타일만 편입할 수 있다.',
+    NOT_SCOUTED: '중앙 방을 확보해 모든 통로를 먼저 정찰해야 한다.',
+    THREAT_REMAINS: '타일 안의 위협이 남아 있다.',
+    ROUTE_UNSAFE: '확장 거점까지 이어지는 안전 경로가 없다.',
+    ANCHOR_UNPREPARED: '중앙 방의 확장 회로 준비가 끝나지 않았다.',
+    PROTAGONIST_ABSENT: '주인공이 경계 방의 확장 거점에 직접 도착해야 한다.',
+  };
+  return blocker ? copy[blocker] : '아직 이 땅을 결계에 편입할 수 없다.';
 }

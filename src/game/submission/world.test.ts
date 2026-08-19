@@ -45,7 +45,7 @@ describe('submission territory state', () => {
     const result = incorporateTile(world, 'frontier-east');
     expect(result.incorporated).toBe(true);
     expect(result.world.tiles.find((tile) => tile.id === 'frontier-east')).toMatchObject({
-      territory: 'INCORPORATED', utility: 'ACTIVE',
+      territory: 'INCORPORATED', utility: 'ACTIVE', stabilized: true,
     });
     expect(result.world.tiles
       .filter((tile) => ['next-east', 'frontier-north', 'frontier-south'].includes(tile.id))

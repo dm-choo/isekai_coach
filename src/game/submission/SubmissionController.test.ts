@@ -38,4 +38,15 @@ describe('SubmissionController direct exploration', () => {
     expect(snapshot.combat?.state.units.filter((unit) => unit.faction === 'ENEMY')).toHaveLength(1);
     controller.destroy();
   });
+
+  it('explains the first authoritative blocker instead of silently activating early', () => {
+    const controller = new SubmissionController();
+    controller.activateAnchor();
+    expect(controller.getSnapshot()).toMatchObject({
+      mode: 'INTRO',
+      incorporationBlocker: 'NOT_SCOUTED',
+      notice: '중앙 방을 확보해 모든 통로를 먼저 정찰해야 한다.',
+    });
+    controller.destroy();
+  });
 });

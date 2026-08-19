@@ -14,6 +14,7 @@ related:
   - sprint-retrospective-adaptive-intents.md
   - submission-retrospective-p1-p2.md
   - submission-retrospective-p3.md
+  - submission-retrospective-p4.md
 ---
 
 # Research and design critique
@@ -31,7 +32,8 @@ related:
 7. [Adaptive Intent sprint KPT](./sprint-retrospective-adaptive-intents.md): 방향·행동 순서·Intent ownership·배경 이동 교정과 다음 AI/UI 실험 규칙
 8. [Submission P1–P2 process retrospective](./submission-retrospective-p1-p2.md): 산출물 품질, 판단 오류, 개발 효율과 다음 Task 운영 규칙
 9. [Submission P3 same-rule delegation retrospective](./submission-retrospective-p3.md): 정책 trade-off, 동일 규칙 simulation, 판단 수정과 P4 handoff
-10. [Reference screenshots](../images/reference_screenshot/README.md): 출처와 분석 목적이 기록된 비교 이미지 보관소
+10. [Submission P4 barrier expansion retrospective](./submission-retrospective-p4.md): 주인공 현장 활성화, contour·샘·다음 좌표 인과와 P5 handoff
+11. [Reference screenshots](../images/reference_screenshot/README.md): 출처와 분석 목적이 기록된 비교 이미지 보관소
 
 ## Evidence labels
 

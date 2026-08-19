@@ -7,7 +7,9 @@ const port = Number(process.env.SUBMISSION_P2_PORT ?? 4183);
 const suppliedUrl = process.env.SUBMISSION_P2_URL;
 const baseUrl = suppliedUrl ?? `http://127.0.0.1:${port}/?verify=1`;
 const artifactDir = new URL('../artifacts/submission-p2/', import.meta.url);
-const verifyP3 = process.env.SUBMISSION_VERIFY_STAGE === 'P3';
+const verificationStage = process.env.SUBMISSION_VERIFY_STAGE ?? 'P2';
+const verifyP3 = verificationStage === 'P3' || verificationStage === 'P4';
+const verifyP4 = verificationStage === 'P4';
 let server;
 let browser;
 
@@ -86,6 +88,7 @@ try {
   await capture(page, '04-scouted');
 
   let delegationReport;
+  let expansionReport;
   if (verifyP3) {
     const scoutedMinute = run.worldMinute;
     await page.keyboard.press('Space');
@@ -173,13 +176,68 @@ try {
       anchorPrepared: delegatedFrontier.anchorPrepared,
       territory: delegatedFrontier.territory,
     };
+
+    if (verifyP4) {
+      const beforeAnchorMinute = run.worldMinute;
+      const waterBefore = run.supplies.water;
+      await page.keyboard.press('Space');
+      await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'ANCHOR_APPROACH');
+      const beforeAnchorTravel = await anchorPresentation(page);
+      await page.keyboard.press('d');
+      await page.waitForTimeout(100);
+      const afterAnchorTravel = await anchorPresentation(page);
+      if (beforeAnchorTravel.partyX !== afterAnchorTravel.partyX) {
+        throw new Error(`Protagonist drifted during safe-route travel: ${beforeAnchorTravel.partyX} → ${afterAnchorTravel.partyX}`);
+      }
+      if (beforeAnchorTravel.backdropPosition === afterAnchorTravel.backdropPosition || beforeAnchorTravel.groundPosition === afterAnchorTravel.groundPosition) {
+        throw new Error('Safe-route world did not move behind the protagonist');
+      }
+      await capture(page, '12-anchor-approach');
+      await advanceAnchorUntil(page, 400);
+      run = await submissionSnapshot(page);
+      const readyFrontier = run.world.tiles.find((tile) => tile.id === 'frontier-east');
+      if (run.mode !== 'ANCHOR_READY' || run.anchorProgress !== 400 || !readyFrontier?.protagonistAtAnchor || readyFrontier.territory !== 'OUTSIDE') {
+        throw new Error(`Protagonist arrival skipped or prematurely incorporated the tile: ${JSON.stringify({ mode: run.mode, progress: run.anchorProgress, readyFrontier })}`);
+      }
+      if (run.worldMinute !== beforeAnchorMinute + 8) throw new Error(`400m anchor travel did not cost 8 minutes: ${beforeAnchorMinute} → ${run.worldMinute}`);
+      await capture(page, '13-anchor-ready');
+      await page.keyboard.press('Space');
+      await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'EXPANDED');
+      await page.waitForTimeout(1100);
+      run = await submissionSnapshot(page);
+      const expandedFrontier = run.world.tiles.find((tile) => tile.id === 'frontier-east');
+      const revealed = run.world.tiles.filter((tile) => ['next-east', 'frontier-north', 'frontier-south'].includes(tile.id));
+      if (!expandedFrontier || expandedFrontier.territory !== 'INCORPORATED' || expandedFrontier.utility !== 'ACTIVE' || !expandedFrontier.stabilized) {
+        throw new Error(`Anchor activation did not incorporate and stabilize the frontier: ${JSON.stringify(expandedFrontier)}`);
+      }
+      if (revealed.length !== 3 || revealed.some((tile) => tile.knowledge !== 'REVEALED')) {
+        throw new Error(`Anchor activation did not reveal all next coordinates: ${JSON.stringify(revealed)}`);
+      }
+      if (run.supplies.water !== waterBefore + 1) throw new Error(`Active spring did not add exactly one water: ${waterBefore} → ${run.supplies.water}`);
+      if (await page.locator('.expanded-tile-field .barrier-edge').count() !== 6) throw new Error('Expanded contour does not have the joined six-edge outline');
+      if (await page.locator('.active-spring').count() !== 1 || await page.locator('.expansion-causality span').count() !== 4) {
+        throw new Error('Final scene does not connect route, protagonist, contour, and spring');
+      }
+      await capture(page, '14-expanded');
+      expansionReport = {
+        mode: run.mode,
+        anchorTravelMinutes: run.worldMinute - beforeAnchorMinute,
+        contourEdges: 6,
+        territory: expandedFrontier.territory,
+        utility: expandedFrontier.utility,
+        stabilized: expandedFrontier.stabilized,
+        waterBefore,
+        waterAfter: run.supplies.water,
+        revealedCoordinates: revealed.map((tile) => tile.id),
+      };
+    }
   }
 
   await page.setViewportSize({ width: 960, height: 720 });
   await page.waitForTimeout(100);
   const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   if (horizontalOverflow > 1) throw new Error(`4:3 scouted layout overflows horizontally by ${horizontalOverflow}px`);
-  await capture(page, verifyP3 ? '11-delegation-result-4x3' : '05-scouted-4x3');
+  await capture(page, verifyP4 ? '15-expanded-4x3' : verifyP3 ? '11-delegation-result-4x3' : '05-scouted-4x3');
   if (errors.length) throw new Error(`Browser errors:\n${errors.join('\n')}`);
 
   const report = {
@@ -200,6 +258,7 @@ try {
     worldScrolled: beforeTravel.backdropPosition !== afterTravel.backdropPosition && beforeTravel.groundPosition !== afterTravel.groundPosition,
     centralRoomCausality: true,
     ...(delegationReport ? { delegation: delegationReport } : {}),
+    ...(expansionReport ? { expansion: expansionReport } : {}),
     horizontalOverflow4x3: horizontalOverflow,
     browserErrors: errors,
   };
@@ -217,6 +276,15 @@ async function advanceCorridorUntil(page, meters) {
     await page.keyboard.press('d');
   }
   throw new Error(`Corridor failed to reach ${meters}m`);
+}
+
+async function advanceAnchorUntil(page, meters) {
+  for (let step = 0; step < 100; step += 1) {
+    const run = await submissionSnapshot(page);
+    if (run.mode !== 'ANCHOR_APPROACH' || run.anchorProgress >= meters) return;
+    await page.keyboard.press('d');
+  }
+  throw new Error(`Anchor approach failed to reach ${meters}m`);
 }
 
 async function completeCurrentCombat(page) {
@@ -333,6 +401,18 @@ async function corridorPresentation(page) {
     const party = document.querySelector('.submission-travel-party')?.getBoundingClientRect();
     const backdrop = document.querySelector('.corridor-moving-backdrop');
     const ground = document.querySelector('.corridor-moving-ground');
+    return {
+      partyX: party?.x,
+      backdropPosition: backdrop ? getComputedStyle(backdrop).backgroundPositionX : undefined,
+      groundPosition: ground ? getComputedStyle(ground).backgroundPositionX : undefined,
+    };
+  });
+}
+async function anchorPresentation(page) {
+  return page.evaluate(() => {
+    const party = document.querySelector('.anchor-travel-party')?.getBoundingClientRect();
+    const backdrop = document.querySelector('.submission-anchor-approach .corridor-moving-backdrop');
+    const ground = document.querySelector('.submission-anchor-approach .corridor-moving-ground');
     return {
       partyX: party?.x,
       backdropPosition: backdrop ? getComputedStyle(backdrop).backgroundPositionX : undefined,

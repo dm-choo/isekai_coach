@@ -38,7 +38,9 @@ export function SubmissionApp() {
         else if (snapshot.mode === 'SCOUTED') controller.beginPolicyReview();
         else if (snapshot.mode === 'POLICY_REVIEW' && snapshot.policyChoice) controller.openDelegationPlan();
         else if (snapshot.mode === 'DELEGATION_PLAN') controller.runDelegation();
-        else if (snapshot.mode === 'DELEGATION_RESULT' && snapshot.delegationResult?.outcome !== 'SECURED') controller.beginPolicyReview();
+        else if (snapshot.mode === 'DELEGATION_RESULT' && snapshot.delegationResult?.outcome === 'SECURED') controller.beginAnchorApproach();
+        else if (snapshot.mode === 'DELEGATION_RESULT') controller.beginPolicyReview();
+        else if (snapshot.mode === 'ANCHOR_READY') controller.activateAnchor();
         else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'INTRO') controller.startEncounter();
         else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'PLAYER_TURN') controller.confirmPlan();
         else if (snapshot.mode === 'COMBAT' && snapshot.combat?.mode === 'VICTORY') controller.completeEncounter();
@@ -89,7 +91,11 @@ export function SubmissionApp() {
                   ? <DelegationPlanStage snapshot={snapshot} controller={controller} />
                   : snapshot.mode === 'DELEGATION_RESULT'
                     ? <DelegationResultStage snapshot={snapshot} controller={controller} />
-              : <TerritoryStage snapshot={snapshot} onStart={controller.startExpedition} />}
+                    : snapshot.mode === 'ANCHOR_APPROACH' || snapshot.mode === 'ANCHOR_READY'
+                      ? <AnchorApproachStage snapshot={snapshot} controller={controller} />
+                      : snapshot.mode === 'EXPANDED'
+                        ? <ExpandedStage snapshot={snapshot} />
+                        : <TerritoryStage snapshot={snapshot} onStart={controller.startExpedition} />}
         {snapshot.mode !== 'COMBAT' && <SubmissionHud snapshot={snapshot} />}
       </section>
     </main>
@@ -248,13 +254,80 @@ function DelegationResultStage({ snapshot, controller }: { readonly snapshot: Su
     </section>
     <section className="operation-log"><header><span><small>ACTUAL POLICY LOG</small><strong>같은 좌표 규칙의 실제 행동</strong></span><b>{result.eventCount} events</b></header>{notableSteps.map((step, index) => <div key={`${step.turn}-${step.cycle}-${index}`}><i>T{step.turn}</i><img src={`${BASE_URL}assets/ui/intent-${step.selectedPolicyId === 'PUSH' ? 'push' : step.selectedPolicyId === 'SHOOT' ? 'shoot' : 'move'}.svg`} alt="" /><span><strong>{step.action?.label ?? policyName(step.selectedPolicyId ?? 'EMPTY')}</strong><small>{step.reason}</small></span>{step.action?.to && <em>{step.action.from.x},{step.action.from.y} → {step.action.to.x},{step.action.to.y}</em>}</div>)}</section>
     <aside className="shared-time-result"><small>SHARED WORLD TIME</small><div><span>주인공 준비 <b>{snapshot.protagonistTaskMinutes ? `${snapshot.protagonistTaskMinutes}분` : '기완료'}</b></span><span>별동대 작전 <b>{result.elapsedMinutes}분</b></span></div><p>합산하지 않고 더 오래 걸린 작전만큼 세계 시간이 흘렀다.</p></aside>
-    <button type="button" className="submission-flow-primary" disabled={secured} onClick={controller.beginPolicyReview}><span><small>{secured ? '다음: 주인공이 경계 거점으로 이동' : '이전 결과는 기록에 남음'}</small><strong>{secured ? '안전 경로 확보 완료' : '정책 다시 조정'}</strong></span>{!secured && <kbd>SPACE</kbd>}</button>
+    <button type="button" className="submission-flow-primary" onClick={secured ? controller.beginAnchorApproach : controller.beginPolicyReview}><span><small>{secured ? '주인공만 활성화할 수 있음' : '이전 결과는 기록에 남음'}</small><strong>{secured ? '경계 거점으로 이동' : '정책 다시 조정'}</strong></span><kbd>SPACE</kbd></button>
+  </div>;
+}
+
+function AnchorApproachStage({ snapshot, controller }: { readonly snapshot: SubmissionSnapshot; readonly controller: SubmissionController }) {
+  const activeTimer = useRef<number | undefined>(undefined);
+  const stop = () => {
+    if (activeTimer.current !== undefined) window.clearInterval(activeTimer.current);
+    activeTimer.current = undefined;
+  };
+  const start = () => {
+    stop();
+    controller.advanceAnchorApproach();
+    activeTimer.current = window.setInterval(controller.advanceAnchorApproach, 78);
+  };
+  useEffect(() => {
+    const keyDown = (event: KeyboardEvent) => {
+      if (event.repeat || (event.key.toLowerCase() !== 'd' && event.key !== 'ArrowRight')) return;
+      event.preventDefault();
+      start();
+    };
+    const keyUp = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() === 'd' || event.key === 'ArrowRight') stop();
+    };
+    window.addEventListener('keydown', keyDown);
+    window.addEventListener('keyup', keyUp);
+    window.addEventListener('blur', stop);
+    return () => {
+      stop();
+      window.removeEventListener('keydown', keyDown);
+      window.removeEventListener('keyup', keyUp);
+      window.removeEventListener('blur', stop);
+    };
+  }, [controller]);
+  useEffect(() => stop, [snapshot.mode]);
+
+  const ready = snapshot.mode === 'ANCHOR_READY';
+  const progress = snapshot.anchorProgress / 400;
+  return <div className={`submission-anchor-approach ${ready ? 'is-ready' : ''}`}>
+    <div className="corridor-moving-backdrop" style={{ backgroundPositionX: `${progress * -980}px` }} />
+    <div className="corridor-moving-ground" style={{ backgroundPositionX: `${progress * -720}px` }} />
+    <div className="safe-route-glow" /><div className="corridor-shade" />
+    <div className="submission-travel-copy"><small>SECURED ROUTE · EAST</small><strong>{ready ? '확장 거점 도착' : '되찾은 길을 걷는다'}</strong><p>{ready ? '이 땅은 아직 결계 밖이다. 주인공이 마지막 연결을 수행한다.' : '위협은 제거됐지만, 직접 도착하기 전에는 내 영토가 아니다.'}</p></div>
+    <div className="anchor-travel-party"><img src={`${BASE_URL}assets/slice1/administrator-v2.png`} alt="관리자" /><span>주인공</span></div>
+    <div className="submission-destination anchor-destination"><i>✦</i><span>{ready ? '확장 거점' : `${400 - snapshot.anchorProgress}m`}</span></div>
+    <div className="submission-distance" aria-label={`${snapshot.anchorProgress}미터 이동`}><i style={{ width: `${progress * 100}%` }} />{[100, 200, 300].map((meter) => <b key={meter} style={{ left: `${meter / 4}%` }} />)}<span>{snapshot.anchorProgress} / 400m</span></div>
+    {ready
+      ? <button type="button" className="corridor-primary anchor-activate" onClick={controller.activateAnchor}><span><small>조건 충족 · 주인공 현장 도착</small><strong>확장 거점 활성화</strong></span><kbd>SPACE</kbd></button>
+      : <button type="button" className="corridor-primary hold-control" onPointerDown={start} onPointerUp={stop} onPointerLeave={stop}><span><small>누르는 동안 이동</small><strong>경계 방으로 전진</strong></span><kbd>D</kbd></button>}
+    <div className="submission-travel-notice" role="status"><i />{snapshot.notice}</div>
+  </div>;
+}
+
+function ExpandedStage({ snapshot }: { readonly snapshot: SubmissionSnapshot }) {
+  const contour = useMemo(() => computeBarrierContour(snapshot.world), [snapshot.world]);
+  return <div className="submission-expanded">
+    <div className="submission-sky" /><div className="submission-canopy" /><div className="expansion-radiance" />
+    <section className="expanded-copy"><small>TERRITORY INCORPORATED</small><h1>내 세계가<br />한 칸 커졌다.</h1><p>되찾은 길과 주인공의 거점 활성화가 결계를 동쪽으로 밀어냈다.</p></section>
+    <div className="expanded-tile-field">
+      {snapshot.world.tiles.map((tile) => <WorldTile key={tile.id} tile={tile} />)}
+      {contour.map((segment) => <i key={segment.id} className={`barrier-edge is-${segment.edge.toLowerCase()}`} style={tilePosition(segment.x, segment.y)} />)}
+      <div className="world-party is-expanded" style={tilePosition(1, 0)}><img src={`${BASE_URL}assets/slice1/administrator-v2.png`} alt="관리자" /><span>확장 거점</span></div>
+      <div className="active-spring" style={tilePosition(1, 0)}><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="활성화된 샘" /><b>+1</b><small>샘 활성화</small></div>
+    </div>
+    <div className="expansion-causality"><span><b>✓</b><small>안전 경로</small></span><i>→</i><span><b>✦</b><small>주인공 거점</small></span><i>→</i><span><b>◇</b><small>결계 확장</small></span><i>→</i><span><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="" /><small>샘 +1</small></span></div>
+    <aside className="next-coordinates"><small>NEXT COORDINATES</small><strong>새로운 세 방향이 드러났다.</strong><p>북쪽 성소 · 동쪽 수관림 · 남쪽 회랑</p></aside>
+    <button type="button" className="submission-flow-primary" disabled><span><small>FIRST EXPANSION COMPLETE</small><strong>제출본 핵심 순환 완료</strong></span></button>
   </div>;
 }
 
 function SubmissionHud({ snapshot }: { readonly snapshot: SubmissionSnapshot }) {
+  const frontierKnown = !['INTRO', 'CORRIDOR', 'CENTER_GATE', 'COMBAT'].includes(snapshot.mode);
   return <header className="submission-topbar">
-    <div className="submission-mark"><i /><span><small>{snapshot.worldTime} · DAY 1</small><strong>{snapshot.mode === 'SCOUTED' ? '물안개 전초지' : '깨어난 정원'}</strong></span></div>
+    <div className="submission-mark"><i /><span><small>{snapshot.worldTime} · DAY 1</small><strong>{frontierKnown ? '물안개 전초지' : '깨어난 정원'}</strong></span></div>
     <div className="submission-resources" aria-label="원정 보급"><span><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="물" /><b>{snapshot.supplies.water}</b></span><span><img src={`${BASE_URL}assets/ui/supply-ration.svg`} alt="식량" /><b>{snapshot.supplies.food}</b></span></div>
   </header>;
 }
@@ -265,6 +338,7 @@ function WorldTile({ tile }: { readonly tile: SubmissionTileState }) {
     <div className="tile-terrain" />
     {state === 'owned' && <span className="tile-heart">✦</span>}
     {state === 'frontier' && <span className="tile-question">?</span>}
+    {tile.utilityKind === 'SPRING' && tile.utility === 'ACTIVE' && <span className="tile-utility"><img src={`${BASE_URL}assets/ui/supply-water.svg`} alt="샘" /></span>}
     <strong>{state === 'unseen' ? '' : tile.name}</strong>
     <small>{state === 'owned' ? '결계 안' : state === 'frontier' ? '미확보' : ''}</small>
   </article>;
