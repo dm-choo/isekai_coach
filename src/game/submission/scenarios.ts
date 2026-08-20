@@ -56,12 +56,16 @@ export function createSubmissionJointScenario(
   vitals: ExpeditionVitals,
   worldMinute: number,
 ): BattleScenario {
-  const base = createSlice2EncounterScenario(encounterId, content, vitals, { worldMinute });
+  const authoredSecondFrontier = encounterId === 'SECOND_EAST_CENTER' || encounterId === 'SECOND_NORTH_CENTER';
+  const base = createSlice2EncounterScenario(encounterId, content, vitals, {
+    worldMinute: authoredSecondFrontier ? 600 : worldMinute,
+  });
   return {
     ...base,
     id: `submission:${encounterId}`,
     units: base.units.map((unit) => ({
       ...unit,
+      position: submissionEncounterPosition(encounterId, unit.id, unit.faction, unit.position),
       visualKey: unit.id === SLICE2_ADMINISTRATOR_ID
         ? SUBMISSION_VISUAL_KEYS.administrator
         : unit.id === SLICE2_ALLY_ID
@@ -73,4 +77,19 @@ export function createSubmissionJointScenario(
               : SUBMISSION_VISUAL_KEYS.goblinWarrior,
     })),
   };
+}
+
+function submissionEncounterPosition(
+  encounterId: string,
+  unitId: string,
+  faction: BattleScenario['units'][number]['faction'],
+  fallback: BattleScenario['units'][number]['position'],
+): BattleScenario['units'][number]['position'] {
+  if (faction !== 'ENEMY') return fallback;
+  if (encounterId === 'SECOND_EAST_CENTER') {
+    if (unitId.includes('warrior')) return { x: 6, y: 1 };
+    if (unitId.includes('archer')) return { x: 9, y: 0 };
+  }
+  if (encounterId === 'SECOND_NORTH_CENTER' && unitId.includes('archer')) return { x: 10, y: 1 };
+  return fallback;
 }

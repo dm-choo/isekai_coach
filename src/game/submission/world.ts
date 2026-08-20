@@ -96,7 +96,7 @@ export function createSubmissionWorld(): SubmissionWorldState {
         anchorPrepared: false,
         protagonistAtAnchor: false,
         utilityKind: 'SPRING',
-        revealsOnIncorporation: ['next-east', 'frontier-north', 'frontier-south'],
+        revealsOnIncorporation: ['next-east', 'frontier-north'],
       },
       {
         id: 'next-east',

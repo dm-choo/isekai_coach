@@ -6,6 +6,7 @@ import {
   incorporateTile,
   incorporationBlocker,
   updateSubmissionTile,
+  type SubmissionWorldState,
 } from './world';
 
 describe('submission territory state', () => {
@@ -33,24 +34,56 @@ describe('submission territory state', () => {
     expect(incorporationBlocker(world, 'frontier-east')).toBe('PROTAGONIST_ABSENT');
   });
 
-  it('incorporates only an adjacent secured tile and reveals its next coordinates', () => {
+  it('incorporates only an adjacent secured tile and reveals only the east and north choices', () => {
     let world = createSubmissionWorld();
-    world = updateSubmissionTile(world, 'frontier-east', {
-      knowledge: 'SCOUTED',
-      corridorsScouted: true,
-      threat: 'SECURED',
-      routeSafe: true,
-      anchorPrepared: true,
-      protagonistAtAnchor: true,
-    });
+    world = prepareForIncorporation(world, 'frontier-east');
     const result = incorporateTile(world, 'frontier-east');
     expect(result.incorporated).toBe(true);
     expect(result.world.tiles.find((tile) => tile.id === 'frontier-east')).toMatchObject({
       territory: 'INCORPORATED', utility: 'ACTIVE', stabilized: true,
     });
     expect(result.world.tiles
-      .filter((tile) => ['next-east', 'frontier-north', 'frontier-south'].includes(tile.id))
-      .every((tile) => tile.knowledge === 'REVEALED')).toBe(true);
+      .filter((tile) => tile.territory === 'OUTSIDE' && tile.knowledge === 'REVEALED')
+      .map((tile) => tile.id)).toEqual(['next-east', 'frontier-north']);
+    expect(result.world.tiles.find((tile) => tile.id === 'frontier-south')).toMatchObject({
+      knowledge: 'UNSEEN', territory: 'OUTSIDE',
+    });
+  });
+
+  it.each([
+    {
+      targetId: 'next-east',
+      otherId: 'frontier-north',
+      ownedIds: ['initial-barrier', 'frontier-east', 'next-east'],
+      internalSeams: ['initial-barrier:EAST', 'frontier-east:WEST', 'frontier-east:EAST', 'next-east:WEST'],
+    },
+    {
+      targetId: 'frontier-north',
+      otherId: 'next-east',
+      ownedIds: ['initial-barrier', 'frontier-east', 'frontier-north'],
+      internalSeams: ['initial-barrier:EAST', 'frontier-east:WEST', 'frontier-east:NORTH', 'frontier-north:SOUTH'],
+    },
+  ] as const)('forms a three-tile, eight-edge contour after incorporating $targetId', ({
+    targetId, otherId, ownedIds, internalSeams,
+  }) => {
+    let world = createSubmissionWorld();
+    world = prepareForIncorporation(world, 'frontier-east');
+    world = incorporateTile(world, 'frontier-east').world;
+    world = prepareForIncorporation(world, targetId);
+
+    const result = incorporateTile(world, targetId);
+    expect(result.incorporated).toBe(true);
+    expect(result.world.tiles
+      .filter((tile) => tile.territory === 'INCORPORATED')
+      .map((tile) => tile.id)).toEqual(ownedIds);
+    expect(result.world.tiles.find((tile) => tile.id === otherId)).toMatchObject({
+      knowledge: 'REVEALED', territory: 'OUTSIDE',
+    });
+
+    const contour = computeBarrierContour(result.world);
+    const contourIds = contour.map((segment) => segment.id);
+    expect(contour).toHaveLength(8);
+    for (const seam of internalSeams) expect(contourIds).not.toContain(seam);
   });
 
   it('moves the contour from four edges to the joined six-edge outline', () => {
@@ -88,3 +121,14 @@ describe('submission territory state', () => {
     expect(computeBarrierContour(unstable)).toEqual(contourBefore);
   });
 });
+
+function prepareForIncorporation(world: SubmissionWorldState, tileId: string): SubmissionWorldState {
+  return updateSubmissionTile(world, tileId, {
+    knowledge: 'SCOUTED',
+    corridorsScouted: true,
+    threat: 'SECURED',
+    routeSafe: true,
+    anchorPrepared: true,
+    protagonistAtAnchor: true,
+  });
+}

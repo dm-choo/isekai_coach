@@ -13,6 +13,10 @@ import {
   type SlicePolicyId,
 } from '../slice';
 import { createSlice2EncounterScenario, SLICE2_ADMINISTRATOR_ID, SLICE2_ALLY_ID } from '../slice2';
+import {
+  getSubmissionRouteSpec,
+  type SubmissionRouteTargetId,
+} from './routes';
 
 export type DelegationOutcome = 'SECURED' | 'RETREATED' | 'DEFEAT' | 'TIME_LIMIT';
 
@@ -37,6 +41,9 @@ export interface DelegatedActionTrace {
 
 export interface DelegatedOperationResult {
   readonly scenarioId: string;
+  readonly frontierId: SubmissionRouteTargetId;
+  readonly distanceMeters: number;
+  readonly waterCost: number;
   readonly outcome: DelegationOutcome;
   readonly turns: number;
   readonly travelMinutes: number;
@@ -53,6 +60,7 @@ export interface DelegatedOperationResult {
 }
 
 export interface DelegatedOperationInput {
+  readonly frontierId?: SubmissionRouteTargetId;
   readonly allyHp?: number;
   readonly policy?: readonly SlicePolicyId[];
   readonly directives?: PolicyDirectives;
@@ -61,25 +69,37 @@ export interface DelegatedOperationInput {
   readonly maxCombatTurns?: number;
 }
 
-const ROUTE_TRAVEL_MINUTES = 8;
 const MAX_COMBAT_TURNS = 24;
 
-export function createSubmissionDelegationScenario(allyHp = 12, worldMinute = 600): BattleScenario {
+export function createSubmissionDelegationScenario(
+  allyHp = 12,
+  worldMinute = 600,
+  frontierId: SubmissionRouteTargetId = 'frontier-east',
+): BattleScenario {
+  const route = getSubmissionRouteSpec(frontierId);
+  // P22 routes are scouted, authored fixtures. Their roster must not silently
+  // gain the generic 11:30 patrol after the player has committed resources.
+  const scenarioWorldMinute = route.lockDelegationRoster ? 600 : worldMinute;
   const scenario = createSlice2EncounterScenario(
-    'tile-submission-delegated-east',
-    'GOBLIN_ARCHER_WARRIOR',
+    route.delegationEncounterId,
+    route.delegationContent,
     { administratorHp: 14, allyHp },
-    { worldMinute },
+    { worldMinute: scenarioWorldMinute },
   );
   return {
     ...scenario,
-    id: 'submission:delegated-east:known-fixture',
-    name: '정찰된 동쪽 통로',
+    id: route.delegationScenarioId,
+    name: route.direction === 'NORTH' ? '정찰된 북쪽 통로' : '정찰된 동쪽 통로',
     units: scenario.units
       .filter((unit) => unit.id !== SLICE2_ADMINISTRATOR_ID)
       .map((unit) => unit.id === SLICE2_ALLY_ID
-        ? { ...unit, position: { x: 1, y: 1 }, facing: 'RIGHT' as const }
-        : unit),
+        ? { ...unit, position: { ...route.delegationAllyPosition }, facing: 'RIGHT' as const }
+        : {
+            ...unit,
+            position: route.delegationEnemyPositions?.[unit.id]
+              ? { ...route.delegationEnemyPositions[unit.id] }
+              : unit.position,
+          }),
   };
 }
 
@@ -89,14 +109,16 @@ export function createSubmissionDelegationScenario(allyHp = 12, worldMinute = 60
  */
 export function simulateDelegatedOperation(input: DelegatedOperationInput = {}): DelegatedOperationResult {
   const initialHp = input.allyHp ?? 12;
-  const scenario = createSubmissionDelegationScenario(initialHp, input.worldMinute);
+  const frontierId = input.frontierId ?? 'frontier-east';
+  const routeSpec = getSubmissionRouteSpec(frontierId);
+  const scenario = createSubmissionDelegationScenario(initialHp, input.worldMinute, frontierId);
   const engine = new BattleEngine(scenario);
   const policy = input.policy ?? DEFAULT_SLICE_POLICY;
   const directives = input.directives ?? {};
   const policySteps: DelegatedPolicyStep[] = [];
   const actionTrace: DelegatedActionTrace[] = [];
   const selectedCounts: Partial<Record<SlicePolicyId, number>> = {};
-  const route: GridPosition[] = [{ x: 1, y: 1 }];
+  const route: GridPosition[] = [{ ...routeSpec.delegationAllyPosition }];
   let outcome: DelegationOutcome = 'TIME_LIMIT';
 
   const maxCombatTurns = Math.min(MAX_COMBAT_TURNS, Math.max(1, input.maxCombatTurns ?? 12));
@@ -129,10 +151,13 @@ export function simulateDelegatedOperation(input: DelegatedOperationInput = {}):
   const finalHp = finalState.units.find((unit) => unit.id === SLICE2_ALLY_ID)?.hp ?? 0;
   return {
     scenarioId: scenario.id,
+    frontierId,
+    distanceMeters: routeSpec.distanceMeters,
+    waterCost: routeSpec.waterCost,
     outcome,
     turns: finalState.turn,
-    travelMinutes: ROUTE_TRAVEL_MINUTES,
-    elapsedMinutes: ROUTE_TRAVEL_MINUTES + finalState.turn,
+    travelMinutes: routeSpec.travelMinutes,
+    elapsedMinutes: routeSpec.travelMinutes + finalState.turn,
     initialHp,
     finalHp,
     damageTaken: initialHp - finalHp,

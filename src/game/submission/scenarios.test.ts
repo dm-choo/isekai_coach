@@ -25,4 +25,18 @@ describe('submission encounter authorship', () => {
       SUBMISSION_VISUAL_KEYS.goblinWarrior,
     ]);
   });
+
+  it('keeps the two second-frontier center rooms authored and immune to late patrol drift', () => {
+    const eastEarly = createSubmissionJointScenario('SECOND_EAST_CENTER', 'GOBLIN_ARCHER_WARRIOR', VITALS, 668);
+    const eastLate = createSubmissionJointScenario('SECOND_EAST_CENTER', 'GOBLIN_ARCHER_WARRIOR', VITALS, 760);
+    const northEarly = createSubmissionJointScenario('SECOND_NORTH_CENTER', 'GOBLIN_ARCHER', VITALS, 668);
+    const northLate = createSubmissionJointScenario('SECOND_NORTH_CENTER', 'GOBLIN_ARCHER', VITALS, 760);
+    expect(eastLate).toEqual(eastEarly);
+    expect(northLate).toEqual(northEarly);
+    expect(eastEarly.units.filter((unit) => unit.faction === 'ENEMY').map((unit) => unit.position))
+      .toEqual([{ x: 9, y: 0 }, { x: 6, y: 1 }]);
+    expect(northEarly.units.filter((unit) => unit.faction === 'ENEMY').map((unit) => unit.position))
+      .toEqual([{ x: 10, y: 1 }]);
+    expect(northEarly.units.find((unit) => unit.id === SLICE2_ALLY_ID)?.position).toEqual({ x: 1, y: 2 });
+  });
 });

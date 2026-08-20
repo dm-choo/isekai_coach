@@ -25,15 +25,26 @@ import {
   type SubmissionWorldState,
 } from './world';
 import { simulateDelegatedOperation, type DelegatedOperationResult } from './delegation';
+import {
+  SUBMISSION_FIRST_ROUTE,
+  SUBMISSION_FRONTIER_ROUTES,
+  getSubmissionRouteSpec,
+  isSubmissionFrontierId,
+  type SubmissionFrontierId,
+  type SubmissionRouteSpec,
+} from './routes';
 import { createSubmissionJointScenario, createSubmissionSoloScenario } from './scenarios';
 
 export type SubmissionMode =
   | 'AWAKENING' | 'SOLO_APPROACH' | 'COMPANION_SEALED' | 'COMPANION_JOINED'
   | 'INTRO' | 'CORRIDOR' | 'CENTER_GATE' | 'COMBAT' | 'SCOUTED'
   | 'POLICY_REVIEW' | 'DELEGATION_PLAN' | 'DELEGATION_RESULT'
-  | 'ANCHOR_APPROACH' | 'ANCHOR_READY' | 'EXPANDED' | 'DEFEAT';
-export type SubmissionEncounterId = 'SOLO_WARRIOR' | 'FIRST_WARRIOR' | 'CENTER_GUARD';
+  | 'ANCHOR_APPROACH' | 'ANCHOR_READY' | 'EXPANDED' | 'COMPLETE' | 'DEFEAT';
+export type SubmissionEncounterId =
+  | 'SOLO_WARRIOR' | 'FIRST_WARRIOR' | 'CENTER_GUARD'
+  | 'SECOND_EAST_CENTER' | 'SECOND_NORTH_CENTER';
 export type SubmissionPolicyChoice = 'PUSH_FIRST' | 'KEEP_RANGE';
+export type SubmissionFrontierBlocker = 'NOT_REVEALED' | 'SPRING_DORMANT' | 'WATER_REQUIRED';
 export interface SubmissionDefeatCost {
   readonly elapsedMinutes: number;
   readonly waterSpent: number;
@@ -48,6 +59,14 @@ export interface SubmissionCombatSummary {
   readonly blockedByPolicy: Readonly<Partial<Record<SlicePolicyId, { readonly reason: string; readonly count: number }>>>;
 }
 
+export interface SubmissionFrontierChoiceSnapshot {
+  readonly id: SubmissionFrontierId;
+  readonly available: boolean;
+  readonly selected: boolean;
+  readonly waterPaid: boolean;
+  readonly blocker?: SubmissionFrontierBlocker;
+}
+
 export interface SubmissionSnapshot {
   readonly mode: SubmissionMode;
   readonly world: SubmissionWorldState;
@@ -57,6 +76,11 @@ export interface SubmissionSnapshot {
   readonly soloEncounterResolved: boolean;
   readonly companionJoined: boolean;
   readonly corridorProgress: number;
+  readonly currentRoute: SubmissionRouteSpec;
+  readonly selectedFrontierId?: SubmissionFrontierId;
+  readonly activeFrontierId?: SubmissionFrontierId;
+  readonly paidWaterFrontierId?: SubmissionFrontierId;
+  readonly frontierChoices: readonly SubmissionFrontierChoiceSnapshot[];
   readonly vitals: ExpeditionVitals;
   readonly supplies: { readonly water: number; readonly food: number };
   readonly policy: readonly SlicePolicyId[];
@@ -92,7 +116,7 @@ export interface SubmissionControllerOptions {
 }
 
 export interface SubmissionSaveData {
-  readonly version: 2;
+  readonly version: 3;
   readonly mode: Exclude<SubmissionMode, 'COMBAT' | 'DEFEAT'>;
   readonly world: SubmissionWorldState;
   readonly worldMinute: number;
@@ -100,6 +124,9 @@ export interface SubmissionSaveData {
   readonly soloEncounterResolved: boolean;
   readonly companionJoined: boolean;
   readonly corridorProgress: number;
+  readonly selectedFrontierId?: SubmissionFrontierId;
+  readonly activeFrontierId?: SubmissionFrontierId;
+  readonly paidWaterFrontierId?: SubmissionFrontierId;
   readonly vitals: ExpeditionVitals;
   readonly supplies: { readonly water: number; readonly food: number };
   readonly policy: readonly SlicePolicyId[];
@@ -135,6 +162,9 @@ export class SubmissionController {
   private soloEncounterResolved = false;
   private companionJoined = false;
   private corridorProgress = 0;
+  private selectedFrontierId: SubmissionFrontierId | undefined;
+  private activeFrontierId: SubmissionFrontierId | undefined;
+  private paidWaterFrontierId: SubmissionFrontierId | undefined;
   private vitals: ExpeditionVitals = { administratorHp: 14, allyHp: 12 };
   private supplies = { water: 1, food: 1 };
   private policy: readonly SlicePolicyId[] = [...DEFAULT_SLICE_POLICY];
@@ -176,7 +206,7 @@ export class SubmissionController {
   public exportSave = (): SubmissionSaveData | undefined => {
     if (this.mode === 'COMBAT' || this.mode === 'DEFEAT') return undefined;
     return {
-      version: 2,
+      version: 3,
       mode: this.mode,
       world: this.world,
       worldMinute: this.worldMinute,
@@ -184,6 +214,9 @@ export class SubmissionController {
       soloEncounterResolved: this.soloEncounterResolved,
       companionJoined: this.companionJoined,
       corridorProgress: this.corridorProgress,
+      selectedFrontierId: this.selectedFrontierId,
+      activeFrontierId: this.activeFrontierId,
+      paidWaterFrontierId: this.paidWaterFrontierId,
       vitals: this.vitals,
       supplies: this.supplies,
       policy: this.policy,
@@ -215,7 +248,8 @@ export class SubmissionController {
     else if (this.mode === 'DELEGATION_RESULT' && this.delegationResult?.outcome === 'SECURED') this.beginAnchorApproach();
     else if (this.mode === 'DELEGATION_RESULT') this.beginPolicyReview();
     else if (this.mode === 'ANCHOR_READY') this.activateAnchor();
-    else if (this.mode === 'EXPANDED') this.restartSubmission();
+    else if (this.mode === 'EXPANDED') return this.commitFrontierSelection();
+    else if (this.mode === 'COMPLETE') this.restartSubmission();
     else if (this.mode === 'COMBAT' && this.combat?.getSnapshot().mode === 'INTRO') this.startEncounter();
     else if (this.mode === 'COMBAT' && this.combat?.getSnapshot().mode === 'PLAYER_TURN') {
       if (this.isSoloLearningTurn() && (this.combat.getSnapshot().plannedActions.length === 0 || this.isSoloLearningDestinationThreatened())) return false;
@@ -224,6 +258,18 @@ export class SubmissionController {
     else if (this.mode === 'COMBAT' && this.combat?.getSnapshot().mode === 'VICTORY') this.completeEncounter();
     else if (this.mode === 'COMBAT' && this.combat?.getSnapshot().mode === 'DEFEAT') this.retryEncounter();
     else return false;
+    return true;
+  };
+
+  public selectFrontier = (frontierId: SubmissionFrontierId): boolean => {
+    if (this.mode !== 'EXPANDED' || this.activeFrontierId) return false;
+    const blocker = this.frontierBlocker(frontierId);
+    if (blocker) return false;
+    if (this.selectedFrontierId === frontierId) return true;
+    this.selectedFrontierId = frontierId;
+    const route = getSubmissionRouteSpec(frontierId);
+    this.notice = `${route.direction === 'NORTH' ? '북쪽' : '동쪽'} 경로 선택 · SPACE로 원정을 확정한다.`;
+    this.publish();
     return true;
   };
 
@@ -268,30 +314,55 @@ export class SubmissionController {
     this.publish();
   };
 
+  private commitFrontierSelection(): boolean {
+    const frontierId = this.selectedFrontierId;
+    if (!frontierId || this.frontierBlocker(frontierId)) return false;
+    const route = getSubmissionRouteSpec(frontierId);
+    if (route.waterCost > 0 && this.paidWaterFrontierId !== frontierId) {
+      this.supplies = { ...this.supplies, water: this.supplies.water - route.waterCost };
+      this.paidWaterFrontierId = frontierId;
+    }
+    this.activeFrontierId = frontierId;
+    this.corridorProgress = 0;
+    this.anchorProgress = 0;
+    this.lastCombatSummary = undefined;
+    this.lastProtagonistTaskMinutes = 0;
+    this.delegationAttempt = 0;
+    this.delegationBaseline = undefined;
+    this.delegationResult = undefined;
+    this.lastIncorporationBlocker = undefined;
+    this.mode = 'CORRIDOR';
+    this.notice = `${route.direction === 'NORTH' ? '북쪽' : '동쪽'} ${route.distanceMeters}m 원정을 시작한다.`;
+    this.publish();
+    return true;
+  }
+
   public advanceCorridor = (): void => {
     if (this.mode !== 'CORRIDOR') return;
+    const route = this.currentRoute();
     const previous = this.corridorProgress;
-    this.corridorProgress = Math.min(400, previous + 5);
+    this.corridorProgress = Math.min(route.distanceMeters, previous + 5);
     if (Math.floor(previous / 100) < Math.floor(this.corridorProgress / 100)) {
       this.worldMinute += TRAVEL_MINUTES_PER_100M;
     }
-    if (!this.firstEncounterResolved && this.corridorProgress >= 200) {
+    if (!this.activeFrontierId && !this.firstEncounterResolved && this.corridorProgress >= 200) {
       this.beginCombat('FIRST_WARRIOR', 'GOBLIN_WARRIOR');
       return;
     }
-    if (this.corridorProgress >= 400) {
+    if (this.corridorProgress >= route.distanceMeters) {
       this.mode = 'CENTER_GATE';
-      this.notice = '중앙 방 앞이다. 안쪽에서 두 개의 발소리가 갈라진다.';
+      this.notice = `중앙 방 앞이다. 안쪽에서 ${route.threatCount}개의 움직임이 갈라진다.`;
       this.publish();
       return;
     }
-    this.notice = `${this.corridorProgress}m · 동쪽으로 전진 중`;
+    this.notice = `${this.corridorProgress}m · ${route.direction === 'NORTH' ? '북쪽' : '동쪽'}으로 전진 중`;
     this.publish();
   };
 
   public enterCenter = (): void => {
     if (this.mode !== 'CENTER_GATE') return;
-    this.beginCombat('CENTER_GUARD', 'GOBLIN_ARCHER_WARRIOR');
+    const route = this.currentRoute();
+    this.beginCombat(route.centerEncounterId as SubmissionEncounterId, route.centerContent);
   };
 
   public beginPolicyReview = (): void => {
@@ -318,18 +389,22 @@ export class SubmissionController {
 
   public openDelegationPlan = (): void => {
     if (this.mode !== 'POLICY_REVIEW' || !this.policyChoice) return;
+    const route = this.currentRoute();
     this.mode = 'DELEGATION_PLAN';
-    this.notice = '정찰된 동쪽 통로 · 알려진 두 적 · HP 2 이하 후퇴.';
+    this.notice = `정찰된 ${route.direction === 'NORTH' ? '북쪽' : '동쪽'} 통로 · 알려진 적 ${route.threatCount} · HP 2 이하 후퇴.`;
     this.publish();
   };
 
   public runDelegation = (): void => {
     if (this.mode !== 'DELEGATION_PLAN' || !this.policyChoice) return;
+    const route = this.currentRoute();
+    const targetId = route.targetTileId;
     this.delegationAttempt += 1;
     this.delegationBaseline = simulateDelegatedOperation({
       allyHp: this.vitals.allyHp,
       retreatAtHp: this.retreatAtHp,
       worldMinute: this.worldMinute,
+      frontierId: this.activeFrontierId,
     });
     this.delegationResult = simulateDelegatedOperation({
       allyHp: this.vitals.allyHp,
@@ -337,22 +412,23 @@ export class SubmissionController {
       directives: this.policyDirectives,
       retreatAtHp: this.retreatAtHp,
       worldMinute: this.worldMinute,
+      frontierId: this.activeFrontierId,
     });
     const result = this.delegationResult;
-    const frontierBeforeOperation = this.world.tiles.find((tile) => tile.id === 'frontier-east');
+    const frontierBeforeOperation = this.world.tiles.find((tile) => tile.id === targetId);
     this.lastProtagonistTaskMinutes = frontierBeforeOperation?.anchorPrepared ? 0 : this.initialProtagonistTaskMinutes;
     const sharedElapsed = Math.max(this.lastProtagonistTaskMinutes, result.elapsedMinutes);
     this.worldMinute += sharedElapsed;
     this.vitals = { ...this.vitals, allyHp: result.finalHp };
-    this.world = updateSubmissionTile(this.world, 'frontier-east', {
+    this.world = updateSubmissionTile(this.world, targetId, {
       anchorPrepared: true,
       ...(result.outcome === 'SECURED' ? { threat: 'SECURED' as const, routeSafe: true } : {}),
     });
     this.mode = 'DELEGATION_RESULT';
     this.notice = result.outcome === 'SECURED'
       ? this.lastProtagonistTaskMinutes > 0
-        ? '동쪽 통로 확보. 같은 시간 동안 주인공의 확장 회로 준비도 끝났다.'
-        : '동쪽 통로 확보. 먼저 준비된 확장 회로와 안전 경로가 연결됐다.'
+        ? `${route.direction === 'NORTH' ? '북쪽' : '동쪽'} 통로 확보. 같은 시간 동안 주인공의 확장 회로 준비도 끝났다.`
+        : `${route.direction === 'NORTH' ? '북쪽' : '동쪽'} 통로 확보. 먼저 준비된 확장 회로와 안전 경로가 연결됐다.`
       : result.outcome === 'TIME_LIMIT'
         ? '시간 한도 도달. 동료는 안전하지만 통로 위협이 남았다.'
         : result.outcome === 'RETREATED'
@@ -363,21 +439,23 @@ export class SubmissionController {
 
   public beginAnchorApproach = (): void => {
     if (this.mode !== 'DELEGATION_RESULT' || this.delegationResult?.outcome !== 'SECURED') return;
-    const frontier = this.world.tiles.find((tile) => tile.id === 'frontier-east');
+    const route = this.currentRoute();
+    const frontier = this.world.tiles.find((tile) => tile.id === route.targetTileId);
     if (!frontier?.routeSafe) return;
     this.anchorProgress = 0;
     this.mode = 'ANCHOR_APPROACH';
-    this.notice = '동료가 확보한 길이다. D를 누르는 동안 동쪽 경계 거점으로 이동한다.';
+    this.notice = `동료가 확보한 길이다. D를 누르는 동안 ${route.direction === 'NORTH' ? '북쪽' : '동쪽'} 경계 거점으로 이동한다.`;
     this.publish();
   };
 
   public advanceAnchorApproach = (): void => {
     if (this.mode !== 'ANCHOR_APPROACH') return;
+    const route = this.currentRoute();
     const previous = this.anchorProgress;
-    this.anchorProgress = Math.min(400, previous + 5);
+    this.anchorProgress = Math.min(route.distanceMeters, previous + 5);
     if (Math.floor(previous / 100) < Math.floor(this.anchorProgress / 100)) this.worldMinute += TRAVEL_MINUTES_PER_100M;
-    if (this.anchorProgress >= 400) {
-      this.world = updateSubmissionTile(this.world, 'frontier-east', { protagonistAtAnchor: true });
+    if (this.anchorProgress >= route.distanceMeters) {
+      this.world = updateSubmissionTile(this.world, route.targetTileId, { protagonistAtAnchor: true });
       this.mode = 'ANCHOR_READY';
       this.notice = '확장 거점 도착. 준비된 회로를 결계에 연결할 수 있다.';
     } else {
@@ -387,7 +465,8 @@ export class SubmissionController {
   };
 
   public activateAnchor = (): void => {
-    const result = incorporateTile(this.world, 'frontier-east');
+    const route = this.currentRoute();
+    const result = incorporateTile(this.world, route.targetTileId);
     if (!result.incorporated) {
       this.lastIncorporationBlocker = result.blocker;
       this.notice = incorporationBlockerCopy(result.blocker);
@@ -396,14 +475,20 @@ export class SubmissionController {
     }
     this.lastIncorporationBlocker = undefined;
     this.world = result.world;
-    this.supplies = { ...this.supplies, water: this.supplies.water + 1 };
-    this.mode = 'EXPANDED';
-    this.notice = '물안개 전초지가 결계 안으로 편입됐다. 샘이 깨어나고 다음 좌표가 드러났다.';
+    if (!this.activeFrontierId) {
+      this.supplies = { ...this.supplies, water: this.supplies.water + 1 };
+      this.selectedFrontierId = undefined;
+      this.mode = 'EXPANDED';
+      this.notice = '물안개 전초지가 결계 안으로 편입됐다. 샘이 깨어나고 두 좌표가 드러났다.';
+    } else {
+      this.mode = 'COMPLETE';
+      this.notice = `${route.direction === 'NORTH' ? '북쪽' : '동쪽'}의 새 땅이 결계 안으로 이어졌다.`;
+    }
     this.publish();
   };
 
   public restartSubmission = (): void => {
-    if (this.mode !== 'EXPANDED') return;
+    if (this.mode !== 'COMPLETE') return;
     this.releaseCombat();
     this.mode = 'AWAKENING';
     this.world = createSubmissionWorld();
@@ -412,6 +497,9 @@ export class SubmissionController {
     this.soloEncounterResolved = false;
     this.companionJoined = false;
     this.corridorProgress = 0;
+    this.selectedFrontierId = undefined;
+    this.activeFrontierId = undefined;
+    this.paidWaterFrontierId = undefined;
     this.vitals = { administratorHp: 14, allyHp: 12 };
     this.supplies = { water: 1, food: 1 };
     this.policy = [...DEFAULT_SLICE_POLICY];
@@ -500,7 +588,8 @@ export class SubmissionController {
       this.mode = 'CORRIDOR';
       this.notice = '첫 위협을 제거했다. 같은 통로에서 D로 계속 전진한다.';
     } else {
-      this.world = updateSubmissionTile(this.world, 'frontier-east', {
+      const route = this.currentRoute();
+      this.world = updateSubmissionTile(this.world, route.targetTileId, {
         knowledge: 'SCOUTED',
         corridorsScouted: true,
         threat: 'CONTESTED',
@@ -544,6 +633,12 @@ export class SubmissionController {
       this.prologueProgress = 0;
       this.soloEncounterResolved = false;
       this.mode = 'AWAKENING';
+    } else if (this.activeFrontierId) {
+      this.activeFrontierId = undefined;
+      this.delegationBaseline = undefined;
+      this.delegationResult = undefined;
+      this.anchorProgress = 0;
+      this.mode = 'EXPANDED';
     } else {
       this.mode = 'COMPANION_JOINED';
     }
@@ -560,9 +655,12 @@ export class SubmissionController {
     this.releaseCombat();
     this.encounterId = encounterId;
     this.encounterContent = content;
+    const authoredEncounterId = encounterId === 'SECOND_EAST_CENTER' || encounterId === 'SECOND_NORTH_CENTER'
+      ? encounterId
+      : encounterId.toLowerCase();
     const scenario = encounterId === 'SOLO_WARRIOR'
       ? createSubmissionSoloScenario(this.vitals, this.worldMinute)
-      : createSubmissionJointScenario(encounterId.toLowerCase(), content, this.vitals, this.worldMinute);
+      : createSubmissionJointScenario(authoredEncounterId, content, this.vitals, this.worldMinute);
     this.combat = new SliceController({
       scenarioFactory: () => scenario,
       administratorId: SLICE2_ADMINISTRATOR_ID,
@@ -600,6 +698,9 @@ export class SubmissionController {
     this.soloEncounterResolved = save.soloEncounterResolved;
     this.companionJoined = save.companionJoined;
     this.corridorProgress = save.corridorProgress;
+    this.selectedFrontierId = save.selectedFrontierId;
+    this.activeFrontierId = save.activeFrontierId;
+    this.paidWaterFrontierId = save.paidWaterFrontierId;
     this.vitals = save.vitals;
     this.supplies = save.supplies;
     this.policy = save.policy;
@@ -620,6 +721,7 @@ export class SubmissionController {
   }
 
   private buildSnapshot(): SubmissionSnapshot {
+    const route = this.currentRoute();
     return {
       mode: this.mode,
       world: this.world,
@@ -629,6 +731,20 @@ export class SubmissionController {
       soloEncounterResolved: this.soloEncounterResolved,
       companionJoined: this.companionJoined,
       corridorProgress: this.corridorProgress,
+      currentRoute: route,
+      selectedFrontierId: this.selectedFrontierId,
+      activeFrontierId: this.activeFrontierId,
+      paidWaterFrontierId: this.paidWaterFrontierId,
+      frontierChoices: SUBMISSION_FRONTIER_ROUTES.map((choice) => {
+        const blocker = this.frontierBlocker(choice.id);
+        return {
+          id: choice.id,
+          available: blocker === undefined,
+          selected: this.selectedFrontierId === choice.id,
+          waterPaid: this.paidWaterFrontierId === choice.id,
+          ...(blocker ? { blocker } : {}),
+        };
+      }),
       vitals: this.vitals,
       supplies: this.supplies,
       policy: this.policy,
@@ -643,7 +759,7 @@ export class SubmissionController {
       retreatAtHp: this.retreatAtHp,
       protagonistTaskMinutes: this.mode === 'DELEGATION_RESULT'
         ? this.lastProtagonistTaskMinutes
-        : this.world.tiles.find((tile) => tile.id === 'frontier-east')?.anchorPrepared ? 0 : this.initialProtagonistTaskMinutes,
+        : this.world.tiles.find((tile) => tile.id === route.targetTileId)?.anchorPrepared ? 0 : this.initialProtagonistTaskMinutes,
       delegationAttempt: this.delegationAttempt,
       delegationBaseline: this.delegationBaseline,
       delegationResult: this.delegationResult,
@@ -662,6 +778,21 @@ export class SubmissionController {
   private publish(): void {
     this.snapshot = this.buildSnapshot();
     for (const listener of this.listeners) listener();
+  }
+
+  private currentRoute(): SubmissionRouteSpec {
+    return this.activeFrontierId ? getSubmissionRouteSpec(this.activeFrontierId) : SUBMISSION_FIRST_ROUTE;
+  }
+
+  private frontierBlocker(frontierId: SubmissionFrontierId): SubmissionFrontierBlocker | undefined {
+    const route = getSubmissionRouteSpec(frontierId);
+    const target = this.world.tiles.find((tile) => tile.id === route.targetTileId);
+    if (!target || target.knowledge !== 'REVEALED' || target.territory !== 'OUTSIDE') return 'NOT_REVEALED';
+    if (frontierId !== 'frontier-north' || this.paidWaterFrontierId === frontierId) return undefined;
+    const spring = this.world.tiles.find((tile) => tile.id === 'frontier-east');
+    if (spring?.utility !== 'ACTIVE') return 'SPRING_DORMANT';
+    if (this.supplies.water < route.waterCost) return 'WATER_REQUIRED';
+    return undefined;
   }
 }
 
@@ -720,22 +851,62 @@ export function parseSubmissionSave(value: string | null): SubmissionSaveData | 
   try {
     const parsed: unknown = JSON.parse(value);
     if (!parsed || typeof parsed !== 'object') return undefined;
-    const save = parsed as Partial<SubmissionSaveData>;
+    const save = parsed as Partial<Omit<SubmissionSaveData, 'version'>> & { readonly version?: number };
     const stableModes: readonly SubmissionSaveData['mode'][] = [
       'AWAKENING', 'SOLO_APPROACH', 'COMPANION_SEALED', 'COMPANION_JOINED',
       'INTRO', 'CORRIDOR', 'CENTER_GATE', 'SCOUTED', 'POLICY_REVIEW', 'DELEGATION_PLAN',
-      'DELEGATION_RESULT', 'ANCHOR_APPROACH', 'ANCHOR_READY', 'EXPANDED',
+      'DELEGATION_RESULT', 'ANCHOR_APPROACH', 'ANCHOR_READY', 'EXPANDED', 'COMPLETE',
     ];
-    if (save.version !== 2 || !stableModes.includes(save.mode as SubmissionSaveData['mode'])) return undefined;
+    if ((save.version !== 2 && save.version !== 3) || !stableModes.includes(save.mode as SubmissionSaveData['mode'])) return undefined;
+    if (save.version === 2 && save.mode === 'COMPLETE') return undefined;
     if (!save.world || !Array.isArray(save.world.tiles) || !Number.isFinite(save.worldMinute) || !Number.isFinite(save.corridorProgress)) return undefined;
     if (!Number.isFinite(save.prologueProgress) || typeof save.soloEncounterResolved !== 'boolean' || typeof save.companionJoined !== 'boolean') return undefined;
     if (!save.vitals || !save.supplies || !Array.isArray(save.policy) || !save.policyDirectives || typeof save.notice !== 'string') return undefined;
     if (typeof save.firstEncounterResolved !== 'boolean' || !Number.isFinite(save.elapsedBattleTurns) || !Number.isFinite(save.lastProtagonistTaskMinutes)) return undefined;
     if (!Number.isFinite(save.delegationAttempt) || !Number.isFinite(save.anchorProgress)) return undefined;
-    return save as SubmissionSaveData;
+    if (save.selectedFrontierId !== undefined && !isSubmissionFrontierId(save.selectedFrontierId)) return undefined;
+    if (save.activeFrontierId !== undefined && !isSubmissionFrontierId(save.activeFrontierId)) return undefined;
+    if (save.paidWaterFrontierId !== undefined && !isSubmissionFrontierId(save.paidWaterFrontierId)) return undefined;
+    return {
+      ...(save as Omit<SubmissionSaveData, 'version' | 'world'>),
+      version: 3,
+      world: save.version === 2 ? normalizeLegacySubmissionWorld(save.world) : save.world,
+      selectedFrontierId: save.version === 2 ? undefined : save.selectedFrontierId,
+      activeFrontierId: save.version === 2 ? undefined : save.activeFrontierId,
+      paidWaterFrontierId: save.version === 2 ? undefined : save.paidWaterFrontierId,
+      delegationBaseline: save.version === 2 ? normalizeLegacyDelegationResult(save.delegationBaseline) : save.delegationBaseline,
+      delegationResult: save.version === 2 ? normalizeLegacyDelegationResult(save.delegationResult) : save.delegationResult,
+    };
   } catch {
     return undefined;
   }
+}
+
+function normalizeLegacyDelegationResult(
+  result: DelegatedOperationResult | undefined,
+): DelegatedOperationResult | undefined {
+  if (!result) return undefined;
+  return {
+    ...result,
+    frontierId: result.frontierId ?? 'frontier-east',
+    distanceMeters: result.distanceMeters ?? SUBMISSION_FIRST_ROUTE.distanceMeters,
+    waterCost: result.waterCost ?? SUBMISSION_FIRST_ROUTE.waterCost,
+  };
+}
+
+function normalizeLegacySubmissionWorld(world: SubmissionWorldState): SubmissionWorldState {
+  return {
+    ...world,
+    tiles: world.tiles.map((tile) => {
+      if (tile.id === 'frontier-east') {
+        return { ...tile, revealsOnIncorporation: ['next-east', 'frontier-north'] };
+      }
+      if (tile.id === 'frontier-south' && tile.territory === 'OUTSIDE') {
+        return { ...tile, knowledge: 'UNSEEN' };
+      }
+      return tile;
+    }),
+  };
 }
 
 export function applySubmissionDefeatCost(input: {
