@@ -2,6 +2,8 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 
 const publicBase = process.env.SUBMISSION_PUBLIC_URL ?? 'https://openai.ktwome.cc';
+const submissionSaveKey = 'isekai-coach:submission:v3';
+const legacySubmissionSaveKey = 'isekai-coach:submission:v2';
 const artifactDir = new URL('../artifacts/submission-public/', import.meta.url);
 await mkdir(artifactDir, { recursive: true });
 
@@ -25,13 +27,13 @@ try {
   await page.waitForTimeout(130);
   await start.dispatchEvent('pointerup');
   const characterAfter = await page.locator('.prologue-protagonist').evaluate((element) => element.getBoundingClientRect().x);
-  const checkpointBeforeReload = await page.evaluate(() => JSON.parse(localStorage.getItem('isekai-coach:submission:v2') ?? 'null'));
+  const checkpointBeforeReload = await savedSubmission(page);
   if (characterAfter <= characterBefore || checkpointBeforeReload?.prologueProgress <= 0) {
     throw new Error(`Public pointer movement was not accepted: ${JSON.stringify({ characterBefore, characterAfter, checkpointBeforeReload })}`);
   }
   await page.reload({ waitUntil: 'networkidle' });
   await page.locator('.submission-prologue').waitFor();
-  const checkpointAfterReload = await page.evaluate(() => JSON.parse(localStorage.getItem('isekai-coach:submission:v2') ?? 'null'));
+  const checkpointAfterReload = await savedSubmission(page);
   if (checkpointAfterReload?.prologueProgress !== checkpointBeforeReload.prologueProgress) {
     throw new Error(`Public checkpoint restore mismatch: ${checkpointBeforeReload?.prologueProgress} → ${checkpointAfterReload?.prologueProgress}`);
   }
@@ -197,7 +199,7 @@ try {
   if (await publicPolicyPrimary.isEnabled()) throw new Error('Public policy continuation is enabled before a choice');
   await page.keyboard.press('2');
   await page.locator('[data-policy-choice="KEEP_RANGE"].is-selected').waitFor();
-  await page.waitForFunction(() => JSON.parse(localStorage.getItem('isekai-coach:submission:v2') ?? 'null')?.policyChoice === 'KEEP_RANGE');
+  await page.waitForFunction(({ currentKey, legacyKey }) => JSON.parse(localStorage.getItem(currentKey) ?? localStorage.getItem(legacyKey) ?? 'null')?.policyChoice === 'KEEP_RANGE', { currentKey: submissionSaveKey, legacyKey: legacySubmissionSaveKey });
   const publicPolicySave = await savedSubmission(page);
   if (publicPolicySave?.policyChoice !== 'KEEP_RANGE' || publicPolicySave?.policy?.join('>') !== 'EVADE>POSITION>SHOOT>PUSH>EMPTY' || !publicPolicySave?.policyDirectives?.keepRange) {
     throw new Error(`Public policy shortcut did not set authoritative keep-range state: ${JSON.stringify(publicPolicySave)}`);
@@ -252,7 +254,7 @@ try {
 
   await page.keyboard.press('Space');
   await page.locator('.submission-delegation-result.is-map-result[data-operation-outcome="TIME_LIMIT"]').waitFor();
-  await page.waitForFunction(() => JSON.parse(localStorage.getItem('isekai-coach:submission:v2') ?? 'null')?.delegationResult?.outcome === 'TIME_LIMIT');
+  await page.waitForFunction(({ currentKey, legacyKey }) => JSON.parse(localStorage.getItem(currentKey) ?? localStorage.getItem(legacyKey) ?? 'null')?.delegationResult?.outcome === 'TIME_LIMIT', { currentKey: submissionSaveKey, legacyKey: legacySubmissionSaveKey });
   const publicOperationSave = await savedSubmission(page);
   const publicOperation = publicOperationSave?.delegationResult;
   if (!publicOperation || publicOperation.outcome !== 'TIME_LIMIT') throw new Error(`Public delegation did not preserve its authored time-limit result: ${JSON.stringify(publicOperation)}`);
@@ -298,7 +300,7 @@ try {
   }
   await page.screenshot({ path: new URL('11-public-delegation-time-limit-result.png', artifactDir).pathname });
 
-  await page.evaluate((checkpoint) => localStorage.setItem('isekai-coach:submission:v2', JSON.stringify(checkpoint)), afterCenterSave);
+  await page.evaluate(({ key, checkpoint }) => localStorage.setItem(key, JSON.stringify(checkpoint)), { key: submissionSaveKey, checkpoint: afterCenterSave });
   await page.reload({ waitUntil: 'networkidle' });
   await page.locator('[data-scout-map-state="FOUR_CORRIDORS_SCOUTED"]').waitFor();
   await page.keyboard.press('Space');
@@ -329,7 +331,7 @@ try {
   if (publicAnchorSave.anchorProgress <= 0) throw new Error('Public pointer hold did not advance the protagonist');
   const afterPointerProgress = publicAnchorSave.anchorProgress;
   await page.keyboard.press('d');
-  await page.waitForFunction((progress) => JSON.parse(localStorage.getItem('isekai-coach:submission:v2') ?? 'null')?.anchorProgress === progress + 5, afterPointerProgress);
+  await page.waitForFunction(({ progress, currentKey, legacyKey }) => JSON.parse(localStorage.getItem(currentKey) ?? localStorage.getItem(legacyKey) ?? 'null')?.anchorProgress === progress + 5, { progress: afterPointerProgress, currentKey: submissionSaveKey, legacyKey: legacySubmissionSaveKey });
   publicAnchorSave = await savedSubmission(page);
   await assertPublicAnchorSpatial(page, publicAnchorSave, false);
   const afterPublicAnchorVisual = await publicAnchorPresentation(page);
@@ -367,6 +369,47 @@ try {
   await assertPublicExpansionSpatial(page, publicExpandedSave, beforePublicExpansion);
   await page.screenshot({ path: new URL('14a-public-expanded-restored.png', artifactDir).pathname });
 
+  const beforePublicChoice = structuredClone(publicExpandedSave);
+  await page.keyboard.press('w');
+  await page.locator('[data-frontier-choice="frontier-north"][data-selected="true"]').waitFor();
+  await page.waitForFunction(({ currentKey, legacyKey }) => JSON.parse(localStorage.getItem(currentKey) ?? localStorage.getItem(legacyKey) ?? 'null')?.selectedFrontierId === 'frontier-north', { currentKey: submissionSaveKey, legacyKey: legacySubmissionSaveKey });
+  const publicSelectedSave = await savedSubmission(page);
+  if (publicSelectedSave.mode !== 'EXPANDED' || publicSelectedSave.selectedFrontierId !== 'frontier-north'
+    || publicSelectedSave.activeFrontierId !== undefined
+    || publicSelectedSave.supplies.water !== beforePublicChoice.supplies.water
+    || publicSelectedSave.worldMinute !== beforePublicChoice.worldMinute
+    || JSON.stringify(publicSelectedSave.world) !== JSON.stringify(beforePublicChoice.world)
+    || await page.locator('[data-submission-primary="confirm-frontier"][data-frontier-id="frontier-north"][data-water-cost="1"]').count() !== 1) {
+    throw new Error(`Public north selection mutated state before confirmation: ${JSON.stringify({ beforePublicChoice, publicSelectedSave })}`);
+  }
+  await page.screenshot({ path: new URL('14b-public-north-selected.png', artifactDir).pathname });
+  await page.keyboard.press('Space');
+  await page.locator('.submission-corridor[data-route-id="frontier-north"]').waitFor();
+  await page.waitForFunction(({ currentKey, legacyKey }) => {
+    const save = JSON.parse(localStorage.getItem(currentKey) ?? localStorage.getItem(legacyKey) ?? 'null');
+    return save?.mode === 'CORRIDOR' && save.activeFrontierId === 'frontier-north';
+  }, { currentKey: submissionSaveKey, legacyKey: legacySubmissionSaveKey });
+  const publicNorthCommitted = await savedSubmission(page);
+  if (publicNorthCommitted.mode !== 'CORRIDOR'
+    || publicNorthCommitted.selectedFrontierId !== 'frontier-north'
+    || publicNorthCommitted.activeFrontierId !== 'frontier-north'
+    || publicNorthCommitted.paidWaterFrontierId !== 'frontier-north'
+    || publicNorthCommitted.supplies.water !== beforePublicChoice.supplies.water - 1
+    || publicNorthCommitted.worldMinute !== beforePublicChoice.worldMinute) {
+    throw new Error(`Public north confirmation did not charge exactly once: ${JSON.stringify({ beforePublicChoice, publicNorthCommitted })}`);
+  }
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.locator('.submission-corridor[data-route-id="frontier-north"]').waitFor();
+  const publicNorthRestored = await savedSubmission(page);
+  if (publicNorthRestored.mode !== publicNorthCommitted.mode
+    || publicNorthRestored.activeFrontierId !== publicNorthCommitted.activeFrontierId
+    || publicNorthRestored.paidWaterFrontierId !== publicNorthCommitted.paidWaterFrontierId
+    || publicNorthRestored.supplies.water !== publicNorthCommitted.supplies.water
+    || publicNorthRestored.worldMinute !== publicNorthCommitted.worldMinute) {
+    throw new Error(`Public north expedition checkpoint did not survive reload: ${JSON.stringify({ publicNorthCommitted, publicNorthRestored })}`);
+  }
+  await page.screenshot({ path: new URL('14c-public-north-restored.png', artifactDir).pathname });
+
   const regression = {};
   for (const [path, expectedTitle] of [['slice1', 'Slice1'], ['slice2', 'Slice2']]) {
     const regressionPage = await context.newPage();
@@ -399,7 +442,8 @@ try {
     delegationPlan: { policy: publicDelegationSave.policyChoice, routeMeters: 400, travelMinutes: 8, knownThreats: 2, retreatAtHp: 2, turnLimit: 12, unknownRule: 'PAUSE', suppliesUsed: 0, parallelRule: 'MAX_NOT_SUM', protagonistMinutes: 5 },
     delegationResult: { outcome: publicOperation.outcome, routeSafe: false, turns: publicOperation.turns, damageTaken: publicOperation.damageTaken, elapsedMinutes: publicOperation.elapsedMinutes, finalHp: publicOperation.finalHp, livingEnemies: publicLivingEnemies, routeTraceLength: publicOperation.route.length, sharedMinutes: Math.max(5, publicOperation.elapsedMinutes) },
     anchorHandoff: { checkpointBranch: 'PUSH_FIRST', routeSafe: publicReadyFrontier.routeSafe, progress: publicAnchorSave.anchorProgress, travelMinutes: publicAnchorSave.worldMinute - beforePublicAnchorMinute, protagonistAtAnchor: publicReadyFrontier.protagonistAtAnchor, territoryBeforeActivation: publicReadyFrontier.territory, suppliesUnchanged: true, pointerAndKeyboard: true, worldScrolled: true },
-    expansion: { mode: publicExpandedSave.mode, worldRevision: publicExpandedSave.world.revision, incorporated: publicExpandedSave.world.tiles.filter((tile) => tile.territory === 'INCORPORATED').map((tile) => tile.id), contourEdges: 6, utility: publicExpandedSave.world.tiles.find((tile) => tile.id === 'frontier-east').utility, waterGain: publicExpandedSave.supplies.water - beforePublicExpansion.supplies.water, revealedOutside: publicExpandedSave.world.tiles.filter((tile) => tile.territory === 'OUTSIDE' && tile.knowledge === 'REVEALED').map((tile) => tile.id), reloadPreserved: true },
+    expansion: { mode: publicExpandedSave.mode, worldRevision: publicExpandedSave.world.revision, incorporated: publicExpandedSave.world.tiles.filter((tile) => tile.territory === 'INCORPORATED').map((tile) => tile.id), contourEdges: 6, utility: publicExpandedSave.world.tiles.find((tile) => tile.id === 'frontier-east').utility, waterGain: publicExpandedSave.supplies.water - beforePublicExpansion.supplies.water, revealedOutside: publicExpandedSave.world.tiles.filter((tile) => tile.territory === 'OUTSIDE' && tile.knowledge === 'REVEALED').map((tile) => tile.id), unseenSouth: publicExpandedSave.world.tiles.find((tile) => tile.id === 'frontier-south').knowledge === 'UNSEEN', choices: ['next-east', 'frontier-north'], confirmationBeforeSelection: false, reloadPreserved: true },
+    nextExpedition: { selected: publicSelectedSave.selectedFrontierId, selectionFree: true, active: publicNorthRestored.activeFrontierId, waterCost: beforePublicChoice.supplies.water - publicNorthRestored.supplies.water, paidOnce: publicNorthRestored.paidWaterFrontierId === 'frontier-north', reloadPreserved: true },
     regression,
     browserErrors: errors,
   };
@@ -468,30 +512,40 @@ async function assertPublicAnchorSpatial(page, save, ready) {
 async function assertPublicExpansionSpatial(page, save, before) {
   const scene = page.locator('.submission-expanded.is-spatial');
   const frontier = save?.world?.tiles?.find((tile) => tile.id === 'frontier-east');
+  const south = save?.world?.tiles?.find((tile) => tile.id === 'frontier-south');
   const incorporated = save?.world?.tiles?.filter((tile) => tile.territory === 'INCORPORATED').map((tile) => tile.id) ?? [];
   const revealedOutside = save?.world?.tiles?.filter((tile) => tile.territory === 'OUTSIDE' && tile.knowledge === 'REVEALED').map((tile) => tile.id) ?? [];
   if (save?.mode !== 'EXPANDED' || save.world.revision !== before.world.revision + 1
     || incorporated.join(',') !== 'initial-barrier,frontier-east'
-    || revealedOutside.join(',') !== 'next-east,frontier-north,frontier-south'
+    || revealedOutside.join(',') !== 'next-east,frontier-north'
+    || south?.knowledge !== 'UNSEEN' || south.territory !== 'OUTSIDE'
+    || save.selectedFrontierId !== undefined
     || frontier?.utility !== 'ACTIVE' || !frontier.stabilized || !frontier.routeSafe || !frontier.protagonistAtAnchor
     || save.supplies.water !== before.supplies.water + 1 || save.supplies.food !== before.supplies.food
     || save.worldMinute !== before.worldMinute || JSON.stringify(save.vitals) !== JSON.stringify(before.vitals)) {
-    throw new Error(`Public expansion state is invalid: ${JSON.stringify({ mode: save?.mode, revision: save?.world?.revision, incorporated, revealedOutside, frontier, before, save })}`);
+    throw new Error(`Public expansion state is invalid: ${JSON.stringify({ mode: save?.mode, revision: save?.world?.revision, incorporated, revealedOutside, south, frontier, before, save })}`);
   }
+  const choices = page.locator('[data-frontier-choice]');
+  const choiceIds = (await choices.evaluateAll((elements) => elements.map((element) => element.getAttribute('data-frontier-choice')))).sort();
   if (Number(await scene.getAttribute('data-world-revision')) !== save.world.revision
     || await scene.getAttribute('data-incorporated-tiles') !== incorporated.join(',')
     || await scene.getAttribute('data-revealed-outside') !== revealedOutside.join(',')
+    || await scene.getAttribute('data-frontier-selection') !== 'NONE'
     || Number(await scene.getAttribute('data-contour-count')) !== 6
     || await scene.getAttribute('data-frontier-utility') !== 'ACTIVE'
     || Number(await scene.getAttribute('data-water')) !== save.supplies.water
     || await page.locator('[data-world-tile][data-territory="INCORPORATED"]').count() !== 2
-    || await page.locator('[data-world-tile][data-knowledge="REVEALED"][data-territory="OUTSIDE"]').count() !== 3
+    || await page.locator('[data-world-tile][data-knowledge="REVEALED"][data-territory="OUTSIDE"]').count() !== 2
+    || await page.locator('[data-world-tile="frontier-south"]').count() !== 0
     || await page.locator('.expanded-tile-field.is-spatial .barrier-edge').count() !== 6
     || await page.locator('.expansion-owned-bridge').count() !== 1
     || await page.locator('[data-contour-tile="initial-barrier"][data-contour-edge="EAST"],[data-contour-tile="frontier-east"][data-contour-edge="WEST"]').count()
     || await page.locator('.expansion-anchor-node,.world-party.is-expanded img[alt="주인공"],.active-spring.is-spatial[data-water-gain="1"]').count() !== 3
-    || await page.locator('.expansion-next-links > i').count() !== 3
-    || await page.locator('[data-submission-primary="restart-submission"][data-primary-key="SPACE"]').count() !== 1) {
+    || await page.locator('.expansion-next-links > i').count() !== 2
+    || choiceIds.join(',') !== 'frontier-north,next-east'
+    || await page.locator('[data-frontier-choice="next-east"][data-available="true"][data-selected="false"][data-water-cost="0"]').count() !== 1
+    || await page.locator('[data-frontier-choice="frontier-north"][data-available="true"][data-selected="false"][data-water-cost="1"]').count() !== 1
+    || await page.locator('[data-submission-primary="confirm-frontier"]').count() !== 0) {
     throw new Error('Public expansion presentation diverges from its saved spatial state');
   }
   const oldSeamOpacity = Number(await page.locator('.expansion-old-seam').evaluate((element) => getComputedStyle(element, '::before').opacity));
@@ -499,7 +553,7 @@ async function assertPublicExpansionSpatial(page, save, before) {
   if (await page.locator('.expanded-copy,.expansion-causality,.expansion-state-ledger,.next-coordinates,.submission-expanded h1,.submission-expanded p,.anchor-seal-glyph').count()) {
     throw new Error('Public expansion restored explanatory dashboard copy or a closed anchor');
   }
-  const layout = await page.locator('.expanded-tile-field.is-spatial [data-world-tile],.expansion-anchor-node,.world-party.is-expanded,.active-spring.is-spatial,.expanded-restart.is-spatial').evaluateAll((elements) => ({
+  const layout = await page.locator('.expanded-tile-field.is-spatial [data-world-tile],.expansion-anchor-node,.world-party.is-expanded,.active-spring.is-spatial,[data-frontier-choice]').evaluateAll((elements) => ({
     viewport: { width: innerWidth, height: innerHeight },
     overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     bounds: elements.map((element) => {
@@ -547,5 +601,5 @@ async function completePublicCombat(page, resultSelector, label, maxTurns) {
 }
 
 async function savedSubmission(page) {
-  return page.evaluate(() => JSON.parse(localStorage.getItem('isekai-coach:submission:v2') ?? 'null'));
+  return page.evaluate(({ currentKey, legacyKey }) => JSON.parse(localStorage.getItem(currentKey) ?? localStorage.getItem(legacyKey) ?? 'null'), { currentKey: submissionSaveKey, legacyKey: legacySubmissionSaveKey });
 }

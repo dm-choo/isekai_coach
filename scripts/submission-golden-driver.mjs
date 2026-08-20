@@ -318,19 +318,17 @@ try {
       await page.waitForTimeout(1300);
       run = await submissionSnapshot(page);
       const expandedFrontier = run.world.tiles.find((tile) => tile.id === 'frontier-east');
-      const revealed = run.world.tiles.filter((tile) => ['next-east', 'frontier-north', 'frontier-south'].includes(tile.id));
+      const revealed = run.world.tiles.filter((tile) => ['next-east', 'frontier-north'].includes(tile.id));
+      const south = run.world.tiles.find((tile) => tile.id === 'frontier-south');
       if (!expandedFrontier || expandedFrontier.territory !== 'INCORPORATED' || expandedFrontier.utility !== 'ACTIVE' || !expandedFrontier.stabilized) {
         throw new Error(`Anchor activation did not incorporate and stabilize the frontier: ${JSON.stringify(expandedFrontier)}`);
       }
-      if (revealed.length !== 3 || revealed.some((tile) => tile.knowledge !== 'REVEALED')) {
-        throw new Error(`Anchor activation did not reveal all next coordinates: ${JSON.stringify(revealed)}`);
+      if (revealed.length !== 2 || revealed.some((tile) => tile.knowledge !== 'REVEALED') || south?.knowledge !== 'UNSEEN') {
+        throw new Error(`Anchor activation did not expose exactly the two authored choices: ${JSON.stringify({ revealed, south })}`);
       }
       if (run.supplies.water !== waterBefore + 1) throw new Error(`Active spring did not add exactly one water: ${waterBefore} → ${run.supplies.water}`);
       await assertExpansionSpatialPresentation(page, run, waterBefore, revisionBeforeExpansion);
-      if (verifyP5) {
-        await assertPrimaryAction(page, 'restart-submission', 'SPACE');
-        await assertKoreanFonts(page);
-      }
+      if (verifyP5) await assertKoreanFonts(page);
       await capture(page, '14-expanded');
       const expandedTextOff = await page.addStyleTag({ content: '.submission-expanded strong,.submission-expanded small,.submission-expanded kbd,.submission-topbar strong,.submission-topbar small{visibility:hidden!important}' });
       await capture(page, '14-expanded-text-off');
@@ -347,6 +345,8 @@ try {
         revisionBefore: revisionBeforeExpansion,
         worldRevision: run.world.revision,
         revealedCoordinates: revealed.map((tile) => tile.id),
+        southKnowledge: south.knowledge,
+        initialSelection: run.selectedFrontierId ?? null,
       };
     }
   }
@@ -360,16 +360,15 @@ try {
   await capture(page, verifyP4 ? '15-expanded-4x3' : verifyP3 ? '11-delegation-result-4x3' : '05-scouted-4x3');
   let interactionGate;
   if (verifyP5) {
-    const criticalFit = await assertCriticalFit(page);
-    await assertPrimaryAction(page, 'restart-submission', 'SPACE');
-    await page.locator('[data-submission-primary="restart-submission"]').click();
-    await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.mode === 'AWAKENING');
-    const restarted = await submissionSnapshot(page);
-    if (restarted.worldTime !== '10:00' || restarted.supplies.water !== 1 || restarted.corridorProgress !== 0) {
-      throw new Error(`Restart did not restore a clean submission state: ${JSON.stringify(restarted)}`);
-    }
-    await assertPrimaryAction(page, 'advance-prologue', 'D');
-    interactionGate = { singlePrimaryAction: true, keyboardRoute: true, pointerRestart: true, criticalFit };
+    const initialCriticalFit = await assertCriticalFit(page);
+    const territoryChoice = await verifyTerritoryChoiceInteractions(page, run);
+    run = await submissionSnapshot(page);
+    const selectedCriticalFit = await assertCriticalFit(page);
+    interactionGate = {
+      keyboardRoute: true,
+      territoryChoice,
+      criticalFit: { initial: initialCriticalFit, selected: selectedCriticalFit },
+    };
   }
   if (errors.length) throw new Error(`Browser errors:\n${errors.join('\n')}`);
 
@@ -679,14 +678,17 @@ async function assertAnchorSpatialPresentation(page, run, ready) {
 async function assertExpansionSpatialPresentation(page, run, waterBefore, revisionBefore) {
   const scene = page.locator('.submission-expanded.is-spatial');
   const frontier = run.world.tiles.find((tile) => tile.id === 'frontier-east');
+  const south = run.world.tiles.find((tile) => tile.id === 'frontier-south');
   const incorporated = run.world.tiles.filter((tile) => tile.territory === 'INCORPORATED').map((tile) => tile.id);
   const revealedOutside = run.world.tiles.filter((tile) => tile.territory === 'OUTSIDE' && tile.knowledge === 'REVEALED').map((tile) => tile.id);
   if (run.mode !== 'EXPANDED' || run.world.revision !== revisionBefore + 1
     || incorporated.join(',') !== 'initial-barrier,frontier-east'
-    || revealedOutside.join(',') !== 'next-east,frontier-north,frontier-south'
+    || revealedOutside.join(',') !== 'next-east,frontier-north'
+    || south?.knowledge !== 'UNSEEN'
+    || run.selectedFrontierId !== undefined || run.activeFrontierId !== undefined
     || frontier?.utility !== 'ACTIVE' || !frontier.stabilized || !frontier.routeSafe || !frontier.protagonistAtAnchor
     || run.supplies.water !== waterBefore + 1) {
-    throw new Error(`Expanded spatial state is invalid: ${JSON.stringify({ mode: run.mode, revision: run.world.revision, incorporated, revealedOutside, frontier, waterBefore, water: run.supplies.water })}`);
+    throw new Error(`Expanded spatial state is invalid: ${JSON.stringify({ mode: run.mode, revision: run.world.revision, incorporated, revealedOutside, south, selected: run.selectedFrontierId, active: run.activeFrontierId, frontier, waterBefore, water: run.supplies.water })}`);
   }
   if (Number(await scene.getAttribute('data-world-revision')) !== run.world.revision
     || await scene.getAttribute('data-incorporated-tiles') !== incorporated.join(',')
@@ -697,7 +699,8 @@ async function assertExpansionSpatialPresentation(page, run, waterBefore, revisi
     throw new Error('Expanded spatial presentation diverges from world state');
   }
   if (await page.locator('.expanded-tile-field.is-spatial [data-world-tile][data-territory="INCORPORATED"]').count() !== 2
-    || await page.locator('.expanded-tile-field.is-spatial [data-world-tile][data-knowledge="REVEALED"][data-territory="OUTSIDE"]').count() !== 3
+    || await page.locator('.expanded-tile-field.is-spatial [data-world-tile][data-knowledge="REVEALED"][data-territory="OUTSIDE"]').count() !== 2
+    || await page.locator('[data-world-tile="frontier-south"]').count() !== 0
     || await page.locator('.expanded-tile-field.is-spatial .barrier-edge').count() !== 6
     || await page.locator('[data-contour-tile="initial-barrier"][data-contour-edge="EAST"],[data-contour-tile="frontier-east"][data-contour-edge="WEST"]').count()
     || await page.locator('.expansion-anchor-node').count() !== 1
@@ -705,16 +708,21 @@ async function assertExpansionSpatialPresentation(page, run, waterBefore, revisi
     || await page.locator('.world-party.is-expanded img[alt="주인공"]').count() !== 1
     || await page.locator('.active-spring.is-spatial[data-water-gain="1"]').count() !== 1
     || await page.locator('.active-spring.is-spatial b').innerText() !== '+1'
-    || await page.locator('.expansion-next-links > i').count() !== 3
-    || await page.locator('[data-submission-primary="restart-submission"][data-primary-key="SPACE"]').count() !== 1) {
-    throw new Error('Expanded spatial scene lost its two-tile contour, anchor, spring, next coordinates, or action');
+    || await page.locator('.expansion-next-links > i').count() !== 2
+    || await page.locator('[data-frontier-choice]').count() !== 2
+    || await page.locator('[data-frontier-choice="next-east"][data-available="true"][data-selected="false"][data-water-cost="0"]').count() !== 1
+    || await page.locator('[data-frontier-choice="frontier-north"][data-available="true"][data-selected="false"][data-water-cost="1"]').count() !== 1
+    || await scene.getAttribute('data-frontier-selection') !== 'NONE'
+    || await page.locator('[data-submission-primary="confirm-frontier"]').count() !== 0
+    || await page.locator('[data-submission-primary="restart-submission"]').count() !== 0) {
+    throw new Error('Expanded spatial scene lost its contour, two unselected choices, hidden south, or pre-selection confirmation contract');
   }
   const oldSeamOpacity = Number(await page.locator('.expansion-old-seam').evaluate((element) => getComputedStyle(element, '::before').opacity));
   if (!Number.isFinite(oldSeamOpacity) || oldSeamOpacity > 0.05) throw new Error(`Expanded internal seam is still visible: opacity ${oldSeamOpacity}`);
   if (await page.locator('.expanded-copy,.expansion-causality,.expansion-state-ledger,.next-coordinates,.submission-expanded h1,.submission-expanded p,.anchor-seal-glyph').count()) {
     throw new Error('Expanded spatial scene restored explanatory dashboard copy or a closed anchor');
   }
-  const layout = await page.locator('.expanded-tile-field.is-spatial [data-world-tile],.expansion-anchor-node,.world-party.is-expanded,.active-spring.is-spatial,.expanded-restart.is-spatial').evaluateAll((elements) => ({
+  const layout = await page.locator('.expanded-tile-field.is-spatial [data-world-tile],.expansion-anchor-node,.world-party.is-expanded,.active-spring.is-spatial,.frontier-confirm').evaluateAll((elements) => ({
     viewport: { width: innerWidth, height: innerHeight },
     overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     bounds: elements.map((element) => {
@@ -726,6 +734,69 @@ async function assertExpansionSpatialPresentation(page, run, waterBefore, revisi
     || layout.overflow > 1) {
     throw new Error(`Expanded spatial scene does not fit viewport: ${JSON.stringify(layout)}`);
   }
+}
+
+async function verifyTerritoryChoiceInteractions(page, initialRun) {
+  const baseline = territoryChoiceInvariant(initialRun);
+  const eastChoice = page.locator('[data-frontier-choice="next-east"]');
+  await eastChoice.click();
+  await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.selectedFrontierId === 'next-east');
+  const eastRun = await submissionSnapshot(page);
+  assertTerritorySelectionOnlyChanged(baseline, eastRun, 'next-east', 'pointer');
+  await assertSelectedFrontierPresentation(page, 'next-east', 0);
+
+  await page.keyboard.press('w');
+  await page.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.selectedFrontierId === 'frontier-north');
+  const northRun = await submissionSnapshot(page);
+  assertTerritorySelectionOnlyChanged(baseline, northRun, 'frontier-north', 'keyboard W');
+  await assertSelectedFrontierPresentation(page, 'frontier-north', 1);
+
+  return {
+    choices: ['next-east', 'frontier-north'],
+    initialUnselected: true,
+    confirmHiddenBeforeSelection: true,
+    pointerChoice: 'next-east',
+    keyboardChoice: 'frontier-north',
+    finalSelection: northRun.selectedFrontierId,
+    selectionPreservedWaterTimeAndWorld: true,
+  };
+}
+
+async function assertSelectedFrontierPresentation(page, frontierId, waterCost) {
+  const scene = page.locator('.submission-expanded.is-spatial');
+  const selected = page.locator(`[data-frontier-choice="${frontierId}"]`);
+  const otherId = frontierId === 'next-east' ? 'frontier-north' : 'next-east';
+  const confirmation = page.locator('[data-submission-primary="confirm-frontier"]');
+  if (await scene.getAttribute('data-frontier-selection') !== frontierId
+    || await selected.getAttribute('data-selected') !== 'true'
+    || await selected.getAttribute('aria-pressed') !== 'true'
+    || await page.locator(`[data-frontier-choice="${otherId}"][data-selected="false"]`).count() !== 1
+    || await confirmation.count() !== 1
+    || await confirmation.getAttribute('data-primary-key') !== 'SPACE'
+    || await confirmation.getAttribute('data-frontier-id') !== frontierId
+    || Number(await confirmation.getAttribute('data-water-cost')) !== waterCost) {
+    throw new Error(`Selected frontier presentation diverges for ${frontierId}`);
+  }
+}
+
+function assertTerritorySelectionOnlyChanged(baseline, run, frontierId, input) {
+  const current = territoryChoiceInvariant(run);
+  if (run.mode !== 'EXPANDED' || run.selectedFrontierId !== frontierId || run.activeFrontierId !== undefined
+    || JSON.stringify(current) !== JSON.stringify(baseline)) {
+    throw new Error(`${input} choice for ${frontierId} mutated authoritative state before confirmation: ${JSON.stringify({ baseline, current, selected: run.selectedFrontierId, active: run.activeFrontierId })}`);
+  }
+}
+
+function territoryChoiceInvariant(run) {
+  return {
+    world: run.world,
+    worldMinute: run.worldMinute,
+    vitals: run.vitals,
+    supplies: run.supplies,
+    corridorProgress: run.corridorProgress,
+    anchorProgress: run.anchorProgress,
+    paidWaterFrontierId: run.paidWaterFrontierId,
+  };
 }
 async function submissionSnapshot(page) { return page.evaluate(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot); }
 async function combatSnapshot(page) { return page.evaluate(() => window.__ISEKAI_COACH_COMBAT__?.snapshot); }

@@ -5,6 +5,8 @@ import { chromium } from 'playwright';
 
 const port = Number(process.env.SUBMISSION_INTERACTION_PORT ?? 4184);
 const baseUrl = `http://127.0.0.1:${port}/?verify=1`;
+const submissionSaveKey = 'isekai-coach:submission:v3';
+const legacySubmissionSaveKey = 'isekai-coach:submission:v2';
 const artifactDir = new URL('../artifacts/submission-interaction/', import.meta.url);
 let server;
 let browser;
@@ -51,7 +53,7 @@ try {
   observeErrors(persistencePage, errors);
   await persistencePage.goto(`http://127.0.0.1:${port}/`, { waitUntil: 'networkidle' });
   await persistencePage.keyboard.press('d');
-  await persistencePage.waitForFunction(() => JSON.parse(localStorage.getItem('isekai-coach:submission:v2') ?? 'null')?.prologueProgress === 5);
+  await persistencePage.waitForFunction(({ currentKey, legacyKey }) => JSON.parse(localStorage.getItem(currentKey) ?? localStorage.getItem(legacyKey) ?? 'null')?.prologueProgress === 5, { currentKey: submissionSaveKey, legacyKey: legacySubmissionSaveKey });
   await persistencePage.reload({ waitUntil: 'networkidle' });
   await persistencePage.waitForFunction(() => window.__ISEKAI_COACH_SUBMISSION__?.snapshot.prologueProgress === 5);
   const restoredState = await submissionSnapshot(persistencePage);

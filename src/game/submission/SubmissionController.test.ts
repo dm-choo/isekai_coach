@@ -133,6 +133,16 @@ describe('SubmissionController direct exploration', () => {
     controller.destroy();
   });
 
+  it('rejects corrupt or incoherent v3 checkpoints before they can blank or deadlock the app', () => {
+    const save = expandedSave(2);
+    expect(parseSubmissionSave(JSON.stringify({ ...save, world: { ...save.world, tiles: [null] } }))).toBeUndefined();
+    expect(parseSubmissionSave(JSON.stringify({ ...save, supplies: {} }))).toBeUndefined();
+    expect(parseSubmissionSave(JSON.stringify({
+      ...save, mode: 'EXPANDED', selectedFrontierId: undefined, activeFrontierId: 'frontier-north',
+    }))).toBeUndefined();
+    expect(parseSubmissionSave(JSON.stringify({ ...save, mode: 'DELEGATION_PLAN', policyChoice: undefined }))).toBeUndefined();
+  });
+
   it('selects without spending, then commits the north water cost exactly once and persists it', () => {
     const controller = new SubmissionController({ saveData: expandedSave(2) });
     const before = controller.getSnapshot();
@@ -205,6 +215,47 @@ describe('SubmissionController direct exploration', () => {
     expect(controller.performPrimaryAction()).toBe(true);
     expect(controller.getSnapshot()).toMatchObject({
       mode: 'CORRIDOR', activeFrontierId: 'frontier-north', supplies: { water: 0 },
+    });
+    controller.destroy();
+  });
+
+  it('turns a low-HP delegated retreat into a costly but winnable retry instead of a permanent loop', () => {
+    const selection = new SubmissionController({
+      saveData: { ...expandedSave(2), supplies: { water: 2, food: 0 }, vitals: { administratorHp: 10, allyHp: 4 } },
+    });
+    selection.selectFrontier('next-east');
+    selection.performPrimaryAction();
+    const committed = selection.exportSave()!;
+    selection.destroy();
+    const controller = new SubmissionController({
+      saveData: {
+        ...committed,
+        mode: 'SCOUTED',
+        world: updateSubmissionTile(committed.world, 'next-east', {
+          knowledge: 'SCOUTED', corridorsScouted: true, threat: 'CONTESTED',
+        }),
+      },
+    });
+    controller.performPrimaryAction();
+    controller.choosePolicy('KEEP_RANGE');
+    controller.performPrimaryAction();
+    controller.performPrimaryAction();
+    const retreat = controller.getSnapshot();
+    expect(retreat).toMatchObject({
+      mode: 'DELEGATION_RESULT', vitals: { allyHp: 2 }, delegationResult: { outcome: 'RETREATED' },
+      delegationRecoveryRequired: true, delegationRecoveryMinutes: 30,
+    });
+    const retreatMinute = retreat.worldMinute;
+    expect(controller.performPrimaryAction()).toBe(true);
+    expect(controller.getSnapshot()).toMatchObject({
+      mode: 'POLICY_REVIEW', vitals: { allyHp: 4 }, worldMinute: retreatMinute + 30,
+      delegationRecoveryRequired: false,
+    });
+    controller.choosePolicy('PUSH_FIRST');
+    controller.performPrimaryAction();
+    controller.performPrimaryAction();
+    expect(controller.getSnapshot()).toMatchObject({
+      mode: 'DELEGATION_RESULT', delegationResult: { outcome: 'SECURED' }, vitals: { allyHp: 3 },
     });
     controller.destroy();
   });

@@ -28,6 +28,7 @@
     "verify:submission:ally-policy": "node scripts/verify-submission-ally-policy.mjs",
     "verify:submission:encounter-transition": "node scripts/verify-submission-encounter-transition.mjs",
     "verify:submission:failure": "node scripts/verify-submission-failure.mjs",
+    "verify:submission:territory-choice": "node scripts/verify-submission-territory-choice.mjs",
     "verify:submission:public": "node scripts/verify-submission-public.mjs",
     "verify:submission:p2": "node scripts/submission-golden-driver.mjs",
     "verify:submission:p3": "SUBMISSION_VERIFY_STAGE=P3 node scripts/submission-golden-driver.mjs",
